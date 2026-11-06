@@ -74,4 +74,5 @@ art = f"""<title>Cruscotto Serkistraining</title>
 </script>
 """
 open(os.path.join(ROOT, "artifact/cruscotto.html"), "w", encoding="utf-8").write(art)
+open(os.path.join(ROOT, "docs", ".nojekyll"), "w").close()
 print("build ok", VER, len(app_html), len(art))
