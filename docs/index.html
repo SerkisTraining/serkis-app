@@ -349,7 +349,7 @@ input[type=number].inp{width:76px}
 <script>
 (function(){
 "use strict";
-const VERSION="1.0";
+const VERSION="1.1";
 const NOTES_ID="1jzW0uELNty_8Dx0AWhwJXzg7YObm6Nr_fYbNlP0Z3mo";
 const NOTES_URL="https://docs.google.com/spreadsheets/d/"+NOTES_ID+"/edit";
 const DS_COACH="collection://264112d7-0f3d-80c1-9340-000bfe370a29";
@@ -414,24 +414,34 @@ function weekInfo(start,dur){
 
 /* ================= atleti ================= */
 function nid(u){const s=String(u||"").replace(/-/g,"");const m=s.match(/([0-9a-f]{32})/i);return m?m[1].toLowerCase():null}
-function sheetIdOf(v){if(v==null)return null;const s=typeof v==="string"?v:JSON.stringify(v);const m=s.match(/spreadsheets\/d\/([A-Za-z0-9_-]{20,})/);return m?m[1]:null}
+function linksOf(v){
+  if(v==null)return[];let s=typeof v==="string"?v:JSON.stringify(v);
+  if(/%2F/i.test(s))s=s.replace(/[^"\s,\]\[]+/g,m=>{if(!/%[0-9A-F]{2}/i.test(m))return m;try{return decodeURIComponent(decodeURIComponent(m))}catch(e){try{return decodeURIComponent(m)}catch(x){return m}}});
+  const out=[],re=/spreadsheets\/d\/([A-Za-z0-9_-]{20,})([^"\s,\]]*)/g;let m;
+  while((m=re.exec(s))){const g=(m[2].match(/[#&?]gid=(\d+)/)||[])[1]||null;const ex=out.find(x=>x.id===m[1]);if(ex){if(g)ex.gid=g}else out.push({id:m[1],gid:g})}
+  return out;
+}
+function sheetIdOf(v){const l=linksOf(v);return l.length?l[0].id:null}
 function slugOf(n){return norm(n).replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"")||"atleta"}
 function sedeOf(tag,src){if(src==="vf")return"kineva";tag=String(tag||"");return /STENIKA/i.test(tag)?"stenika":/ONLINE|MESI/i.test(tag)?"online":"altro"}
 function fromCoachRow(r){
   return{src:"coach",id:nid(r.url),name:String(r["Nome Cognome"]||"Senza nome").trim(),tag:String(r["Multi-select"]||""),
     status:r["Status programma"]||"—",start:r["date:Data inizio:start"]||null,dur:parseInt(r["Durata scheda"],10)||null,
-    subStart:r["date:Inizio abbonamento:start"]||null,sheetId:sheetIdOf(r["Training Program"]),
+    subStart:r["date:Inizio abbonamento:start"]||null,sheetLinks:linksOf(r["Training Program"]),
     notionUrl:r.url,analisiUrl:r["Analisi allenamento"]||null};
 }
 function fromVFRow(r){
   return{src:"vf",id:nid(r.url),name:String(r["Nome Cognome"]||"Senza nome").trim(),tag:"Kineva",status:r["Stato"]||"—",
     start:r["date:Inizio programma:start"]||null,dur:null,firstEval:r["date:Data prima valutazione:start"]||null,
-    sheetId:sheetIdOf(r["Scheda"]),valId:sheetIdOf(r["Valutazione"]),notionUrl:r.url,videoUrl:r["Cartella video Drive"]||null};
+    sheetLinks:linksOf(r["Scheda"]),valId:sheetIdOf(r["Valutazione"]),notionUrl:r.url,videoUrl:r["Cartella video Drive"]||null};
 }
 const SEDE={stenika:"Stenika",online:"Online",kineva:"Kineva",altro:"Da classificare"};
 function finalize(list){
   const used={};
   return list.filter(a=>a&&a.id).map(a=>{
+    if(!a.sheetLinks)a.sheetLinks=a.sheetId?[{id:a.sheetId,gid:a.sheetGid||null}]:[];
+    if(!a.sheetId&&a.sheetLinks.length){const l=a.sheetLinks[a.sheetLinks.length-1];a.sheetId=l.id;a.sheetGid=l.gid}
+    if(a.sheetId&&!a.sheetGid){const l=a.sheetLinks.find(x=>x.id===a.sheetId);if(l)a.sheetGid=l.gid}
     a.sede=sedeOf(a.tag,a.src);a.startD=pd(a.start);a.subD=pd(a.subStart);a.evalD=pd(a.firstEval);
     a.wk=weekInfo(a.startD,a.dur);a.active=a.status!=="Fine collaborazione";
     let s=slugOf(a.name);if(used[s])s+="-"+(a.src==="vf"?"kineva":++used[s]);used[s]=1;a.slug=s;
@@ -443,66 +453,114 @@ function surname(n){const p=String(n).trim().split(/\s+/);return p[p.length-1]||
 const byId=id=>S.athletes.find(a=>a.id===id);
 
 /* ================= lettura fogli ================= */
-const HDR_KEYS=["ESERCIZIO","VOCE"];
+// Riconosce: template Serkis (G1 · ESERCIZIO · SCHEMA E REST · NOTE · FEEDBACK S1–S6),
+// schede vecchie (GIORNO N · ESERCIZIO - SERIE x REP/TEMPO con esercizio e schema nella stessa cella,
+// feedback ➊–➏ anche su colonne senza intestazione, oppure colonne "Sett #N"), schede VF, test e valutazioni.
+function isHdrCell(c){const u=String(c||"").trim().toUpperCase();return u==="VOCE"||(u.startsWith("ESERCIZIO")&&u.length<=40)}
 function colKey(label){
   const u=label.toUpperCase().trim();
-  if(u.startsWith("ESERCIZIO")||u==="VOCE")return"ex";
+  if(u.startsWith("ESERCIZIO"))return /SERIE|REP|SCHEMA/.test(u)?"exs":"ex";
+  if(u==="VOCE")return"ex";
   if(u.startsWith("SCHEMA"))return"schema";if(u.startsWith("NOTE"))return"note";if(u.startsWith("FEEDBACK"))return"fb";
+  if(/^SETT(IMANA)?\.?\s*#?\s*\d+$/.test(u))return"fb";
   if(u.startsWith("PROTOCOLLO"))return"prot";if(u.startsWith("RISULTATO"))return"ris";if(u==="SERIE")return"serie";
   if(u.startsWith("RIP"))return"rip";if(u.startsWith("RECUPERO"))return"rec";if(u.startsWith("TIPOLOGIA"))return"tipo";
   return"x";
 }
-const MONO={schema:1,serie:1,rip:1,rec:1,ris:1};
+const MONO={schema:1,serie:1,rip:1,rec:1,ris:1,exs:1};
 function slotTitle(t){const m=String(t).trim().match(/^(G|D|DAY|GIORNO|SEDUTA)\s*(\w+)$/i);if(!m)return t;const k=m[1].toUpperCase();return(k==="G"||k==="GIORNO"?"Giorno ":k==="SEDUTA"?"Seduta ":"Day ")+m[2]}
+const METH=/^(jump ?set|super ?set|superserie|giant ?set|circuito|emom|amrap|ladder|cluster|ramping|tabata|rt\b|rest\b|recuper|poi fai|dopo |riscald|defatic|finisher)/i;
+function isNameLine(l){
+  if(!l||l.length>48||/^[-–(•*➊-➓①-⑩❶-❿]/.test(l))return false;
+  if(/\d\s*[x×]\s*\(?\d/.test(l)||/kg\b/i.test(l)||/\d+\s*["'″′]/.test(l)||METH.test(l))return false;
+  return /^[A-ZÀ-Ü][A-ZÀ-Ü ]{2,}/.test(l);
+}
+function splitExercises(text){
+  const out=[];let cur=null;
+  String(text||"").split("\n").map(s=>s.trim()).forEach(l=>{
+    if(!l)return;
+    const m=l.match(/^([A-ZÀ-Ü][A-ZÀ-Ü0-9 '’.\/&+]{1,40}?)\s*:\s*(.+)$/);
+    if(m&&!METH.test(m[1])){cur={name:m[1].trim(),plan:[m[2]]};out.push(cur);return}
+    if(isNameLine(l)){cur={name:l,plan:[]};out.push(cur);return}
+    if(!cur){cur={name:"",plan:[]};out.push(cur)}
+    cur.plan.push(l);
+  });
+  return out.filter(e=>e.name||e.plan.length);
+}
+function exLabel(sec,it){
+  if(sec.cols.some(c=>c.key==="exs")){const n=splitExercises(it.ex).map(e=>e.name).filter(Boolean);if(n.length)return n.join(" + ")}
+  return it.ex.split("\n").map(s=>s.trim()).filter(Boolean)[0]||it.ex;
+}
+function metaDate(rows){
+  for(let r=0;r<Math.min(14,rows.length);r++){
+    const row=rows[r];if(!row.some(c=>/training program|periodo|data\b/i.test(c)))continue;
+    for(const c of row){const d=parseIt(c);if(d)return d}
+  }
+  for(let r=0;r<Math.min(14,rows.length);r++)for(const c of rows[r]){if(c.length<=40){const d=parseIt(c);if(d)return d}}
+  return null;
+}
 function parseSheet(values){
   const rows=(values||[]).map(r=>(r||[]).map(c=>String(c==null?"":c)));
   const out={sections:[],meta:{},hasFeedback:false,kind:"altro"};
-  for(let r=0;r<Math.min(10,rows.length);r++){
+  for(let r=0;r<Math.min(12,rows.length);r++){
     rows[r].forEach((c,ci)=>{
       const t=c.trim(),u=t.toUpperCase();let m;
       if((m=t.match(/^Periodo:\s*(.+)$/i)))out.meta.periodo=m[1];
-      else if((m=t.match(/^Nome:\s*(.+)$/i)))out.meta.nome=m[1];
+      else if((m=t.match(/^(?:Nome|Atleta|Atelta):\s*(.+)$/i)))out.meta.nome=m[1].trim();
       else if(u==="NOME"||u==="PERIODO"||u==="DATA"){const v=(rows[r].slice(ci+1).find(x=>x.trim())||"").trim();const k=u.toLowerCase();if(v&&!["NOME","PERIODO","DATA"].includes(v.toUpperCase()))out.meta[k]=v}
+      else if(/^PROGRAMMA DI ALLENAMENTO\s*#?\s*\d+/i.test(t))out.meta.numero=t.replace(/^PROGRAMMA DI ALLENAMENTO\s*/i,"");
     });
   }
+  out.meta.when=parseIt(out.meta.periodo)||parseIt(out.meta.data)||metaDate(rows);
   let i=0;
   while(i<rows.length){
-    const row=rows[i];const exCol=row.findIndex(c=>HDR_KEYS.includes(c.trim().toUpperCase()));
+    const row=rows[i];const exCol=row.findIndex(isHdrCell);
     if(exCol===-1){i++;continue}
-    let first=exCol;while(first>0&&row[first-1].trim())first--;
-    let last=exCol;while(last+1<row.length&&row[last+1].trim())last++;
     let slotCol=-1,title="";const cols=[];
-    for(let c=first;c<=last;c++){
-      const t=row[c].trim();
+    for(let c=0;c<row.length;c++){
+      const t=row[c].trim();if(!t)continue;
       if(c<exCol&&/^(G|D|DAY|GIORNO|SEDUTA)?\s*\d{0,2}$/i.test(t)&&t.length<=8){slotCol=c;title=slotTitle(t);continue}
-      cols.push({c,label:t,key:colKey(t)});
+      const key=colKey(t);
+      const adjacent=(row[c-1]||"").trim()||(row[c+1]||"").trim();
+      if(key!=="x"||adjacent||c===exCol)cols.push({c,label:t,key,week:key==="fb"?((t.match(/(\d+)\s*$/)||[])[1]?+(t.match(/(\d+)\s*$/)[1]):null):null});
     }
+    if(slotCol<0&&exCol>0&&!row[exCol-1].trim())slotCol=exCol-1;
     if(!title){
       for(let j=i-1;j>=0&&j>=i-3;j--){const f=rows[j].find(x=>x.trim());if(!f)continue;const t=f.trim();
-        if(t.length<=60&&!/^(NOME|DATA|PERIODO)\b/i.test(t)&&!t.includes(":")&&!/^[─—-]+/.test(t)){title=t;break}}
+        if(t.length<=60&&!/^(NOME|DATA|PERIODO)\b/i.test(t)&&!t.includes(":")&&!/^[─—-]+/.test(t)&&!/^➍|giornata no/i.test(t)){title=t;break}}
     }
-    const sec={title:title||"Sezione",hr:i+1,cols,slotCol,exCol,items:[],kind:"altro"};
-    const keys=cols.map(c=>c.key);
-    sec.kind=keys.includes("ris")?"test":(keys.includes("schema")||keys.includes("serie"))?"scheda":"altro";
-    if(keys.includes("fb"))out.hasFeedback=true;
-    const lo=Math.min(first,slotCol>=0?slotCol:first),hi=last;
+    const hdrRow=i+1,lo=Math.min(...cols.map(c=>c.c)),hi=Math.max(...cols.map(c=>c.c));
+    // righe della sezione
+    const secRows=[];let freeAfter=[];
     i++;
     while(i<rows.length){
       const rr=rows[i];
-      const inSec=rr.slice(lo,hi+1);
-      if(!inSec.some(c=>c.trim())){
+      if(!rr.slice(lo,hi+1).some(c=>c.trim())){
         let k=0;while(i+k<rows.length&&!(rows[i+k]||[]).slice(lo,hi+1).some(c=>String(c).trim()))k++;
-        if(k>=3&&i+k<rows.length&&slotCol<0){for(let j=0;j<Math.min(k-1,12);j++){const cells={};cols.forEach(col=>{cells[col.c]=""});sec.items.push({r:i+j+1,cells,ex:"",empty:true,slot:"",fb:[]})}}
+        if(k>=3&&i+k<rows.length&&slotCol<0)for(let j=0;j<Math.min(k-1,12);j++)freeAfter.push(i+j);
         break;
       }
-      if(rr.some(c=>HDR_KEYS.includes(c.trim().toUpperCase())))break;
-      if(/^(COME COMPILARE|METODI|▤|NOTA BENE|OSSERVAZIONI GENERALI)/i.test((rr.find(c=>c.trim())||"").trim()))break;
-      const cells={};cols.forEach(col=>{cells[col.c]=rr[col.c]||""});
-      const ex=(rr[exCol]||"").trim();
-      const it={r:i+1,cells,ex,empty:!ex,slot:slotCol>=0?(rr[slotCol]||"").trim():""};
-      const fbc=cols.find(c=>c.key==="fb");it.fb=fbc?splitFeedback(cells[fbc.c]):[];
-      sec.items.push(it);i++;
+      if(rr.some(isHdrCell))break;
+      if(/^(COME COMPILARE|METODI|▤|NOTA BENE|OSSERVAZIONI GENERALI|EMOM:|AMRAP:)/i.test((rr.find(c=>c.trim())||"").trim()))break;
+      secRows.push(i);i++;
     }
+    // colonne di feedback senza intestazione (es. ➍–➏ a destra di FEEDBACK)
+    const lastHdr=cols[cols.length-1];
+    if(lastHdr&&lastHdr.key==="fb"){
+      let maxC=hi;secRows.forEach(r=>{rows[r].forEach((c,ci)=>{if(c.trim()&&ci>maxC&&ci<=hi+4)maxC=ci})});
+      for(let c=hi+1;c<=maxC;c++)if(secRows.some(r=>(rows[r][c]||"").trim())&&!(row[c]||"").trim())cols.push({c,label:"FEEDBACK",key:"fb",week:null,extra:true});
+    }
+    const sec={title:title||"Sezione",hr:hdrRow,cols,slotCol,exCol,items:[],kind:"altro"};
+    const keys=cols.map(c=>c.key);
+    sec.kind=keys.includes("ris")?"test":(keys.includes("schema")||keys.includes("serie")||keys.includes("exs"))?"scheda":"altro";
+    if(keys.includes("fb"))out.hasFeedback=true;
+    const mk=r=>{const rr=rows[r]||[];const cells={};cols.forEach(col=>{cells[col.c]=rr[col.c]||""});const ex=(rr[exCol]||"").trim();
+      const it={r:r+1,cells,ex,empty:!ex,slot:slotCol>=0?(rr[slotCol]||"").trim():""};
+      it.fb=[];cols.filter(c=>c.key==="fb").forEach(c=>{const v=cells[c.c];if(!String(v).trim())return;
+        if(c.week){const t=String(v).trim();it.fb.push({week:c.week,text:t,tone:tone(t)})}else it.fb.push(...splitFeedback(v))});
+      it.fb.sort((a,b)=>(a.week||0)-(b.week||0));return it};
+    secRows.forEach(r=>sec.items.push(mk(r)));
+    freeAfter.forEach(r=>{const cells={};cols.forEach(col=>{cells[col.c]=""});sec.items.push({r:r+1,cells,ex:"",empty:true,slot:"",fb:[]})});
     out.sections.push(sec);
   }
   const kinds=out.sections.map(s=>s.kind);
@@ -511,12 +569,13 @@ function parseSheet(values){
 }
 function cellOf(sec,it,key){const c=sec.cols.find(x=>x.key===key);return c?(it.cells[c.c]||"").trim():""}
 const RED=/(dolor|fastidi|infortun|\bmale\b|fa male|mal di|pain|hurt|injur|strapp|contrattur|infiamm|formicol)/i;
-const YEL=/(tost|difficil|durissim|pesant|stanc|\bcott[oa]\b|troppo|non riesc|non (sono )?riuscit|saltat|\bhard\b|tough|bloccat|fatica alta|faticos|crampi|cedut)/i;
+const YEL=/(tost|difficil|durissim|pesant|stanc|\bcott[oa]\b|troppo|non riesc|non (sono )?riuscit|saltat|\bhard\b|tough|bloccat|fatica alta|faticos|crampi|cedut|calant)/i;
 const GRN=/(facil|\bbene\b|meglio|easy|good|\bok\b|\bfine\b|ottim|tranquill|sciolt|\btop\b)/i;
 function tone(t){const s=String(t||"").replace(/non male/ig,"");if(RED.test(s))return"bad";if(YEL.test(s))return"warn";if(GRN.test(s))return"ok";return""}
+const CIRC={"➊":1,"➋":2,"➌":3,"➍":4,"➎":5,"➏":6,"➐":7,"➑":8,"➒":9,"➓":10,"①":1,"②":2,"③":3,"④":4,"⑤":5,"⑥":6,"⑦":7,"⑧":8,"⑨":9,"⑩":10,"❶":1,"❷":2,"❸":3,"❹":4,"❺":5,"❻":6,"❼":7,"❽":8,"❾":9,"❿":10};
 function splitFeedback(txt){
-  txt=String(txt||"");if(!txt.trim())return[];
-  const re=/(^|[\s;,(|])((?:week|wk|sett(?:imana)?\.?)\s*(\d{1,2})\s*[-–—:.)]?|(?:w|s)\s?(\d{1,2})\s*[-–—:.)])/gi;
+  txt=String(txt||"").replace(/[➊-➓①-⑩❶-❿]/g,c=>" W"+CIRC[c]+": ");if(!txt.trim())return[];
+  const re=/(^|[\s;,(|])((?:week|wk|sett(?:imana)?\.?)\s*#?\s*(\d{1,2})\s*[-–—:.)]?|(?:w|s)\s?(\d{1,2})\s*[-–—:.)])/gi;
   const marks=[];let m;
   while((m=re.exec(txt))){marks.push({i:m.index+m[1].length,end:m.index+m[0].length,w:+(m[3]||m[4])})}
   if(!marks.length){const t=txt.trim();return[{week:null,text:t,tone:tone(t)}]}
@@ -527,45 +586,62 @@ function splitFeedback(txt){
 function analyze(P){
   const weeks=new Set(),flags=[];
   P.sections.forEach(sec=>sec.items.forEach(it=>{if(it.empty)return;
-    it.fb.forEach(f=>{if(f.week&&f.text)weeks.add(f.week);if(f.text&&(f.tone==="bad"||f.tone==="warn"))flags.push({ex:it.ex.split("\n")[0],week:f.week,tone:f.tone,text:f.text})})}));
+    it.fb.forEach(f=>{if(f.week&&f.text)weeks.add(f.week);if(f.text&&(f.tone==="bad"||f.tone==="warn"))flags.push({ex:exLabel(sec,it),week:f.week,tone:f.tone,text:f.text})})}));
   return{lastFb:weeks.size?Math.max(...weeks):0,flags};
 }
+function kgOf(pt){
+  const m=pt.match(/(?:\+|@)\s*(\d+(?:[.,]\d+)?)(?:\s*[\/\-–]\s*(\d+(?:[.,]\d+)?))?\s*kg/i)||pt.match(/(\d+(?:[.,]\d+)?)(?:\s*[\/\-–]\s*(\d+(?:[.,]\d+)?))?\s*kg/i);
+  if(!m)return null;const a=parseFloat(m[1].replace(",",".")),b=m[2]?parseFloat(m[2].replace(",",".")):a;return Math.max(a,b);
+}
 function parsePlan(schema){
-  const entries=[];let undated=false;
+  const entries=[];
   String(schema||"").split("\n").forEach(line=>{
-    const found=[];
-    line.split("//").map(s=>s.trim()).filter(Boolean).forEach(pt=>{
-      if(/^(rest|rxt|recupero)\b/i.test(pt))return;
-      const srs=[...pt.matchAll(/(\d{1,2})\s*[x×]\s*(\d{1,3})(?:\s*[-–]\s*(\d{1,3}))?/g)];if(!srs.length)return;
+    const parts=line.split("//").map(s=>s.trim()).filter(Boolean),found=[];
+    parts.forEach((pt,pi)=>{
+      if(/^(-?\s*rest|rxt|recupero)\b/i.test(pt))return;
       const wm=pt.match(/sett\.?\s*(\d{1,2})(?:\s*[-–\/]\s*(\d{1,2}))?/i);
-      const km=pt.match(/(?:\+|@)\s*(\d+(?:[.,]\d+)?)(?:\s*\/\s*(\d+(?:[.,]\d+)?))?\s*kg/i)||pt.match(/(\d+(?:[.,]\d+)?)\s*kg/i);
-      found.push({w1:wm?+wm[1]:null,w2:wm?+(wm[2]||wm[1]):null,sets:srs.reduce((a,x)=>a+(+x[1]),0),reps:+srs[0][2],kg:km?parseFloat(km[1].replace(",",".")):null});
+      const body=pt.replace(/\(?\s*sett\.?\s*\d{1,2}(?:\s*[-–\/]\s*\d{1,2})?\s*\)?/i,"").trim();
+      const srs=[...body.matchAll(/(\d{1,2})\s*[x×]\s*\(?\s*(\d{1,3})(?:\s*[-–\/]\s*(\d{1,3}))?/g)];
+      let sets=srs.reduce((a,x)=>a+(+x[1]),0),reps=srs.length?+srs[0][2]:0;
+      if(!srs.length){const dm=body.match(/^(\d{1,2})(?:\s*-\s*(\d{1,2})){1,9}\b/);if(dm){const ns=dm[0].split("-").map(Number);sets=ns.length;reps=ns[0]}}
+      if(!sets){const em=body.match(/EMOM\s*(\d{1,2})\s*['’′]/i);if(em){sets=+em[1];const r=body.match(/(\d{1,2})\s*rep/i);reps=r?+r[1]:0}}
+      const kg=kgOf(body);
+      if(!sets&&kg==null)return;
+      found.push({pi,w1:wm?+wm[1]:null,w2:wm?+(wm[2]||wm[1]):null,sets,reps,kg});
     });
-    const dated=found.filter(e=>e.w1!=null);
-    if(dated.length)entries.push(...dated);else if(found.length>1)undated=true;else if(found.length===1)entries.push(found[0]);
+    if(parts.length>1&&found.length&&found.every(e=>e.w1==null))found.forEach(e=>{e.w1=e.w2=e.pi+1});
+    entries.push(...found);
   });
-  const dated=entries.filter(e=>e.w1!=null);
-  return dated.length?{entries:dated,allWeeks:false,undated}:{entries,allWeeks:true,undated};
+  return{entries};
+}
+function planUnits(sec,it){
+  const sc=sec.cols.find(c=>c.key==="schema"),exs=sec.cols.find(c=>c.key==="exs");
+  if(sc)return[{label:exLabel(sec,it),text:it.cells[sc.c]}];
+  if(exs){const parts=splitExercises(it.cells[exs.c]);const named=parts.filter(p=>p.name);
+    if(!named.length)return[{label:exLabel(sec,it),text:it.cells[exs.c]}];
+    return named.map(p=>({label:p.name,text:p.plan.join("\n")}))}
+  return[];
 }
 function planFor(P,D){
   const ex=[],skipped=[],weekly=Array.from({length:D},(_,i)=>({w:i+1,sets:0,ton:0}));
-  P.sections.forEach(sec=>{const sc=sec.cols.find(c=>c.key==="schema");if(!sc)return;
-    sec.items.forEach(it=>{if(it.empty)return;
-      const label=it.ex.split("\n").map(s=>s.trim()).filter(Boolean).join(" · ");
-      const pl=parsePlan(it.cells[sc.c]);
-      if(!pl.entries.length){skipped.push(label+" ("+sec.title+")"+(pl.undated?", progressione senza settimane":""));return}
+  P.sections.forEach(sec=>sec.items.forEach(it=>{if(it.empty)return;
+    planUnits(sec,it).forEach(u=>{
+      const pl=parsePlan(u.text);
+      if(!pl.entries.length){skipped.push(u.label+" ("+sec.title+")");return}
       const perW=[];
       for(let w=1;w<=D;w++){
-        const es=pl.entries.filter(e=>pl.allWeeks||(w>=e.w1&&w<=e.w2));
+        const es=pl.entries.filter(e=>e.w1==null||(w>=e.w1&&w<=e.w2));
         if(!es.length){perW.push(null);continue}
         const sets=es.reduce((a,e)=>a+e.sets,0),ton=es.reduce((a,e)=>a+e.sets*e.reps*(e.kg||0),0),kgs=es.filter(e=>e.kg!=null).map(e=>e.kg);
         perW.push({sets,ton,kg:kgs.length?Math.max(...kgs):null});weekly[w-1].sets+=sets;weekly[w-1].ton+=ton;
       }
-      ex.push({label,where:sec.title,perW,hasKg:perW.some(p=>p&&p.kg!=null)});
-    })});
+      ex.push({label:u.label,where:sec.title,perW,hasKg:perW.some(p=>p&&p.kg!=null)});
+    })}));
   return{ex,weekly,skipped};
 }
-function maxWeek(P){let m=0;P.sections.forEach(s=>{const sc=s.cols.find(c=>c.key==="schema");if(sc)s.items.forEach(it=>parsePlan(it.cells[sc.c]).entries.forEach(e=>{if(e.w2)m=Math.max(m,e.w2)}))});return m}
+function maxWeek(P){let m=0;P.sections.forEach(s=>s.items.forEach(it=>{if(!it.empty)planUnits(s,it).forEach(u=>parsePlan(u.text).entries.forEach(e=>{if(e.w2)m=Math.max(m,e.w2)}))}));return m}
+function hasPlan(P){return P.sections.some(s=>s.cols.some(c=>c.key==="schema"||c.key==="exs"))}
+function exKey(label){return norm(label).replace(/\b(bilanciere|manubri|manubrio|kb|kettlebell|tecnico|tecnica|alla|fronte|parallele|mono|con|al|in)\b/g," ").replace(/[^a-z0-9]+/g," ").trim()}
 
 /* ================= segnale ================= */
 function coachSignal(id){const n=S.notes.find(x=>x.athleteId===id&&x.kind==="segnale");return n&&n.signal&&n.signal!=="auto"?n:null}
@@ -656,8 +732,9 @@ function scriptAdapter(cfg){
     kind:"script",batch:6,caps:{ai:false,notionWrite:true},
     ping:()=>call("ping",{},20000),
     athletes:async fresh=>(await call("athletes",{fresh})).athletes,
-    sheets:async(ids,fresh)=>(await call("sheets",{ids,fresh})).sheets,
-    sheet:async(id,tab,fresh)=>{const r=(await call("sheets",{ids:[id],tab,fresh})).sheets[id];if(!r||r.error)throw{code:"sheet",message:r?r.error:"File non trovato"};return r},
+    sheets:async(ids,fresh,gids)=>(await call("sheets",{ids,fresh,gids:gids||{}})).sheets,
+    sheet:async(id,tab,fresh,gid)=>{const g={};if(gid&&!tab)g[id]=gid;const r=(await call("sheets",{ids:[id],tab,fresh,gids:g})).sheets[id];if(!r||r.error)throw{code:"sheet",message:r?r.error:"File non trovato"};return r},
+    tabs:async id=>{const r=(await call("sheets",{ids:[id]})).sheets[id];if(!r||r.error)throw{code:"sheet",message:r?r.error:"File non trovato"};return(r.tabs||[]).map((n,i)=>({name:n,gid:r.gids?String(r.gids[i]):null}))},
     files:async a=>(await call("files",{name:a.name})).files,
     bundle:async ids=>(await call("bundle",{ids},90000)).files,
     page:async a=>(await call("page",{id:a.id})).text,
@@ -676,7 +753,9 @@ function claudeAdapter(mcp,sample){
     catch(e){if(e&&e.retryable){await sleep(Math.min(e.retryAfterMs||1500,8000)+Math.random()*600);return payloadOf(await mcp.callTool(srv,tool,input,{cache}))}throw e}
   }
   const wr=async(srv,tool,input)=>payloadOf(await mcp.callTool(srv,tool,input,{cache:false}));
-  async function sheet(id,tab,fresh){
+  async function tabs(id){const m=await rd("Google Sheets","get_spreadsheet",{spreadsheetId:id,fields:["sheets.properties.title","sheets.properties.sheetId"]},false,600000);return((m&&m.sheets)||[]).map(s=>({name:s.properties.title,gid:String(s.properties.sheetId)}))}
+  async function sheet(id,tab,fresh,gid){
+    if(!tab&&gid){try{const t=(await tabs(id)).find(x=>x.gid===String(gid));if(t)tab=t.name}catch(e){}}
     const v=await rd("Google Sheets","get_values",{spreadsheetId:id,range:A1tab(tab)+"A1:L220"},fresh,60000);
     let t=String((v&&v.range)||"").split("!")[0];t=t.replace(/^'|'$/g,"").replace(/''/g,"'");
     return{id,tab:t||tab||"",values:(v&&v.values)||[],url:"https://docs.google.com/spreadsheets/d/"+id+"/edit"};
@@ -687,10 +766,16 @@ function claudeAdapter(mcp,sample){
     athletes:async fresh=>{
       const c=await rd("Notion","notion-query-data-sources",{data:{mode:"rows",data_source_url:DS_COACH,limit:100}},fresh);
       let v=null;try{v=await rd("Notion","notion-query-data-sources",{data:{mode:"rows",data_source_url:DS_VF,limit:100}},fresh)}catch(e){}
-      return((c&&c.results)||[]).map(fromCoachRow).concat(((v&&v.results)||[]).map(fromVFRow));
+      const list=((c&&c.results)||[]).map(fromCoachRow).concat(((v&&v.results)||[]).map(fromVFRow));
+      await Promise.all(list.filter(a=>a.sheetLinks&&a.sheetLinks.length>1).map(async a=>{
+        let best=null,bt=-1;
+        for(const l of a.sheetLinks){try{const f=await rd("Google Drive","get_file_metadata",{fileId:l.id,excludeContentSnippets:true},false,86400000);const t=Date.parse(f&&f.createdTime)||0;if(t>bt){bt=t;best=l}}catch(e){}}
+        if(best){a.sheetId=best.id;a.sheetGid=best.gid}
+      }));
+      return list;
     },
-    sheets:async(ids,fresh)=>{const out={};await Promise.all(ids.map(async id=>{try{out[id]=await sheet(id,null,fresh)}catch(e){out[id]={error:errText(e,"Google Sheets"),code:e&&e.code}}}));return out},
-    sheet,
+    sheets:async(ids,fresh,gids)=>{const out={};await Promise.all(ids.map(async id=>{try{out[id]=await sheet(id,null,fresh,gids&&gids[id])}catch(e){out[id]={error:errText(e,"Google Sheets"),code:e&&e.code}}}));return out},
+    sheet,tabs,
     files:async a=>{
       const q="title contains '"+surname(a.name).replace(/'/g,"\\'")+"' and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false";
       const p=await rd("Google Drive","search_files",{query:q,pageSize:40,excludeContentSnippets:true},false,300000);
@@ -777,7 +862,7 @@ let raf=0,pendingMain=false;
 function renderSoon(){if(raf)return;raf=requestAnimationFrame(()=>{raf=0;render()})}
 function cacheSave(){
   const sh={};Object.keys(S.sheets).forEach(k=>{const v=S.sheets[k];if(v&&v.status==="ok")sh[k]={id:v.id,tab:v.tab,values:v.values,url:v.url}});
-  store.set("cache",{at:Date.now(),athletes:S.athletes.map(a=>({src:a.src,id:a.id,name:a.name,tag:a.tag,status:a.status,start:a.start,dur:a.dur,subStart:a.subStart,firstEval:a.firstEval,sheetId:a.sheetId,valId:a.valId,notionUrl:a.notionUrl,analisiUrl:a.analisiUrl,videoUrl:a.videoUrl})),sheets:sh,notes:S.notes});
+  store.set("cache",{at:Date.now(),athletes:S.athletes.map(a=>({src:a.src,id:a.id,name:a.name,tag:a.tag,status:a.status,start:a.start,dur:a.dur,subStart:a.subStart,firstEval:a.firstEval,sheetId:a.sheetId,sheetGid:a.sheetGid,sheetLinks:a.sheetLinks,valId:a.valId,notionUrl:a.notionUrl,analisiUrl:a.analisiUrl,videoUrl:a.videoUrl})),sheets:sh,notes:S.notes});
 }
 function cacheLoad(){
   const c=store.get("cache",null);if(!c||!c.athletes)return;
@@ -812,7 +897,7 @@ async function scanSheets(fresh){
   q.forEach(a=>{if(!S.sheets[a.id]||S.sheets[a.id].status!=="ok")S.sheets[a.id]={status:"queued"}});
   const B=S.adapter.batch,chunks=[];for(let i=0;i<q.length;i+=B)chunks.push(q.slice(i,i+B));
   const worker=async()=>{while(chunks.length){const ch=chunks.shift();
-    try{const m=await S.adapter.sheets(ch.map(a=>a.sheetId),fresh);
+    try{const g={};ch.forEach(a=>{if(a.sheetGid)g[a.sheetId]=a.sheetGid});const m=await S.adapter.sheets(ch.map(a=>a.sheetId),fresh,g);
       ch.forEach(a=>{const r=m[a.sheetId];if(r&&!r.error)setSheet(a.id,r);else if(!S.sheets[a.id]||S.sheets[a.id].status!=="ok")S.sheets[a.id]={status:"error",err:{code:r&&r.code||"sheet",message:r?r.error:"File non trovato"}}})}
     catch(e){ch.forEach(a=>{if(!S.sheets[a.id]||S.sheets[a.id].status!=="ok")S.sheets[a.id]={status:"error",err:e}})}
     renderSoon()}};
@@ -821,7 +906,7 @@ async function scanSheets(fresh){
 }
 async function loadOneSheet(a,fresh){
   if(!a.sheetId)return;if(!S.sheets[a.id]||S.sheets[a.id].status!=="ok")S.sheets[a.id]={status:"loading"};renderSoon();
-  try{setSheet(a.id,await S.adapter.sheet(a.sheetId,null,fresh))}catch(e){if(!S.sheets[a.id]||S.sheets[a.id].status!=="ok")S.sheets[a.id]={status:"error",err:e}}
+  try{setSheet(a.id,await S.adapter.sheet(a.sheetId,null,fresh,a.sheetGid))}catch(e){if(!S.sheets[a.id]||S.sheets[a.id].status!=="ok")S.sheets[a.id]={status:"error",err:e}}
   renderSoon();
 }
 async function ensureFiles(a,fresh){
@@ -833,7 +918,7 @@ async function ensureFiles(a,fresh){
     const linked=S.notes.filter(n=>n.athleteId===a.id&&n.kind==="file").map(n=>({id:sheetIdOf(n.text),title:n.athleteName&&n.signal?("File collegato · "+n.signal):"File collegato",url:n.text,updated:n.createdAt,linked:true,lk:n.signal})).filter(f=>f.id);
     const seen=new Set();let list=[];
     (S.extra[a.id]||[]).concat(linked).concat(raw.filter(f=>re.test(norm(f.title))&&!classifyTpl(f.title))).forEach(f=>{if(seen.has(f.id))return;seen.add(f.id);list.push(f)});
-    list.forEach(f=>{f.kind=f.lk||( /\btest\b/i.test(f.title)?"test":/valutazione|\bvf\b/i.test(f.title)?"vf":"scheda");f.current=f.id===a.sheetId||f.id===a.valId});
+    list.forEach(f=>{f.kind=f.lk||( /\btest\b/i.test(f.title)?"test":/\bscheda\b/i.test(f.title)?"scheda":/valutazione|\bvf\b/i.test(f.title)?"vf":"scheda");f.current=f.id===a.sheetId||f.id===a.valId});
     list.sort((x,y)=>String(y.updated).localeCompare(String(x.updated)));
     S.files[a.id]={status:"ok",list};
   }catch(e){S.files[a.id]={status:"error",err:e}}
@@ -877,18 +962,25 @@ async function ensureAlt(a){
 async function loadHistory(a){
   const fl=await ensureFiles(a);if(fl.status!=="ok")return;
   const files=fl.list.filter(f=>f.kind==="scheda").slice(0,8);
-  S.hist[a.id]={status:"loading",done:0,total:files.length,items:[]};renderSoon();
+  const H=S.hist[a.id]={status:"loading",done:0,total:files.length,items:[]};renderSoon();
   for(const f of files){
-    try{
-      const r=f.current&&shOf(a)&&shOf(a).status==="ok"?shOf(a):await S.adapter.sheet(f.id,null,false);
-      const P=r.P||parseSheet(r.values);
-      const date=parseIt(P.meta.periodo)||anyDate(f.updated);
-      const D=maxWeek(P)||6,pl=planFor(P,D);
-      S.hist[a.id].items.push({title:f.title,date,pl,url:f.url,current:f.current});
-    }catch(e){}
-    S.hist[a.id].done++;renderSoon();
+    let tabs=[{name:null,gid:null}];
+    try{const t=await S.adapter.tabs(f.id);if(t&&t.length)tabs=t.slice(0,12)}catch(e){}
+    H.total+=tabs.length-1;renderSoon();
+    for(const t of tabs){
+      try{
+        const r=await S.adapter.sheet(f.id,t.name,false);
+        const P=parseSheet(r.values);
+        if(hasPlan(P)){
+          const D=maxWeek(P)||6,pl=planFor(P,D);
+          const nm=t.name?String(t.name).replace(/\|/g,"").trim():"";
+          H.items.push({title:tabs.length>1&&nm?f.title+" · "+nm:f.title,date:P.meta.when||(tabs.length===1?anyDate(f.updated):null),pl,url:f.url});
+        }
+      }catch(e){}
+      H.done++;renderSoon();
+    }
   }
-  S.hist[a.id].status="ok";renderSoon();
+  H.status="ok";renderSoon();
 }
 
 /* ================= azioni ================= */
@@ -1075,7 +1167,8 @@ function viewAtleta(a){
 }
 function afterAtleta(a){
   if(!a)return;
-  if(S.tab==="scheda"&&S.alt[a.id])ensureAlt(a);
+  if(!a.sheetId&&!S.alt[a.id]&&(S.tab==="scheda"||S.tab==="carichi")&&!S.files[a.id])ensureFiles(a).then(fl=>{const f=fl&&fl.list&&fl.list.find(x=>x.kind==="scheda");if(f&&!S.alt[a.id]&&!a.sheetId){S.alt[a.id]={id:f.id,title:f.title,auto:true};renderSoon()}});
+  if((S.tab==="scheda"||S.tab==="carichi")&&S.alt[a.id])ensureAlt(a);
   if(S.tab==="scheda"&&!S.alt[a.id]&&a.sheetId&&!shOf(a))loadOneSheet(a,false);
   if(S.tab==="test"&&!S.tests[a.id])ensureTests(a);
   if(S.tab==="file"&&!S.files[a.id])ensureFiles(a);
@@ -1103,13 +1196,15 @@ function curSheet(a){
 }
 function tabScheda(a){
   const c=curSheet(a);let top="";
-  if(c.alt)top=`<div class="banner">Stai guardando <b>${esc(c.alt.title)}</b><button class="btn sm" type="button" data-act="alt-off">Torna alla scheda attuale</button></div>`;
+  if(c.alt)top=c.alt.auto?`<div class="banner">In Notion non c'è il link alla scheda: ti mostro <b>${esc(c.alt.title)}</b>, la più recente trovata su Drive.</div>`:`<div class="banner">Stai guardando <b>${esc(c.alt.title)}</b><button class="btn sm" type="button" data-act="alt-off">Torna alla scheda attuale</button></div>`;
+  if(!c.alt&&!a.sheetId&&(!S.files[a.id]||S.files[a.id].status==="loading"))return`<p class="loading">In Notion non c'è il link alla scheda: la cerco su Drive…</p>`;
   if(!c.alt&&!a.sheetId)return`<div class="empty">Nessuna scheda collegata a ${esc(a.name)} in Notion (${a.src==="vf"?"campo Scheda":"campo Training Program"}).<br><br><button class="btn pri" type="button" data-new="scheda" data-aid="${a.id}">${ICON.plus}Crea la scheda dal template</button></div>`;
   if(c.loading)return top+`<p class="loading">Leggo la scheda da Google Sheets…</p>`;
   if(c.sh.status==="error")return top+errBox(c.sh.err,"Google Sheets","reload-sheet");
   const sh=c.sh,P=sh.P;
-  if(!P.sections.length)return top+`<div class="empty">Ho aperto il file ma non trovo la tabella con la colonna ESERCIZIO nel primo foglio.</div>`;
-  top+=`<div class="srcbar"><span>${P.meta.periodo?"<b>"+esc(P.meta.periodo)+"</b> · ":""}Le modifiche vanno direttamente nel file</span><a href="${esc(sh.url)}" target="_blank" rel="noopener">Apri in Google Sheets ↗</a></div>`;
+  if(!P.sections.length)return top+`<div class="empty">Ho aperto il file (foglio "${esc(sh.tab)}") ma non trovo la tabella con la colonna ESERCIZIO.</div>`;
+  const per=P.meta.periodo||(P.meta.numero?"Scheda "+P.meta.numero+(P.meta.when?" · "+fdy(P.meta.when):""):"");
+  top+=`<div class="srcbar"><span>${per?"<b>"+esc(per)+"</b> · ":""}${sh.tab?"foglio "+esc(sh.tab.replace(/\|/g,"").trim())+" · ":""}Le modifiche vanno direttamente nel file</span><a href="${esc(sh.url)}" target="_blank" rel="noopener">Apri in Google Sheets ↗</a></div>`;
   return top+sectionsHtml(P,{where:c.where,aid:a.id,sheetId:sh.id,tab:sh.tab});
 }
 function sectionsHtml(P,ctx){
@@ -1131,13 +1226,13 @@ function itemHtml(sec,it,ctx){
     const ris=get("ris");
     body=`<div class="res ${ris?"":"none"}">${esc(ris||"—")}</div>${get("prot")?`<div class="ex-no">${esc(get("prot"))}</div>`:""}${get("note")?`<div class="ex-no">${esc(get("note"))}</div>`:""}`;
   }else{
-    const schema=get("schema")||[get("serie")&&get("serie")+" serie",get("rip"),get("rec")&&"rec. "+get("rec")].filter(Boolean).join(" · ");
+    const schema=get("schema")||get("exs")||[get("serie")&&get("serie")+" serie",get("rip"),get("rec")&&"rec. "+get("rec")].filter(Boolean).join(" · ");
     body=`${schema?`<div class="ex-s">${esc(schema)}</div>`:""}${get("note")?`<div class="ex-no">${esc(get("note"))}</div>`:""}`;
     sec.cols.filter(c=>c.key==="x"||(c.key==="ris"&&sec.kind!=="test")).forEach(c=>{const v=(it.cells[c.c]||"").trim();if(v)body+=`<div class="ex-no"><b>${esc(c.label)}:</b> ${esc(v)}</div>`});
     if(sec.cols.some(c=>c.key==="fb")){const f=it.fb.filter(x=>x.text);body+=f.length?`<div class="fb">${f.map(x=>`<div class="fb-i"><span class="fb-w ${x.tone}">${x.week?"S"+x.week:"—"}</span><span>${esc(x.text)}</span></div>`).join("")}</div>`:`<div class="fb-none">Nessun feedback</div>`}
   }
   const tipo=get("tipo");
-  return`<div class="ex"><div class="ex-n">${tipo?`<span class="ex-t">${esc(tipo)}</span>`:""}${esc(it.ex)}</div><div>${body}</div><div class="ex-ed"><button class="edbtn" type="button" data-edit="${it.r}" data-sheet="${ctx.sheetId}">${ICON.edit}Modifica</button></div></div>`;
+  return`<div class="ex"><div class="ex-n">${tipo?`<span class="ex-t">${esc(tipo)}</span>`:""}${esc(sec.cols.some(c=>c.key==="exs")?exLabel(sec,it):it.ex)}</div><div>${body}</div><div class="ex-ed"><button class="edbtn" type="button" data-edit="${it.r}" data-sheet="${ctx.sheetId}">${ICON.edit}Modifica</button></div></div>`;
 }
 let editCtx=null;
 function editorHtml(sec,it,ctx){
@@ -1209,13 +1304,14 @@ function lineChart(pts,labels,cur){
 }
 function tabCarichi(a){
   const c=curSheet(a);
+  if(!c.alt&&!a.sheetId&&(!S.files[a.id]||S.files[a.id].status==="loading"))return`<p class="loading">Cerco la scheda su Drive…</p>`;
   if(!c.alt&&!a.sheetId)return`<div class="empty">Nessuna scheda collegata.</div>`;
   if(c.loading)return`<p class="loading">Leggo la scheda…</p>`;
   if(c.sh.status==="error")return errBox(c.sh.err,"Google Sheets","reload-sheet");
   const P=c.sh.P;let h="";
-  if(!P.sections.some(s=>s.cols.some(x=>x.key==="schema")))h+=`<div class="empty">Questa scheda non ha una colonna SCHEMA con serie e carichi: i grafici partono dalle schede col template Serkis.</div>`;
+  if(!hasPlan(P))h+=`<div class="empty">In questa scheda non trovo serie e carichi da leggere (colonna SCHEMA o ESERCIZIO - SERIE x REP).</div>`;
   else{
-    const D=a.dur||maxWeek(P)||1,cur=!c.alt&&a.wk&&!a.wk.future?Math.min(a.wk.week,D):null,pl=planFor(P,D);
+    const isCur=!c.alt||c.alt.auto,D=(isCur&&a.dur)||maxWeek(P)||a.dur||1,cur=isCur&&a.wk&&!a.wk.future?Math.min(a.wk.week,D):null,pl=planFor(P,D);
     h+=`<section class="sec"><div class="sec-h"><h3>Serie programmate</h3><small>per settimana, tutti i giorni</small></div>${barChart(pl.weekly.map(w=>w.sets),cur)}
       <div class="tw"><table><thead><tr><th>Settimana</th><th>Serie</th><th>Tonnellaggio</th></tr></thead><tbody>${pl.weekly.map(w=>`<tr class="${w.w===cur?"cur":""}"><td>S${w.w}${w.w===cur?" · ora":""}</td><td>${w.sets}</td><td>${w.ton?Math.round(w.ton).toLocaleString("it-IT")+" kg":"—"}</td></tr>`).join("")}</tbody></table></div></section>`;
     const kg=pl.ex.filter(e=>e.hasKg);
@@ -1231,12 +1327,16 @@ function tabCarichi(a){
   else if(hs.status==="loading")h+=`<p class="loading">Leggo le schede ${hs.done}/${hs.total}…</p>`;
   else{
     const items=hs.items.filter(i=>i.date).sort((x,y)=>x.date-y.date),map={},order=[];
-    items.forEach((it,ii)=>it.pl.ex.forEach(e=>{if(!e.hasKg)return;const k=norm(e.label.split(" · ")[0]);if(!map[k]){map[k]={label:e.label.split(" · ")[0],v:[]};order.push(k)}const m=Math.max(...e.perW.filter(p=>p&&p.kg!=null).map(p=>p.kg));map[k].v[ii]=Math.max(map[k].v[ii]||0,m)}));
+    items.forEach((it,ii)=>{const best={};it.pl.ex.forEach(e=>{if(!e.hasKg)return;const k=exKey(e.label)||norm(e.label);
+      const kg=Math.max(...e.perW.filter(p=>p&&p.kg!=null).map(p=>p.kg)),sets=Math.max(0,...e.perW.filter(Boolean).map(p=>p.kg?Math.round(p.ton/p.kg):p.sets));
+      if(!best[k]||sets>best[k].sets||(sets===best[k].sets&&kg>best[k].kg))best[k]={kg,sets,label:e.label}});
+      Object.keys(best).forEach(k=>{if(!map[k]){map[k]={label:best[k].label,v:[]};order.push(k)}map[k].v[ii]=best[k].kg})});
     const good=order.filter(k=>map[k].v.filter(v=>v!=null).length>=2);
     const labels=items.map(i=>fd(i.date)+"/"+String(i.date.getFullYear()).slice(2));
-    h+=good.length?`<div class="cards">${good.map(k=>{const pts=items.map((_,i)=>map[k].v[i]==null?null:map[k].v[i]);return`<div class="card"><h4>${esc(map[k].label)}</h4><p>${pts.filter(v=>v!=null).length} schede</p>${lineChart(pts,labels,null)}</div>`}).join("")}</div>`
+    h+=good.length?`<div class="cards">${good.map(k=>{const pts=items.map((_,i)=>map[k].v[i]==null?null:map[k].v[i]);const vs=pts.filter(v=>v!=null);return`<div class="card"><h4>${esc(map[k].label)}</h4><p>${vs.length} schede · ${vs[0]} → ${vs[vs.length-1]} kg</p>${lineChart(pts,labels,null)}</div>`}).join("")}</div>`
       :`<div class="empty">Ho letto ${hs.items.length} schede ma nessun esercizio con carico in kg compare in almeno due.</div>`;
-    h+=`<p class="foot">Schede lette: ${esc(hs.items.map(i=>i.title).join(" · ")||"nessuna")}. Programmato, non eseguito.</p>`;
+    const nod=hs.items.filter(i=>!i.date).map(i=>i.title);
+    h+=`<p class="foot">Schede lette (${hs.items.length}): ${esc(items.map(i=>i.title+(i.date?" ("+fdy(i.date)+")":"")).join(" · ")||"nessuna")}.${nod.length?" Senza data, escluse dal grafico: "+esc(nod.join(", "))+".":""} Carico massimo programmato in ogni scheda, non l'eseguito.</p><button class="btn sm ghost" type="button" data-act="history">Ricarica lo storico</button>`;
   }
   return h+`</section>`;
 }

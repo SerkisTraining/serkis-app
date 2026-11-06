@@ -25,7 +25,7 @@ const CONFIG = {
   VF_DS: "800b8a16-6f27-4a04-984f-3f9e2ce7f640",
   VF_DB: "d2f147fd8bc840c3ac5b78e509ef365f"
 };
-const VERSION = "1.0";
+const VERSION = "1.1";
 
 /* ---------- installazione ---------- */
 function setup() {
@@ -164,6 +164,33 @@ function sid_(s) {
   return m ? m[1] : null;
 }
 
+// Tutti i link a Google Sheets di una proprietà, con l'eventuale foglio (gid)
+function links_(s) {
+  const out = [], re = /spreadsheets\/d\/([A-Za-z0-9_-]{20,})([^\s"]*)/g;
+  let m;
+  while ((m = re.exec(String(s || "")))) {
+    const g = (m[2].match(/[#&?]gid=(\d+)/) || [])[1] || null;
+    const ex = out.filter(function (x) { return x.id === m[1]; })[0];
+    if (ex) { if (g) ex.gid = g; } else out.push({ id: m[1], gid: g });
+  }
+  return out;
+}
+
+// Con più link, la scheda attuale è il file creato per ultimo
+function pickCurrent_(links) {
+  if (links.length <= 1) return links[0] || null;
+  const cache = CacheService.getScriptCache();
+  let best = null, bt = -1;
+  links.forEach(function (l) {
+    let t = Number(cache.get("cr:" + l.id) || 0);
+    if (!t) {
+      try { t = DriveApp.getFileById(l.id).getDateCreated().getTime(); cache.put("cr:" + l.id, String(t), 21600); } catch (e) { t = 0; }
+    }
+    if (t > bt) { bt = t; best = l; }
+  });
+  return best || links[links.length - 1];
+}
+
 function athletes_(req) {
   const cache = CacheService.getScriptCache();
   if (!req.fresh) { const hit = cache.get("athletes"); if (hit) return { athletes: JSON.parse(hit) }; }
@@ -173,7 +200,8 @@ function athletes_(req) {
       src: "coach", id: pg.id.replace(/-/g, ""), name: pt_(P["Nome Cognome"]).trim() || "Senza nome",
       tag: pt_(P["Multi-select"]), status: pt_(P["Status programma"]) || "—",
       start: pt_(P["Data inizio"]) || null, dur: parseInt(pt_(P["Durata scheda"]), 10) || null,
-      subStart: pt_(P["Inizio abbonamento"]) || null, sheetId: sid_(pt_(P["Training Program"])),
+      subStart: pt_(P["Inizio abbonamento"]) || null,
+      sheetLinks: links_(pt_(P["Training Program"])),
       notionUrl: pg.url, analisiUrl: pt_(P["Analisi allenamento"]) || null
     };
   });
@@ -184,12 +212,13 @@ function athletes_(req) {
       return {
         src: "vf", id: pg.id.replace(/-/g, ""), name: pt_(P["Nome Cognome"]).trim() || "Senza nome", tag: "Kineva",
         status: pt_(P["Stato"]) || "—", start: pt_(P["Inizio programma"]) || null, dur: null,
-        firstEval: pt_(P["Data prima valutazione"]) || null, sheetId: sid_(pt_(P["Scheda"])),
+        firstEval: pt_(P["Data prima valutazione"]) || null, sheetLinks: links_(pt_(P["Scheda"])),
         valId: sid_(pt_(P["Valutazione"])), notionUrl: pg.url, videoUrl: pt_(P["Cartella video Drive"]) || null
       };
     });
   } catch (e) { /* database Kineva non collegato all'integrazione */ }
   const all = coach.concat(vf);
+  all.forEach(function (a) { const cur = pickCurrent_(a.sheetLinks || []); a.sheetId = cur ? cur.id : null; a.sheetGid = cur ? cur.gid : null; });
   try { cache.put("athletes", JSON.stringify(all), 120); } catch (e) {}
   return { athletes: all };
 }
@@ -253,22 +282,26 @@ function trim_(v) {
   return v.map(function (r) { let n = r.length; while (n > 0 && r[n - 1] === "") n--; return r.slice(0, n); });
 }
 
-function readSheet_(id, tab, maxRows, maxCols) {
+function readSheet_(id, tab, maxRows, maxCols, gid) {
   const ss = SpreadsheetApp.openById(id);
   const all = ss.getSheets();
-  const sh = (tab && ss.getSheetByName(tab)) || all[0];
+  const byGid = gid != null && gid !== "" ? all.filter(function (s) { return String(s.getSheetId()) === String(gid); })[0] : null;
+  const sh = (tab && ss.getSheetByName(tab)) || byGid || all[0];
   const lr = Math.min(sh.getLastRow(), maxRows || 220), lc = Math.min(sh.getLastColumn(), maxCols || 12);
   const values = (lr > 0 && lc > 0) ? trim_(sh.getRange(1, 1, lr, lc).getDisplayValues()) : [];
-  return { id: id, title: ss.getName(), tab: sh.getName(), tabs: all.map(function (s) { return s.getName(); }), values: values, url: ss.getUrl() };
+  return { id: id, title: ss.getName(), tab: sh.getName(), tabs: all.map(function (s) { return s.getName(); }),
+    gids: all.map(function (s) { return String(s.getSheetId()); }), values: values, url: ss.getUrl() };
 }
 
 function sheets_(req) {
   const out = {}, cache = CacheService.getScriptCache();
+  const gids = req.gids || {};
   (req.ids || []).slice(0, 10).forEach(function (id) {
-    const ck = "sh:" + id + ":" + (req.tab || "");
+    const gid = req.tab ? null : (gids[id] || null);
+    const ck = "sh:" + id + ":" + (req.tab || "") + ":" + (gid || "");
     if (!req.fresh) { const hit = cache.get(ck); if (hit) { out[id] = JSON.parse(hit); return; } }
     try {
-      const r = readSheet_(id, req.tab);
+      const r = readSheet_(id, req.tab, null, null, gid);
       out[id] = r;
       try { cache.put(ck, JSON.stringify(r), 600); } catch (e) {}
     } catch (e) { out[id] = { error: "Non riesco ad aprire il file: " + e.message }; }
@@ -293,8 +326,8 @@ function bundle_(req) {
   (req.ids || []).slice(0, 5).forEach(function (id) {
     try {
       const ss = SpreadsheetApp.openById(id), f = DriveApp.getFileById(id);
-      const tabs = ss.getSheets().slice(0, 6).map(function (sh) {
-        const lr = Math.min(sh.getLastRow(), 90), lc = Math.min(sh.getLastColumn(), 10);
+      const tabs = ss.getSheets().slice(0, 12).map(function (sh) {
+        const lr = Math.min(sh.getLastRow(), 150), lc = Math.min(sh.getLastColumn(), 10);
         return { name: sh.getName(), values: (lr > 0 && lc > 0) ? trim_(sh.getRange(1, 1, lr, lc).getDisplayValues()) : [] };
       });
       out.push({ id: id, title: ss.getName(), url: ss.getUrl(), updated: f.getLastUpdated().toISOString(), tabs: tabs });
@@ -324,7 +357,8 @@ function update_(req) {
     if (conflict.length) return { conflict: conflict };
     cells.forEach(function (c) { sh.getRange(c.r, c.c + 1).setValue(safe_(c.value)); });
     SpreadsheetApp.flush();
-    CacheService.getScriptCache().removeAll(["sh:" + req.sheetId + ":", "sh:" + req.sheetId + ":" + (req.tab || ""), "sh:" + req.sheetId + ":" + sh.getName()]);
+    const k = "sh:" + req.sheetId + ":", gidS = String(sh.getSheetId());
+    CacheService.getScriptCache().removeAll([k + ":", k + ":" + gidS, k + (req.tab || "") + ":", k + sh.getName() + ":"]);
     return { ok: true };
   } finally { lock.releaseLock(); }
 }
