@@ -61,6 +61,18 @@ function codiceCollegamento() {
   Logger.log("Codice: SERKIS1." + Utilities.base64EncodeWebSafe(JSON.stringify({ u: url, k: key })).replace(/=+$/, ""));
 }
 
+// Controllo rapido dall'editor: Esegui → verifica. Non mostra la chiave.
+function verifica() {
+  const t0 = Date.now();
+  const list = athletes_({ fresh: true }).athletes;
+  Logger.log("Backend " + VERSION + " · atleti: " + list.length + " · con scheda: " + list.filter(function (a) { return a.sheetId; }).length + " · " + (Date.now() - t0) + " ms");
+  list.filter(function (a) { return (a.sheetLinks || []).length > 1; }).forEach(function (a) {
+    let fogli = "";
+    try { const ss = SpreadsheetApp.openById(a.sheetId); fogli = ss.getName() + " → " + ss.getSheets().map(function (s) { return s.getName(); }).join(", "); } catch (e) { fogli = "file non leggibile"; }
+    Logger.log(a.name + ": " + a.sheetLinks.length + " link · scheda attuale: " + fogli + (a.sheetGid ? " · foglio " + a.sheetGid : ""));
+  });
+}
+
 /* ---------- ingresso web ---------- */
 function doGet() {
   return ContentService.createTextOutput("Serkis Coach backend " + VERSION + " attivo.");
