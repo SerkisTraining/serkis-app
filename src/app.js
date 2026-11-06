@@ -1,6 +1,6 @@
 (function(){
 "use strict";
-const VERSION="1.1";
+const VERSION="1.2";
 const NOTES_ID="1jzW0uELNty_8Dx0AWhwJXzg7YObm6Nr_fYbNlP0Z3mo";
 const NOTES_URL="https://docs.google.com/spreadsheets/d/"+NOTES_ID+"/edit";
 const DS_COACH="collection://264112d7-0f3d-80c1-9340-000bfe370a29";
@@ -100,6 +100,8 @@ function finalize(list){
     return a;
   });
 }
+function linkIds(a){const ids=(a.sheetLinks||[]).map(l=>l.id);if(a.sheetId&&!ids.includes(a.sheetId))ids.push(a.sheetId);return ids}
+const NOT_SCHEDA=/(foglio ore|modulo|anagrafica|trattament|massagg|fattura|\bore_|\bsergio\b|layout|\bprove\b|copia di|copy of)/;
 function surname(n){const p=String(n).trim().split(/\s+/);return p[p.length-1]||n}
 const byId=id=>S.athletes.find(a=>a.id===id);
 
@@ -112,7 +114,7 @@ function colKey(label){
   const u=label.toUpperCase().trim();
   if(u.startsWith("ESERCIZIO"))return /SERIE|REP|SCHEMA/.test(u)?"exs":"ex";
   if(u==="VOCE")return"ex";
-  if(u.startsWith("SCHEMA"))return"schema";if(u.startsWith("NOTE"))return"note";if(u.startsWith("FEEDBACK"))return"fb";
+  if(u.startsWith("SCHEMA")||/^(SET|SERIE)\s*[X×]\s*(REP|RIP)/.test(u))return"schema";if(u.startsWith("NOTE"))return"note";if(u.startsWith("FEEDBACK"))return"fb";
   if(/^SETT(IMANA)?\.?\s*#?\s*\d+$/.test(u))return"fb";
   if(u.startsWith("PROTOCOLLO"))return"prot";if(u.startsWith("RISULTATO"))return"ris";if(u==="SERIE")return"serie";
   if(u.startsWith("RIP"))return"rip";if(u.startsWith("RECUPERO"))return"rec";if(u.startsWith("TIPOLOGIA"))return"tipo";
@@ -120,7 +122,9 @@ function colKey(label){
 }
 const MONO={schema:1,serie:1,rip:1,rec:1,ris:1,exs:1};
 function slotTitle(t){const m=String(t).trim().match(/^(G|D|DAY|GIORNO|SEDUTA)\s*(\w+)$/i);if(!m)return t;const k=m[1].toUpperCase();return(k==="G"||k==="GIORNO"?"Giorno ":k==="SEDUTA"?"Seduta ":"Day ")+m[2]}
-const METH=/^(jump ?set|super ?set|superserie|giant ?set|circuito|emom|amrap|ladder|cluster|ramping|tabata|rt\b|rest\b|recuper|poi fai|dopo |riscald|defatic|finisher)/i;
+const METH=/^(jump\s*set|super\s*set|superserie|giant\s*set|drop\s*set|circuito|e\d*["″'’′]?mom|amrap|ladder|cluster|ramping|tabata|blocco|accumulo|density|rest[\s-]*pause|rt\b|rxt\b|rest\b|recuper|poi fai|dopo |riscald|defatic|finisher|round\b)/i;
+// blocchi a tempo o a giri (AMRAP, EMOM, circuiti): niente grafico dei kg
+const BLOCK=/^(amrap|e\d*["″'’′]?mom|circuito|tabata|round\b|finisher|density|accumulo)/i;
 function isNameLine(l){
   if(!l||l.length>48||/^[-–(•*➊-➓①-⑩❶-❿]/.test(l))return false;
   if(/\d\s*[x×]\s*\(?\d/.test(l)||/kg\b/i.test(l)||/\d+\s*["'″′]/.test(l)||METH.test(l))return false;
@@ -140,7 +144,8 @@ function splitExercises(text){
 }
 function exLabel(sec,it){
   if(sec.cols.some(c=>c.key==="exs")){const n=splitExercises(it.ex).map(e=>e.name).filter(Boolean);if(n.length)return n.join(" + ")}
-  return it.ex.split("\n").map(s=>s.trim()).filter(Boolean)[0]||it.ex;
+  const ls=it.ex.split("\n").map(s=>s.trim()).filter(Boolean);if(ls[0]&&BLOCK.test(ls[0]))return ls[0];
+  return ls.find(l=>!METH.test(l)&&l!=="+"&&!/^ss$/i.test(l))||ls[0]||it.ex;
 }
 function metaDate(rows){
   for(let r=0;r<Math.min(14,rows.length);r++){
@@ -149,6 +154,11 @@ function metaDate(rows){
   }
   for(let r=0;r<Math.min(14,rows.length);r++)for(const c of rows[r]){if(c.length<=40){const d=parseIt(c);if(d)return d}}
   return null;
+}
+function sanePlanDate(d){
+  if(!d)return d;const hi=Date.now()+400*864e5;if(+d<=hi)return d;
+  for(const k of[900,100,10,1]){const c=new Date(d);c.setFullYear(d.getFullYear()-k);if(+c<=hi&&c.getFullYear()>=2015)return c}
+  return d;
 }
 function parseSheet(values){
   const rows=(values||[]).map(r=>(r||[]).map(c=>String(c==null?"":c)));
@@ -162,7 +172,7 @@ function parseSheet(values){
       else if(/^PROGRAMMA DI ALLENAMENTO\s*#?\s*\d+/i.test(t))out.meta.numero=t.replace(/^PROGRAMMA DI ALLENAMENTO\s*/i,"");
     });
   }
-  out.meta.when=parseIt(out.meta.periodo)||parseIt(out.meta.data)||metaDate(rows);
+  out.meta.when=sanePlanDate(parseIt(out.meta.periodo)||parseIt(out.meta.data)||metaDate(rows));
   let i=0;
   while(i<rows.length){
     const row=rows[i];const exCol=row.findIndex(isHdrCell);
@@ -195,12 +205,18 @@ function parseSheet(values){
       if(/^(COME COMPILARE|METODI|▤|NOTA BENE|OSSERVAZIONI GENERALI|EMOM:|AMRAP:)/i.test((rr.find(c=>c.trim())||"").trim()))break;
       secRows.push(i);i++;
     }
-    // colonne di feedback senza intestazione (es. ➍–➏ a destra di FEEDBACK)
-    const lastHdr=cols[cols.length-1];
-    if(lastHdr&&lastHdr.key==="fb"){
-      let maxC=hi;secRows.forEach(r=>{rows[r].forEach((c,ci)=>{if(c.trim()&&ci>maxC&&ci<=hi+4)maxC=ci})});
-      for(let c=hi+1;c<=maxC;c++)if(secRows.some(r=>(rows[r][c]||"").trim())&&!(row[c]||"").trim())cols.push({c,label:"FEEDBACK",key:"fb",week:null,extra:true});
+    // colonne senza intestazione: prendono il tipo della colonna a sinistra (schema su più colonne, feedback ➍–➏ a destra di FEEDBACK)
+    {const lastHdr=cols[cols.length-1];let maxC=hi;
+      if(lastHdr&&lastHdr.key==="fb")secRows.forEach(r=>{rows[r].forEach((c,ci)=>{if(c.trim()&&ci>maxC&&ci<=hi+4)maxC=ci})});
+      for(let c=lo+1;c<=maxC;c++){
+        if(cols.some(x=>x.c===c)||(row[c]||"").trim()||!secRows.some(r=>(rows[r][c]||"").trim()))continue;
+        const left=cols.filter(x=>x.c<c).sort((x,y)=>y.c-x.c)[0];if(!left)continue;
+        if(left.key==="fb")cols.push({c,label:"FEEDBACK",key:"fb",week:null,extra:true});
+        else if(left.key==="schema"||(left.key==="exs"&&c===left.c+1))cols.push({c,label:(left.key==="exs"?"SCHEMA":left.label.replace(/\s*\(\d+\)$/,""))+" (2)",key:"schema",extra:true});
+      }
+      cols.sort((x,y)=>x.c-y.c);
     }
+    if(cols.some(x=>x.key==="prot")&&!cols.some(x=>x.key==="ris"))cols.forEach(x=>{if(x.key==="prot")x.key="schema"});
     const sec={title:title||"Sezione",hr:hdrRow,cols,slotCol,exCol,items:[],kind:"altro"};
     const keys=cols.map(c=>c.key);
     sec.kind=keys.includes("ris")?"test":(keys.includes("schema")||keys.includes("serie")||keys.includes("exs"))?"scheda":"altro";
@@ -226,9 +242,10 @@ function tone(t){const s=String(t||"").replace(/non male/ig,"");if(RED.test(s))r
 const CIRC={"➊":1,"➋":2,"➌":3,"➍":4,"➎":5,"➏":6,"➐":7,"➑":8,"➒":9,"➓":10,"①":1,"②":2,"③":3,"④":4,"⑤":5,"⑥":6,"⑦":7,"⑧":8,"⑨":9,"⑩":10,"❶":1,"❷":2,"❸":3,"❹":4,"❺":5,"❻":6,"❼":7,"❽":8,"❾":9,"❿":10};
 function splitFeedback(txt){
   txt=String(txt||"").replace(/[➊-➓①-⑩❶-❿]/g,c=>" W"+CIRC[c]+": ");if(!txt.trim())return[];
-  const re=/(^|[\s;,(|])((?:week|wk|sett(?:imana)?\.?)\s*#?\s*(\d{1,2})\s*[-–—:.)]?|(?:w|s)\s?(\d{1,2})\s*[-–—:.)])/gi;
+  const re=/(^|[\s;,(|.])((?:week|wk|sett(?:imana)?\.?)\s*#?\s*(\d{1,2})\b\s*[-–—:.)]?|(?:w|s)\s?(\d{1,2})\s*[-–—:.)]|(\d{1,2})\s*°?\s*sett(?:imana|\.)?\b\s*[-–—:.)]?|(prima|seconda|terza|quarta|quinta|sesta|settima|ottava)\s+sett(?:imana)?\b\s*[-–—:.)]?)/gi;
+  const ORD={prima:1,seconda:2,terza:3,quarta:4,quinta:5,sesta:6,settima:7,ottava:8};
   const marks=[];let m;
-  while((m=re.exec(txt))){marks.push({i:m.index+m[1].length,end:m.index+m[0].length,w:+(m[3]||m[4])})}
+  while((m=re.exec(txt))){const w=+(m[3]||m[4]||m[5])||ORD[String(m[6]||"").toLowerCase()];if(w&&w<=12)marks.push({i:m.index+m[1].length,end:m.index+m[0].length,w})}
   if(!marks.length){const t=txt.trim();return[{week:null,text:t,tone:tone(t)}]}
   const res=[];const pre=txt.slice(0,marks[0].i).trim();if(pre)res.push({week:null,text:pre,tone:tone(pre)});
   marks.forEach((mk,k)=>{const b=k+1<marks.length?marks[k+1].i:txt.length;const t=txt.slice(mk.end,b).replace(/^[\s;,.|:\-–]+|[\s;,|]+$/g,"").trim();res.push({week:mk.w,text:t,tone:tone(t)})});
@@ -245,29 +262,42 @@ function kgOf(pt){
   if(!m)return null;const a=parseFloat(m[1].replace(",",".")),b=m[2]?parseFloat(m[2].replace(",",".")):a;return Math.max(a,b);
 }
 function parsePlan(schema){
-  const entries=[];
+  const entries=[];let autoW=0;
   String(schema||"").split("\n").forEach(line=>{
     const parts=line.split("//").map(s=>s.trim()).filter(Boolean),found=[];
     parts.forEach((pt,pi)=>{
       if(/^(-?\s*rest|rxt|recupero)\b/i.test(pt))return;
       const wm=pt.match(/sett\.?\s*(\d{1,2})(?:\s*[-–\/]\s*(\d{1,2}))?/i);
       const body=pt.replace(/\(?\s*sett\.?\s*\d{1,2}(?:\s*[-–\/]\s*\d{1,2})?\s*\)?/i,"").trim();
-      const srs=[...body.matchAll(/(\d{1,2})\s*[x×]\s*\(?\s*(\d{1,3})(?:\s*[-–\/]\s*(\d{1,3}))?/g)];
+      const srs=[...body.matchAll(/(\d{1,2})\s*(?:set|serie)?\s*[x×]\s*\(?\s*(\d{1,3})(?:\s*[-–\/]\s*(\d{1,3}))?/gi)];
       let sets=srs.reduce((a,x)=>a+(+x[1]),0),reps=srs.length?+srs[0][2]:0;
       if(!srs.length){const dm=body.match(/^(\d{1,2})(?:\s*-\s*(\d{1,2})){1,9}\b/);if(dm){const ns=dm[0].split("-").map(Number);sets=ns.length;reps=ns[0]}}
-      if(!sets){const em=body.match(/EMOM\s*(\d{1,2})\s*['’′]/i);if(em){sets=+em[1];const r=body.match(/(\d{1,2})\s*rep/i);reps=r?+r[1]:0}}
+      if(!sets){const em=body.match(/E\d*["″'’′]?MOM\s*:?\s*(\d{1,2})\s*['’′]/i);if(em){sets=+em[1];const r=body.match(/[x×]\s*(\d{1,3})\s*rep/i)||body.match(/(\d{1,3})\s*rep/i);reps=r?+r[1]:0}}
+      if(!sets){const g=body.match(/[x×]\s*(\d{1,2})(?:\s*[\/\-–]\s*(\d{1,2}))?\s*giri/i);if(g){sets=+(g[2]||g[1]);const cl=body.match(/\(\s*(\d{1,2}(?:\s*\+\s*\d{1,2})+)\s*\)/);reps=cl?cl[1].split("+").reduce((a,x)=>a+(+x),0):0}}
       const kg=kgOf(body);
       if(!sets&&kg==null)return;
       found.push({pi,w1:wm?+wm[1]:null,w2:wm?+(wm[2]||wm[1]):null,sets,reps,kg});
     });
-    if(parts.length>1&&found.length&&found.every(e=>e.w1==null))found.forEach(e=>{e.w1=e.w2=e.pi+1});
+    if(parts.length>1&&found.length&&found.every(e=>e.w1==null)){found.forEach(e=>{e.w1=e.w2=autoW+e.pi+1});autoW+=parts.length}
     entries.push(...found);
   });
+  // carico scritto una sola volta (es. "+80 kg" e sotto "Sett. 1: 4 x 6"): vale per le righe senza kg
+  const base=[...new Set(entries.filter(e=>!e.sets&&e.kg!=null).map(e=>e.kg))];
+  if(base.length===1)entries.forEach(e=>{if(e.sets&&e.kg==null)e.kg=base[0]});
   return{entries};
 }
 function planUnits(sec,it){
-  const sc=sec.cols.find(c=>c.key==="schema"),exs=sec.cols.find(c=>c.key==="exs");
-  if(sc)return[{label:exLabel(sec,it),text:it.cells[sc.c]}];
+  const scs=sec.cols.filter(c=>c.key==="schema"),exs=sec.cols.find(c=>c.key==="exs");
+  if(scs.length){
+    const texts=scs.map(c=>String(it.cells[c.c]||"")).filter(t=>t.trim());const out=[];
+    texts.forEach(t=>{const parts=splitExercises(t),named=parts.filter(p=>p.name);
+      if(named.length&&(texts.length>1||named.length>1||parts.length===1))named.forEach(p=>out.push({label:p.name,text:p.plan.join("\n")}));
+      else{const f=t.split("\n").map(x=>x.trim()).find(Boolean)||"";out.push({label:texts.length>1&&f&&f.length<=48&&!parsePlan(f).entries.length?f:exLabel(sec,it),text:t})}});
+    if(exs&&!out.length)return planUnits({cols:sec.cols.filter(c=>c.key!=="schema")},it);
+    return out.length?out:[{label:exLabel(sec,it),text:""}];
+  }
+  const se=sec.cols.find(c=>c.key==="serie");
+  if(se&&!exs){const ri=sec.cols.find(c=>c.key==="rip");const n=String(it.cells[se.c]||"").trim();return n?[{label:exLabel(sec,it),text:n+" x "+(ri?String(it.cells[ri.c]||"").trim():"")}]:[]}
   if(exs){const parts=splitExercises(it.cells[exs.c]);const named=parts.filter(p=>p.name);
     if(!named.length)return[{label:exLabel(sec,it),text:it.cells[exs.c]}];
     return named.map(p=>({label:p.name,text:p.plan.join("\n")}))}
@@ -286,14 +316,44 @@ function planFor(P,D){
         const sets=es.reduce((a,e)=>a+e.sets,0),ton=es.reduce((a,e)=>a+e.sets*e.reps*(e.kg||0),0),kgs=es.filter(e=>e.kg!=null).map(e=>e.kg);
         perW.push({sets,ton,kg:kgs.length?Math.max(...kgs):null});weekly[w-1].sets+=sets;weekly[w-1].ton+=ton;
       }
-      ex.push({label:u.label,where:sec.title,perW,hasKg:perW.some(p=>p&&p.kg!=null)});
+      ex.push({label:u.label,where:sec.title,perW,hasKg:!BLOCK.test(String(u.label).trim())&&perW.some(p=>p&&p.kg!=null)});
     })}));
   return{ex,weekly,skipped};
 }
 function maxWeek(P){let m=0;P.sections.forEach(s=>s.items.forEach(it=>{if(!it.empty)planUnits(s,it).forEach(u=>parsePlan(u.text).entries.forEach(e=>{if(e.w2)m=Math.max(m,e.w2)}))}));return m}
-function hasPlan(P){return P.sections.some(s=>s.cols.some(c=>c.key==="schema"||c.key==="exs"))}
-function exKey(label){return norm(label).replace(/\b(bilanciere|manubri|manubrio|kb|kettlebell|tecnico|tecnica|alla|fronte|parallele|mono|con|al|in)\b/g," ").replace(/[^a-z0-9]+/g," ").trim()}
+function hasPlan(P){return P.sections.some(s=>s.kind==="scheda"&&s.cols.some(c=>c.key==="schema"||c.key==="exs"||c.key==="serie"))}
+// stesso esercizio con nomi diversi tra le schede: "Squat fermo 1\" in buca", "SQUAT BILANCIERE", "Squat tecnico" → squat
+function exKey(label){
+  let t=norm(String(label||"").split("\n")[0]).replace(/\(.*?\)/g," ");
+  t=t.split(/\b(?:fermo|pausa|iso|discesa|salita|tempo|deadstop|con|per|da)\b|[0-9"'″′:@+]/)[0];
+  return t.replace(/\b(bilanciere|manubri|manubrio|kb|kettlebell|tecnico|tecnica|alla|al|fronte|parallele|mono|in|loop|gialla|azzurra|arancione|rossa|verde|nera|viola|elastico|cubo|bw)\b/g," ").replace(/[^a-z0-9]+/g," ").trim();
+}
 
+function monthOfTab(n){n=norm(n);for(let i=0;i<12;i++)if(new RegExp("(^|[^a-z])"+MESI[i].slice(0,3)).test(n))return i;return /estate/.test(n)?6:null}
+function numOfTab(n){const m=String(n).match(/#\s*0*(\d{1,2})|\b(?:scheda|programmazione|programma)\s*[-–]?\s*0*(\d{1,2})\b/i);return m?+(m[1]||m[2]):null}
+// Date delle schede in un file: corregge anni sbagliati e stima quelle mancanti (mese nel nome del foglio, ordine dei fogli, date del file)
+function inferDates(fm,items){
+  const DAY=864e5,now=Date.now(),cr=fm.created?+new Date(fm.created):null,up=fm.updated?+new Date(fm.updated):null;
+  const lo=cr?cr-150*DAY:now-6*365*DAY,hi=Math.max(up||0,now)+60*DAY;
+  items.forEach(t=>{if(!t.when)return;const y=t.when.getFullYear();
+    for(const k of[0,1,2,-1,-10,-100,-900]){const c=new Date(t.when);c.setFullYear(y+k);if(+c>=lo&&+c<=hi){if(k)t.fixed=true;t.when=c;return}}});
+  items.forEach(t=>{if(t.when)return;const mo=monthOfTab(t.name);if(mo==null)return;
+    const ref=new Date(Math.min(up||now,now));for(let y=ref.getFullYear();y>=ref.getFullYear()-3;y--){const c=new Date(y,mo,1);if(+c<=hi&&+c>=lo){t.when=c;t.approx=true;return}}});
+  const known=items.filter(t=>t.when).sort((x,y)=>x.idx-y.idx);let asc=true;
+  if(known.length>=2&&+known[0].when!==+known[known.length-1].when)asc=+known[known.length-1].when>+known[0].when;
+  else{const nb=items.filter(t=>t.num!=null).sort((x,y)=>x.idx-y.idx);if(nb.length>=2)asc=nb[nb.length-1].num>nb[0].num}
+  const seq=items.slice().sort((x,y)=>asc?x.idx-y.idx:y.idx-x.idx),STEP=42*DAY;
+  seq.forEach((t,i)=>{if(t.when)return;
+    let p=-1,n=-1;for(let j=i-1;j>=0;j--)if(seq[j].when&&!seq[j].est){p=j;break}for(let j=i+1;j<seq.length;j++)if(seq[j].when){n=j;break}
+    let v;
+    if(p>=0&&n>=0)v=+seq[p].when+(+seq[n].when-+seq[p].when)*(i-p)/(n-p);
+    else if(p>=0)v=Math.min(+seq[p].when+STEP*(i-p),Math.max(+seq[p].when+DAY*(i-p),up||now));
+    else if(n>=0)v=Math.max(+seq[n].when-STEP*(n-i),cr||-Infinity);
+    else if(cr&&up&&seq.length>1)v=cr+(up-cr)*i/(seq.length-1);
+    else v=cr?cr+STEP*i:(up||now)-STEP*(seq.length-1-i);
+    t.when=new Date(v);t.approx=true;t.est=true});
+  return items;
+}
 /* ================= segnale ================= */
 function coachSignal(id){const n=S.notes.find(x=>x.athleteId===id&&x.kind==="segnale");return n&&n.signal&&n.signal!=="auto"?n:null}
 function shOf(a){return S.sheets[a.id]}
@@ -386,8 +446,8 @@ function scriptAdapter(cfg){
     sheets:async(ids,fresh,gids)=>(await call("sheets",{ids,fresh,gids:gids||{}})).sheets,
     sheet:async(id,tab,fresh,gid)=>{const g={};if(gid&&!tab)g[id]=gid;const r=(await call("sheets",{ids:[id],tab,fresh,gids:g})).sheets[id];if(!r||r.error)throw{code:"sheet",message:r?r.error:"File non trovato"};return r},
     tabs:async id=>{const r=(await call("sheets",{ids:[id]})).sheets[id];if(!r||r.error)throw{code:"sheet",message:r?r.error:"File non trovato"};return(r.tabs||[]).map((n,i)=>({name:n,gid:r.gids?String(r.gids[i]):null}))},
-    files:async a=>(await call("files",{name:a.name})).files,
-    bundle:async ids=>(await call("bundle",{ids},90000)).files,
+    files:async a=>(await call("files",{name:a.name,ids:linkIds(a)})).files,
+    bundle:async(ids,o)=>(await call("bundle",Object.assign({ids},o||{}),120000)).files,
     page:async a=>(await call("page",{id:a.id})).text,
     update:(sheetId,tab,cells)=>call("update",{sheetId,tab,cells}),
     templates:async()=>(await call("templates")).templates,
@@ -430,15 +490,18 @@ function claudeAdapter(mcp,sample){
     files:async a=>{
       const q="title contains '"+surname(a.name).replace(/'/g,"\\'")+"' and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false";
       const p=await rd("Google Drive","search_files",{query:q,pageSize:40,excludeContentSnippets:true},false,300000);
-      return((p&&p.files)||[]).map(f=>({id:f.id,title:f.title,url:f.viewUrl,updated:f.modifiedTime,owner:f.owner}));
+      const out=((p&&p.files)||[]).map(f=>({id:f.id,title:f.title,url:f.viewUrl,updated:f.modifiedTime,created:f.createdTime,owner:f.owner}));
+      for(const id of linkIds(a)){const ex=out.find(f=>f.id===id);if(ex){ex.linked=true;continue}
+        try{const f=await rd("Google Drive","get_file_metadata",{fileId:id,excludeContentSnippets:true},false,86400000);if(f&&f.id&&!f.trashed&&/spreadsheet/.test(f.mimeType||""))out.push({id:f.id,title:f.title,url:f.viewUrl,updated:f.modifiedTime,created:f.createdTime,owner:f.owner,linked:true})}catch(e){}}
+      return out;
     },
-    bundle:async ids=>{
-      const out=[];
+    bundle:async(ids,o)=>{
+      const out=[],mt=(o&&o.maxTabs)||6,rg=o&&o.maxRows?"A1:L"+o.maxRows:"A1:J90";
       for(const id of ids){
         try{
           const meta=await rd("Google Sheets","get_spreadsheet",{spreadsheetId:id,fields:["properties.title","sheets.properties.title"]},false,300000);
-          const tabs=((meta&&meta.sheets)||[]).map(s=>s.properties.title).slice(0,6);
-          const T=[];for(const t of tabs){const v=await rd("Google Sheets","get_values",{spreadsheetId:id,range:A1tab(t)+"A1:J90"},false,120000);T.push({name:t,values:(v&&v.values)||[]})}
+          const tabs=((meta&&meta.sheets)||[]).map(s=>s.properties.title).slice(0,mt);
+          const T=[];for(const t of tabs){const v=await rd("Google Sheets","get_values",{spreadsheetId:id,range:A1tab(t)+rg},false,120000);T.push({name:t,values:(v&&v.values)||[]})}
           out.push({id,title:(meta&&meta.properties&&meta.properties.title)||"",url:"https://docs.google.com/spreadsheets/d/"+id+"/edit",tabs:T});
         }catch(e){out.push({id,error:errText(e,"Google Sheets")})}
       }
@@ -555,9 +618,15 @@ async function scanSheets(fresh){
   await Promise.all([worker(),worker(),worker()]);
   scanning=false;renderSoon();
 }
+// link in Notion a un file che non esiste più: mostra la scheda più recente trovata su Drive
+function missingFallback(a,e){
+  if(S.alt[a.id]||!/mancante|not found|non trovat|404|eliminat|given id|requested entity|unable to open|impossibile aprire/i.test(String(e&&(e.message||e))))return;
+  ensureFiles(a).then(fl=>{const f=fl&&fl.list&&fl.list.find(x=>x.kind==="scheda"&&x.id!==a.sheetId);if(f&&!S.alt[a.id]){S.alt[a.id]={id:f.id,title:f.title,auto:true,why:"missing"};renderSoon()}});
+}
 async function loadOneSheet(a,fresh){
   if(!a.sheetId)return;if(!S.sheets[a.id]||S.sheets[a.id].status!=="ok")S.sheets[a.id]={status:"loading"};renderSoon();
-  try{setSheet(a.id,await S.adapter.sheet(a.sheetId,null,fresh,a.sheetGid))}catch(e){if(!S.sheets[a.id]||S.sheets[a.id].status!=="ok")S.sheets[a.id]={status:"error",err:e}}
+  try{setSheet(a.id,await S.adapter.sheet(a.sheetId,null,fresh,a.sheetGid))}catch(e){if(!S.sheets[a.id]||S.sheets[a.id].status!=="ok")S.sheets[a.id]={status:"error",err:e};
+    missingFallback(a,e)}
   renderSoon();
 }
 async function ensureFiles(a,fresh){
@@ -568,7 +637,7 @@ async function ensureFiles(a,fresh){
     const re=new RegExp("(^|[^a-z])"+norm(surname(a.name)).replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"([^a-z]|$)");
     const linked=S.notes.filter(n=>n.athleteId===a.id&&n.kind==="file").map(n=>({id:sheetIdOf(n.text),title:n.athleteName&&n.signal?("File collegato · "+n.signal):"File collegato",url:n.text,updated:n.createdAt,linked:true,lk:n.signal})).filter(f=>f.id);
     const seen=new Set();let list=[];
-    (S.extra[a.id]||[]).concat(linked).concat(raw.filter(f=>re.test(norm(f.title))&&!classifyTpl(f.title))).forEach(f=>{if(seen.has(f.id))return;seen.add(f.id);list.push(f)});
+    (S.extra[a.id]||[]).concat(linked).concat(raw.filter(f=>f.linked||(re.test(norm(f.title))&&!classifyTpl(f.title)))).forEach(f=>{if(seen.has(f.id))return;seen.add(f.id);list.push(f)});
     list.forEach(f=>{f.kind=f.lk||( /\btest\b/i.test(f.title)?"test":/\bscheda\b/i.test(f.title)?"scheda":/valutazione|\bvf\b/i.test(f.title)?"vf":"scheda");f.current=f.id===a.sheetId||f.id===a.valId});
     list.sort((x,y)=>String(y.updated).localeCompare(String(x.updated)));
     S.files[a.id]={status:"ok",list};
@@ -612,23 +681,28 @@ async function ensureAlt(a){
 }
 async function loadHistory(a){
   const fl=await ensureFiles(a);if(fl.status!=="ok")return;
-  const files=fl.list.filter(f=>f.kind==="scheda").slice(0,8);
+  const files=fl.list.filter(f=>f.kind==="scheda"&&(f.linked||!NOT_SCHEDA.test(norm(f.title)))).slice(0,8);
   const H=S.hist[a.id]={status:"loading",done:0,total:files.length,items:[]};renderSoon();
-  for(const f of files){
-    let tabs=[{name:null,gid:null}];
-    try{const t=await S.adapter.tabs(f.id);if(t&&t.length)tabs=t.slice(0,12)}catch(e){}
-    H.total+=tabs.length-1;renderSoon();
-    for(const t of tabs){
-      try{
-        const r=await S.adapter.sheet(f.id,t.name,false);
-        const P=parseSheet(r.values);
-        if(hasPlan(P)){
-          const D=maxWeek(P)||6,pl=planFor(P,D);
-          const nm=t.name?String(t.name).replace(/\|/g,"").trim():"";
-          H.items.push({title:tabs.length>1&&nm?f.title+" · "+nm:f.title,date:P.meta.when||(tabs.length===1?anyDate(f.updated):null),pl,url:f.url});
-        }
-      }catch(e){}
-      H.done++;renderSoon();
+  const sigs=new Set();
+  for(let k=0;k<files.length;k+=4){
+    const chunk=files.slice(k,k+4);let B=[];
+    try{B=await S.adapter.bundle(chunk.map(f=>f.id),{maxTabs:12,maxRows:220})}catch(e){}
+    for(const f of chunk){
+      const b=B.find(x=>x&&x.id===f.id);H.done++;
+      if(!b||!b.tabs)continue;
+      const its=[];
+      b.tabs.forEach((t,idx)=>{
+        try{const P=parseSheet(t.values);if(P.kind!=="scheda"||!hasPlan(P))return;
+          const D=maxWeek(P)||6,pl=planFor(P,D);if(!pl.ex.length)return;
+          its.push({idx,name:t.name,num:numOfTab(t.name),when:P.meta.when||null,pl,P})}catch(e){}
+      });
+      inferDates({created:f.created||b.created,updated:f.updated||b.updated},its);
+      its.forEach(t=>{
+        const sig=t.pl.ex.map(e=>e.label+":"+e.perW.map(p=>p?p.kg+"x"+p.sets:"-").join(",")).join("|");if(sigs.has(sig))return;sigs.add(sig);
+        const nm=String(t.name||"").replace(/\|/g,"").trim();
+        H.items.push({title:b.tabs.length>1&&nm?f.title+" · "+nm:f.title,date:t.when,approx:!!t.approx,fixed:!!t.fixed,pl:t.pl,url:f.url});
+      });
+      renderSoon();
     }
   }
   H.status="ok";renderSoon();
@@ -821,6 +895,8 @@ function afterAtleta(a){
   if(!a.sheetId&&!S.alt[a.id]&&(S.tab==="scheda"||S.tab==="carichi")&&!S.files[a.id])ensureFiles(a).then(fl=>{const f=fl&&fl.list&&fl.list.find(x=>x.kind==="scheda");if(f&&!S.alt[a.id]&&!a.sheetId){S.alt[a.id]={id:f.id,title:f.title,auto:true};renderSoon()}});
   if((S.tab==="scheda"||S.tab==="carichi")&&S.alt[a.id])ensureAlt(a);
   if(S.tab==="scheda"&&!S.alt[a.id]&&a.sheetId&&!shOf(a))loadOneSheet(a,false);
+  if(S.tab==="scheda"&&a.sheetId&&!S.files[a.id])ensureFiles(a);
+  if((S.tab==="scheda"||S.tab==="carichi")&&shOf(a)&&shOf(a).status==="error")missingFallback(a,shOf(a).err);
   if(S.tab==="test"&&!S.tests[a.id])ensureTests(a);
   if(S.tab==="file"&&!S.files[a.id])ensureFiles(a);
   if(S.tab==="notion"&&!S.bodies[a.id])ensurePage(a);
@@ -847,14 +923,17 @@ function curSheet(a){
 }
 function tabScheda(a){
   const c=curSheet(a);let top="";
-  if(c.alt)top=c.alt.auto?`<div class="banner">In Notion non c'è il link alla scheda: ti mostro <b>${esc(c.alt.title)}</b>, la più recente trovata su Drive.</div>`:`<div class="banner">Stai guardando <b>${esc(c.alt.title)}</b><button class="btn sm" type="button" data-act="alt-off">Torna alla scheda attuale</button></div>`;
+  if(c.alt)top=c.alt.auto?`<div class="banner">${c.alt.why==="missing"?"Il link in Notion punta a un file che non esiste più":"In Notion non c'è il link alla scheda"}: ti mostro <b>${esc(c.alt.title)}</b>, la più recente trovata su Drive.</div>`:`<div class="banner">Stai guardando <b>${esc(c.alt.title)}</b><button class="btn sm" type="button" data-act="alt-off">Torna alla scheda attuale</button></div>`;
+  if(!c.alt&&a.sheetId){const fl=S.files[a.id];const cur=fl&&fl.status==="ok"&&fl.list.find(f=>f.id===a.sheetId);const cc=cur&&cur.created?+new Date(cur.created):0;
+    const nw=cc&&fl.list.filter(f=>f.kind==="scheda"&&f.id!==a.sheetId&&f.created&&+new Date(f.created)>cc+14*864e5&&!/vecchi|archivio|layout|\bprove?\b|copia|copy/.test(norm(f.title))).sort((x,y)=>String(y.created).localeCompare(String(x.created)))[0];
+    if(nw)top+=`<div class="banner">Su Drive c'è una scheda più recente: <b>${esc(nw.title)}</b>, creata il ${fdy(anyDate(nw.created))}. In Notion il link punta ancora a quella vecchia.<button class="btn sm" type="button" data-alt="${esc(nw.id)}" data-title="${esc(nw.title)}">Mostra la più recente</button></div>`}
   if(!c.alt&&!a.sheetId&&(!S.files[a.id]||S.files[a.id].status==="loading"))return`<p class="loading">In Notion non c'è il link alla scheda: la cerco su Drive…</p>`;
   if(!c.alt&&!a.sheetId)return`<div class="empty">Nessuna scheda collegata a ${esc(a.name)} in Notion (${a.src==="vf"?"campo Scheda":"campo Training Program"}).<br><br><button class="btn pri" type="button" data-new="scheda" data-aid="${a.id}">${ICON.plus}Crea la scheda dal template</button></div>`;
   if(c.loading)return top+`<p class="loading">Leggo la scheda da Google Sheets…</p>`;
   if(c.sh.status==="error")return top+errBox(c.sh.err,"Google Sheets","reload-sheet");
   const sh=c.sh,P=sh.P;
   if(!P.sections.length)return top+`<div class="empty">Ho aperto il file (foglio "${esc(sh.tab)}") ma non trovo la tabella con la colonna ESERCIZIO.</div>`;
-  const per=P.meta.periodo||(P.meta.numero?"Scheda "+P.meta.numero+(P.meta.when?" · "+fdy(P.meta.when):""):"");
+  const per=(P.meta.periodo&&P.meta.when?P.meta.periodo.replace(/\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4}/,fdy(P.meta.when)):P.meta.periodo)||(P.meta.numero?"Scheda "+P.meta.numero+(P.meta.when?" · "+fdy(P.meta.when):""):P.meta.when?"Scheda del "+fdy(P.meta.when):"");
   top+=`<div class="srcbar"><span>${per?"<b>"+esc(per)+"</b> · ":""}${sh.tab?"foglio "+esc(sh.tab.replace(/\|/g,"").trim())+" · ":""}Le modifiche vanno direttamente nel file</span><a href="${esc(sh.url)}" target="_blank" rel="noopener">Apri in Google Sheets ↗</a></div>`;
   return top+sectionsHtml(P,{where:c.where,aid:a.id,sheetId:sh.id,tab:sh.tab});
 }
@@ -877,7 +956,7 @@ function itemHtml(sec,it,ctx){
     const ris=get("ris");
     body=`<div class="res ${ris?"":"none"}">${esc(ris||"—")}</div>${get("prot")?`<div class="ex-no">${esc(get("prot"))}</div>`:""}${get("note")?`<div class="ex-no">${esc(get("note"))}</div>`:""}`;
   }else{
-    const schema=get("schema")||get("exs")||[get("serie")&&get("serie")+" serie",get("rip"),get("rec")&&"rec. "+get("rec")].filter(Boolean).join(" · ");
+    const schema=sec.cols.filter(c=>c.key==="schema").map(c=>(it.cells[c.c]||"").trim()).filter(Boolean).join("\n\n")||get("exs")||[get("serie")&&get("serie")+" serie",get("rip"),get("rec")&&"rec. "+get("rec")].filter(Boolean).join(" · ");
     body=`${schema?`<div class="ex-s">${esc(schema)}</div>`:""}${get("note")?`<div class="ex-no">${esc(get("note"))}</div>`:""}`;
     sec.cols.filter(c=>c.key==="x"||(c.key==="ris"&&sec.kind!=="test")).forEach(c=>{const v=(it.cells[c.c]||"").trim();if(v)body+=`<div class="ex-no"><b>${esc(c.label)}:</b> ${esc(v)}</div>`});
     if(sec.cols.some(c=>c.key==="fb")){const f=it.fb.filter(x=>x.text);body+=f.length?`<div class="fb">${f.map(x=>`<div class="fb-i"><span class="fb-w ${x.tone}">${x.week?"S"+x.week:"—"}</span><span>${esc(x.text)}</span></div>`).join("")}</div>`:`<div class="fb-none">Nessun feedback</div>`}
@@ -983,11 +1062,11 @@ function tabCarichi(a){
       if(!best[k]||sets>best[k].sets||(sets===best[k].sets&&kg>best[k].kg))best[k]={kg,sets,label:e.label}});
       Object.keys(best).forEach(k=>{if(!map[k]){map[k]={label:best[k].label,v:[]};order.push(k)}map[k].v[ii]=best[k].kg})});
     const good=order.filter(k=>map[k].v.filter(v=>v!=null).length>=2);
-    const labels=items.map(i=>fd(i.date)+"/"+String(i.date.getFullYear()).slice(2));
-    h+=good.length?`<div class="cards">${good.map(k=>{const pts=items.map((_,i)=>map[k].v[i]==null?null:map[k].v[i]);const vs=pts.filter(v=>v!=null);return`<div class="card"><h4>${esc(map[k].label)}</h4><p>${vs.length} schede · ${vs[0]} → ${vs[vs.length-1]} kg</p>${lineChart(pts,labels,null)}</div>`}).join("")}</div>`
+    const labels=items.map(i=>(i.approx?"~":"")+fd(i.date)+"/"+String(i.date.getFullYear()).slice(2));
+    h+=good.length?`<div class="cards">${good.map(k=>{const ix=items.map((_,i)=>i).filter(i=>map[k].v[i]!=null),vs=ix.map(i=>map[k].v[i]);return`<div class="card"><h4>${esc(map[k].label)}</h4><p>${vs.length} schede · ${vs[0]} → ${vs[vs.length-1]} kg</p>${lineChart(vs,ix.map(i=>labels[i]),null)}</div>`}).join("")}</div>`
       :`<div class="empty">Ho letto ${hs.items.length} schede ma nessun esercizio con carico in kg compare in almeno due.</div>`;
-    const nod=hs.items.filter(i=>!i.date).map(i=>i.title);
-    h+=`<p class="foot">Schede lette (${hs.items.length}): ${esc(items.map(i=>i.title+(i.date?" ("+fdy(i.date)+")":"")).join(" · ")||"nessuna")}.${nod.length?" Senza data, escluse dal grafico: "+esc(nod.join(", "))+".":""} Carico massimo programmato in ogni scheda, non l'eseguito.</p><button class="btn sm ghost" type="button" data-act="history">Ricarica lo storico</button>`;
+    const nod=hs.items.filter(i=>!i.date).map(i=>i.title),apx=items.some(i=>i.approx);
+    h+=`<p class="foot">Schede lette (${hs.items.length}): ${esc(items.map(i=>i.title+(i.date?" ("+(i.approx?"~":"")+fdy(i.date)+")":"")).join(" · ")||"nessuna")}.${nod.length?" Senza data, escluse dal grafico: "+esc(nod.join(", "))+".":""}${apx?" ~ = data stimata (nel foglio manca la data: uso il mese nel nome del foglio, l'ordine dei fogli e le date del file).":""} Carico massimo programmato in ogni scheda, non l'eseguito.</p><button class="btn sm ghost" type="button" data-act="history">Ricarica lo storico</button>`;
   }
   return h+`</section>`;
 }

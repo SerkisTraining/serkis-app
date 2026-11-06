@@ -25,7 +25,7 @@ const CONFIG = {
   VF_DS: "800b8a16-6f27-4a04-984f-3f9e2ce7f640",
   VF_DB: "d2f147fd8bc840c3ac5b78e509ef365f"
 };
-const VERSION = "1.1";
+const VERSION = "1.2";
 
 /* ---------- installazione ---------- */
 function setup() {
@@ -321,28 +321,34 @@ function sheets_(req) {
   return { sheets: out };
 }
 
+// File su Drive per cognome, più i file collegati in Notion (anche con soprannomi nel titolo)
 function files_(req) {
   const parts = String(req.name || "").trim().split(/\s+/), sur = parts[parts.length - 1] || "";
-  if (sur.length < 2) return { files: [] };
-  const it = DriveApp.searchFiles('title contains "' + sur.replace(/"/g, "") + '" and mimeType = "application/vnd.google-apps.spreadsheet" and trashed = false');
-  const out = [];
-  while (it.hasNext() && out.length < 40) {
-    const f = it.next();
-    out.push({ id: f.getId(), title: f.getName(), url: f.getUrl(), updated: f.getLastUpdated().toISOString() });
+  const out = [], seen = {};
+  const push = function (f, linked) {
+    if (seen[f.getId()]) return; seen[f.getId()] = 1;
+    out.push({ id: f.getId(), title: f.getName(), url: f.getUrl(), updated: f.getLastUpdated().toISOString(), created: f.getDateCreated().toISOString(), linked: !!linked });
+  };
+  (req.ids || []).slice(0, 6).forEach(function (id) {
+    try { const f = DriveApp.getFileById(id); if (!f.isTrashed() && f.getMimeType() === MimeType.GOOGLE_SHEETS) push(f, true); } catch (e) {}
+  });
+  if (sur.length >= 2) {
+    const it = DriveApp.searchFiles('title contains "' + sur.replace(/"/g, "") + '" and mimeType = "application/vnd.google-apps.spreadsheet" and trashed = false');
+    while (it.hasNext() && out.length < 46) push(it.next(), false);
   }
   return { files: out };
 }
 
 function bundle_(req) {
-  const out = [];
+  const out = [], maxT = Math.min(Number(req.maxTabs) || 12, 12), maxR = Math.min(Number(req.maxRows) || 150, 220), maxC = req.maxRows ? 12 : 10;
   (req.ids || []).slice(0, 5).forEach(function (id) {
     try {
       const ss = SpreadsheetApp.openById(id), f = DriveApp.getFileById(id);
-      const tabs = ss.getSheets().slice(0, 12).map(function (sh) {
-        const lr = Math.min(sh.getLastRow(), 150), lc = Math.min(sh.getLastColumn(), 10);
-        return { name: sh.getName(), values: (lr > 0 && lc > 0) ? trim_(sh.getRange(1, 1, lr, lc).getDisplayValues()) : [] };
+      const tabs = ss.getSheets().slice(0, maxT).map(function (sh) {
+        const lr = Math.min(sh.getLastRow(), maxR), lc = Math.min(sh.getLastColumn(), maxC);
+        return { name: sh.getName(), gid: String(sh.getSheetId()), values: (lr > 0 && lc > 0) ? trim_(sh.getRange(1, 1, lr, lc).getDisplayValues()) : [] };
       });
-      out.push({ id: id, title: ss.getName(), url: ss.getUrl(), updated: f.getLastUpdated().toISOString(), tabs: tabs });
+      out.push({ id: id, title: ss.getName(), url: ss.getUrl(), updated: f.getLastUpdated().toISOString(), created: f.getDateCreated().toISOString(), tabs: tabs });
     } catch (e) { out.push({ id: id, error: e.message }); }
   });
   return { files: out };
