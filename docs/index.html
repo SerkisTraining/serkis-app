@@ -377,7 +377,7 @@ const ICON={
 const S={
   mode:IN_CLAUDE?"claude":"app",adapter:null,cfg:null,
   athletes:[],sheets:{},notes:[],notesState:"idle",notesErr:null,
-  files:{},tests:{},bodies:{},hist:{},ai:{},alt:{},sessSel:{},
+  files:{},tests:{},bodies:{},hist:{},ai:{},alt:{},sessSel:{},pickTab:{},
   view:"oggi",sel:null,tab:"scheda",prev:"oggi",
   filter:{sede:"all",stato:"attivi",focus:null,q:""},sort:"urgenza",
   load:{state:"idle",err:null,at:null},edit:null,editErr:null,saving:false,
@@ -471,7 +471,7 @@ function colKey(label){
 }
 const MONO={schema:1,serie:1,rip:1,rec:1,ris:1,exs:1};
 function slotTitle(t){const m=String(t).trim().match(/^(G|D|DAY|GIORNO|SEDUTA)\s*(\w+)$/i);if(!m)return t;const k=m[1].toUpperCase();return(k==="G"||k==="GIORNO"?"Giorno ":k==="SEDUTA"?"Seduta ":"Day ")+m[2]}
-const METH=/^(jump\s*set|super\s*set|superserie|giant\s*set|drop\s*set|circuito|e\d*["″'’′]?mom|amrap|ladder|cluster|ramping|tabata|blocco|accumulo|density|rest[\s-]*pause|rt\b|rxt\b|rest\b|recuper|poi fai|dopo |riscald|defatic|finisher|round\b)/i;
+const METH=/^(?:\d+\s*[x×]?\s*)?(jump\s*set|super\s*set|superserie|giant\s*set|drop\s*set|circuito|e\d*["″'’′]?mom|amrap|ladder|cluster|ramping|tabata|blocco|accumulo|density|rest[\s-]*pause|rt\b|rxt\b|rest\b|recuper|poi fai|dopo |riscald|defatic|finisher|round\b)/i;
 // blocchi a tempo o a giri (AMRAP, EMOM, circuiti): niente grafico dei kg
 const BLOCK=/^(amrap|e\d*["″'’′]?mom|circuito|tabata|round\b|finisher|density|accumulo)/i;
 function isNameLine(l){
@@ -686,6 +686,7 @@ function inferDates(fm,items){
   const lo=cr?cr-150*DAY:now-6*365*DAY,hi=Math.max(up||0,now)+60*DAY;
   items.forEach(t=>{if(!t.when)return;const y=t.when.getFullYear();
     for(const k of[0,1,2,-1,-10,-100,-900]){const c=new Date(t.when);c.setFullYear(y+k);if(+c>=lo&&+c<=hi){if(k)t.fixed=true;t.when=c;return}}});
+  if(up)items.forEach(t=>{if(t.when&&+t.when>up+45*DAY){t.when=null;t.fixed=true}});
   items.forEach(t=>{if(t.when)return;const mo=monthOfTab(t.name);if(mo==null)return;
     const ref=new Date(Math.min(up||now,now));for(let y=ref.getFullYear();y>=ref.getFullYear()-3;y--){const c=new Date(y,mo,1);if(+c<=hi&&+c>=lo){t.when=c;t.approx=true;return}}});
   const known=items.filter(t=>t.when).sort((x,y)=>x.idx-y.idx);let asc=true;
@@ -933,9 +934,30 @@ function cacheLoad(){
   Object.keys(c.sheets||{}).forEach(k=>setSheet(k,c.sheets[k]));
   S.load={state:"cached",err:null,at:new Date(c.at)};
 }
-function setSheet(aid,r){const P=parseSheet(r.values);S.sheets[aid]={status:"ok",id:r.id,tab:r.tab,values:r.values,url:r.url,P,an:analyze(P)}}
+function setSheet(aid,r){const P=parseSheet(r.values);const old=S.sheets[aid];S.sheets[aid]={status:"ok",id:r.id,tab:r.tab,tabs:r.tabs||(old&&old.id===r.id?old.tabs:null),values:r.values,url:r.url,P,an:analyze(P),picked:r.picked||null}}
+// File con più schede su fogli diversi: la scheda attuale è il foglio più recente (data nel foglio, stimata se manca)
+const resolving={};let resolveQ=Promise.resolve();
+function resolveTab(a){
+  const sh=S.sheets[a.id];if(!sh||sh.status!=="ok"||resolving[a.id+sh.id])return;resolving[a.id+sh.id]=1;
+  resolveQ=resolveQ.then(async()=>{
+    try{
+      let tabs=sh.tabs;if(!tabs&&S.adapter.tabs){try{tabs=(await S.adapter.tabs(sh.id)).map(t=>t.name)}catch(e){}}
+      if(!tabs||tabs.length<2)return;
+      const B=await S.adapter.bundle([sh.id],{maxTabs:12,maxRows:220});const b=B&&B.find(x=>x&&x.id===sh.id);if(!b||!b.tabs)return;
+      const its=[];b.tabs.forEach((t,idx)=>{try{const P=parseSheet(t.values);if(P.kind!=="scheda"||!hasPlan(P)||!P.sections.some(x=>x.items.some(i=>!i.empty)))return;its.push({idx,name:t.name,num:numOfTab(t.name),when:P.meta.when||null,values:t.values})}catch(e){}});
+      if(its.length<2)return;
+      const fl=S.files[a.id],fm=(fl&&fl.list&&fl.list.find(f=>f.id===sh.id))||{};
+      inferDates({created:fm.created||b.created,updated:fm.updated||b.updated},its);
+      const pool=its.filter(t=>!t.est).length?its.filter(t=>!t.est):its;
+      const cur=its.find(t=>t.name===sh.tab),best=pool.slice().sort((x,y)=>(+y.when-+x.when)||(y.idx-x.idx))[0];
+      if(!best||best.name===sh.tab||(cur&&!cur.est&&+cur.when>=+best.when))return;
+      const now=S.sheets[a.id];if(!now||now.id!==sh.id)return;
+      S.pickTab[a.id]=best.name;setSheet(a.id,{id:sh.id,tab:best.name,tabs,values:best.values,url:sh.url,picked:sh.tab});renderSoon();
+    }catch(e){}
+  });
+}
 async function loadAll(fresh){
-  S.load.state="loading";renderSoon();
+  S.load.state="loading";renderSoon();for(const k in resolving)delete resolving[k];
   try{
     const list=await S.adapter.athletes(fresh);
     S.athletes=finalize(list);S.load={state:"ok",err:null,at:new Date()};
@@ -966,6 +988,7 @@ async function scanSheets(fresh){
     renderSoon()}};
   await Promise.all([worker(),worker(),worker()]);
   scanning=false;renderSoon();
+  S.athletes.forEach(a=>{const sh=S.sheets[a.id];if(sh&&sh.status==="ok"&&(sh.tabs?sh.tabs.length>1:S.adapter.kind==="claude"))resolveTab(a)});
 }
 // link in Notion a un file che non esiste più: mostra la scheda più recente trovata su Drive
 function missingFallback(a,e){
@@ -974,7 +997,7 @@ function missingFallback(a,e){
 }
 async function loadOneSheet(a,fresh){
   if(!a.sheetId)return;if(!S.sheets[a.id]||S.sheets[a.id].status!=="ok")S.sheets[a.id]={status:"loading"};renderSoon();
-  try{setSheet(a.id,await S.adapter.sheet(a.sheetId,null,fresh,a.sheetGid))}catch(e){if(!S.sheets[a.id]||S.sheets[a.id].status!=="ok")S.sheets[a.id]={status:"error",err:e};
+  try{setSheet(a.id,await S.adapter.sheet(a.sheetId,S.pickTab[a.id]||null,fresh,S.pickTab[a.id]?null:a.sheetGid));resolveTab(a)}catch(e){if(!S.sheets[a.id]||S.sheets[a.id].status!=="ok")S.sheets[a.id]={status:"error",err:e};
     missingFallback(a,e)}
   renderSoon();
 }
@@ -1279,8 +1302,15 @@ function tabScheda(a){
   if(!c.alt&&!a.sheetId&&(!S.files[a.id]||S.files[a.id].status==="loading"))return`<p class="loading">In Notion non c'è il link alla scheda: la cerco su Drive…</p>`;
   if(!c.alt&&!a.sheetId)return`<div class="empty">Nessuna scheda collegata a ${esc(a.name)} in Notion (${a.src==="vf"?"campo Scheda":"campo Training Program"}).<br><br><button class="btn pri" type="button" data-new="scheda" data-aid="${a.id}">${ICON.plus}Crea la scheda dal template</button></div>`;
   if(c.loading)return top+`<p class="loading">Leggo la scheda da Google Sheets…</p>`;
-  if(c.sh.status==="error")return top+errBox(c.sh.err,"Google Sheets","reload-sheet");
+  if(c.sh.status==="error"){
+    const fl=S.files[a.id];if(c.where==="current"&&fl&&fl.status==="ok"&&!fl.list.some(x=>x.kind==="scheda"&&x.id!==a.sheetId)&&/mancante|not found|non trovat|404|eliminat|given id|requested entity/i.test(String(c.sh.err&&(c.sh.err.message||c.sh.err))))
+      return top+`<div class="empty">Il link in Notion (${a.src==="vf"?"campo Scheda":"campo Training Program"}) punta a un file che non esiste più, e su Drive non trovo altre schede con "${esc(surname(a.name))}" nel nome.<br><br>Aggiorna il link in Notion oppure collega il file dalla scheda <b>File</b>.</div>`;
+    return top+errBox(c.sh.err,"Google Sheets","reload-sheet");
+  }
   const sh=c.sh,P=sh.P;
+  if(c.where==="current"&&sh.picked)top+=`<div class="banner">Nel file ci sono più schede: ti mostro il foglio più recente, <b>${esc(String(sh.tab).replace(/\|/g,"").trim())}</b>. Il link in Notion indicava il foglio ${esc(String(sh.picked).replace(/\|/g,"").trim())}.</div>`;
+  if(c.where==="current"&&P.sections.length&&!P.sections.some(x=>x.items.some(i=>!i.empty))){const fl=S.files[a.id];const o=fl&&fl.status==="ok"&&fl.list.filter(f=>f.kind==="scheda"&&f.id!==sh.id&&!/vecchi|archivio|layout|\bprove?\b|copia|copy/.test(norm(f.title))).sort((x,y)=>String(y.updated).localeCompare(String(x.updated)))[0];
+    if(o)top+=`<div class="banner">La scheda collegata in Notion è ancora vuota. Su Drive c'è <b>${esc(o.title)}</b>, modificata il ${fdy(anyDate(o.updated))}.<button class="btn sm" type="button" data-alt="${esc(o.id)}" data-title="${esc(o.title)}">Mostra questa</button></div>`}
   if(!P.sections.length)return top+`<div class="empty">Ho aperto il file (foglio "${esc(sh.tab)}") ma non trovo la tabella con la colonna ESERCIZIO.</div>`;
   const per=(P.meta.periodo&&P.meta.when?P.meta.periodo.replace(/\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4}/,fdy(P.meta.when)):P.meta.periodo)||(P.meta.numero?"Scheda "+P.meta.numero+(P.meta.when?" · "+fdy(P.meta.when):""):P.meta.when?"Scheda del "+fdy(P.meta.when):"");
   top+=`<div class="srcbar"><span>${per?"<b>"+esc(per)+"</b> · ":""}${sh.tab?"foglio "+esc(sh.tab.replace(/\|/g,"").trim())+" · ":""}Le modifiche vanno direttamente nel file</span><a href="${esc(sh.url)}" target="_blank" rel="noopener">Apri in Google Sheets ↗</a></div>`;
