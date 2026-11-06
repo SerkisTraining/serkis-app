@@ -1,6 +1,6 @@
 (function(){
 "use strict";
-const VERSION="1.2";
+const VERSION="1.3";
 const NOTES_ID="1jzW0uELNty_8Dx0AWhwJXzg7YObm6Nr_fYbNlP0Z3mo";
 const NOTES_URL="https://docs.google.com/spreadsheets/d/"+NOTES_ID+"/edit";
 const DS_COACH="collection://264112d7-0f3d-80c1-9340-000bfe370a29";
