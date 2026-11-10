@@ -109,6 +109,26 @@ label.f{font-size:16px;font-weight:600}
 .err{padding:12px 14px;border-radius:14px;background:rgba(255,159,90,.1);border:1px solid rgba(255,159,90,.35);font-size:14px}
 .spin{width:28px;height:28px;margin:0 auto;border-radius:50%;border:3px solid var(--s3);border-top-color:var(--y);animation:sp 1s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
+@keyframes in-r{from{opacity:0;transform:translateX(18px)}to{opacity:1;transform:none}}
+@keyframes in-l{from{opacity:0;transform:translateX(-18px)}to{opacity:1;transform:none}}
+@keyframes in-u{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes fd{from{opacity:0}to{opacity:1}}
+@keyframes tap{0%{transform:scale(.92)}60%{transform:scale(1.03)}100%{transform:scale(1)}}
+@keyframes okpop{0%{opacity:0;transform:scale(.6) rotate(-8deg)}70%{opacity:1;transform:scale(1.06)}100%{transform:none}}
+.in-r{animation:in-r .3s cubic-bezier(.2,.7,.2,1)}
+.in-l{animation:in-l .3s cubic-bezier(.2,.7,.2,1)}
+.in-u{animation:in-u .32s cubic-bezier(.2,.7,.2,1)}
+.fd{animation:fd .22s ease}
+.tap{animation:tap .24s cubic-bezier(.2,.7,.2,1)}
+.ok-ic{animation:okpop .5s cubic-bezier(.2,.9,.3,1.2) both}
+.in-u .sum{animation:in-u .34s cubic-bezier(.2,.7,.2,1) both}
+.in-u .sum:nth-child(2){animation-delay:.12s}.in-u .sum:nth-child(3){animation-delay:.16s}.in-u .sum:nth-child(4){animation-delay:.2s}.in-u .sum:nth-child(5){animation-delay:.24s}.in-u .sum:nth-child(n+6){animation-delay:.28s}
+.bar i{transition:width .5s cubic-bezier(.2,.7,.2,1)}
+.btn,.it,.opt,.chip,.wk,.sw,.gl,.back,.nb-h,.fold>button{transition:transform .12s ease,background-color .18s,border-color .18s,color .18s}
+.btn:active{transform:scale(.97)}.it:active,.sw:active,.nb-h:active,.fold>button:active{transform:scale(.985)}
+.opt:active,.chip:active,.wk:active,.gl:active{transform:scale(.94)}
+.grp{transition:background-color .2s,border-color .2s}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 </style>
 </head><body>
 <div class="app" id="app"><div class="center"><div class="spin"></div>Carico la tua scheda…</div></div>
@@ -325,6 +345,13 @@ function weekLabel(w){
   return w<S.cur?"Settimana conclusa · rivedi cosa hai scritto":"Anteprima · il feedback si apre quando ci arrivi";
 }
 
+/* ---------- movimento ---------- */
+const calm=()=>window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;
+function anim(sel,cls){const el=typeof sel==="string"?document.querySelector(sel):sel;if(!el||calm())return;el.classList.remove(cls);void el.offsetWidth;el.classList.add(cls);const end=e=>{if(e.target!==el)return;el.classList.remove(cls);el.removeEventListener("animationend",end)};el.addEventListener("animationend",end)}
+const prog={};
+function slideBars(){document.querySelectorAll("[data-bar]").forEach(el=>{const k=el.dataset.bar,to=el.style.width;if(prog[k]!=null&&prog[k]!==to&&!calm()){el.style.transition="none";el.style.width=prog[k];void el.offsetWidth;el.style.transition="";el.style.width=to}prog[k]=to})}
+function tapped(b){if(!b||calm())return;const sel="[data-a=\""+b.dataset.a+"\"]"+(b.dataset.v!=null?"[data-v=\""+b.dataset.v+"\"]":"")+(b.dataset.w!=null?"[data-w=\""+b.dataset.w+"\"]":"")+(b.dataset.d!=null?"[data-d=\""+b.dataset.d+"\"]":"");const n=document.querySelector(sel);if(n)anim(n,"tap")}
+
 /* ---------- viste ---------- */
 function render(){
   const a=$("#app");
@@ -333,6 +360,7 @@ function render(){
   else if(S.screen==="day")a.innerHTML=vDay();
   else if(S.screen==="ex")a.innerHTML=vEx();
   else if(S.screen==="done")a.innerHTML=vDone();
+  slideBars();
 }
 function vDay(){
   const D=days()[S.day],w=S.week;
@@ -352,7 +380,7 @@ function vDay(){
       <div class="hint" style="padding:0 2px">${esc(weekLabel(w))}</div>
     </div>
     <div class="chips" style="grid-template-columns:repeat(${Math.min(days().length,4)},minmax(0,1fr))">${days().map((d,k)=>`<button class="chip ${k===S.day?"on":""}" data-a="day" data-d="${k}">${esc(d.label)}</button>`).join("")}</div>
-    ${ed?`<div class="prog"><div class="bar"><i style="width:${done/D.items.length*100}%"></i></div><span class="hint">${done} / ${D.items.length}</span></div>`:""}
+    ${ed?`<div class="prog"><div class="bar"><i data-bar="day" style="width:${done/D.items.length*100}%"></i></div><span class="hint">${done} / ${D.items.length}</span></div>`:""}
     <div class="list">${D.items.map((it,i)=>{
       const s=sent(S.day,i,w),sk=/^SALTATO/i.test(s),c=change(it,w);
       const sub=sk?s.replace(/^SALTATO\s*·?\s*/i,"Saltato · "):SK.doseFor(it.dose,w).split("\n").find(l=>l.trim())||"";
@@ -387,7 +415,7 @@ function vEx(){
     fb=`<div class="info">${IC.eye}<span>Anteprima. Il feedback si compila quando arrivi alla settimana ${w}.</span></div>`;
   }
   return`<div class="top"><div class="row"><button class="back" data-a="home">${IC.back}${esc(D.label)} · Sett. ${w}</button><span class="hint" style="font-size:14px">${i+1} / ${D.items.length}</span></div>
-    <div class="bar" style="height:4px"><i style="width:${(i+1)/D.items.length*100}%;${ed?"":"background:#6E6C66"}"></i></div></div>
+    <div class="bar" style="height:4px"><i data-bar="ex" style="width:${(i+1)/D.items.length*100}%;${ed?"":"background:#6E6C66"}"></i></div></div>
   <div class="scroll" style="padding-top:20px">
     <div style="display:flex;flex-direction:column;gap:8px">${c?`<span class="tag" style="align-self:flex-start;padding:4px 10px;font-size:12px">${esc(c)} rispetto alla sett. ${w-1}</span>`:""}<h1 class="ex-h1">${esc(it.name)}</h1></div>
     <div class="dose"><div class="t">${esc(dose.body||"—")}</div>
@@ -419,7 +447,7 @@ function vDone(){
 }
 
 /* ---------- azioni ---------- */
-function go(i){S.idx=i;S.note=false;S.gloss=null;S.err=null;S.screen="ex";render();window.scrollTo(0,0)}
+function go(i,dir){const back=dir==="back"||(S.screen==="ex"&&i<S.idx);S.idx=i;S.note=false;S.gloss=null;S.err=null;S.screen="ex";render();window.scrollTo(0,0);anim(".scroll",back?"in-l":"in-r")}
 async function save(){
   const d=S.day,i=S.idx,w=S.week,it=item(d,i),f=form(d,i,w),D=days()[d];
   if(!canSave(f)||S.saving)return;
@@ -431,7 +459,7 @@ async function save(){
       summary:D.items.map((x,k)=>x.name+": "+(k===i?text:sent(d,k,w))).join("\n"),
       meta:{day:D.label,exercise:it.name,rpe:f.skip?null:f.rpe,tec:f.skip?"":f.tec,pain:f.skip?null:f.pain,skip:!!f.skip,why:f.why||"",nota:f.skip?"":f.nota||""}});
     it.fb=r.cell;S.saving=false;
-    if(others){S.screen="done";render();window.scrollTo(0,0)}
+    if(others){S.screen="done";render();window.scrollTo(0,0);anim(".scroll","in-u")}
     else{const nx=D.items.findIndex((_,k)=>k>i&&!sent(d,k,w));go(nx>=0?nx:Math.min(i+1,D.items.length-1))}
   }catch(e){S.saving=false;S.err=e&&e.error?e.error:"Non sono riuscito a salvare. Controlla la connessione e riprova.";render()}
 }
@@ -440,20 +468,20 @@ document.addEventListener("click",e=>{
   const f=()=>form(S.day,S.idx,S.week);
   switch(a){
     case"retry":S.screen="load";render();load();break;
-    case"nb":S.nbOpen=!S.nbOpen;render();break;
-    case"week":S.week=+b.dataset.w;render();break;
-    case"day":S.day=+b.dataset.d;render();break;
+    case"nb":S.nbOpen=!S.nbOpen;render();if(S.nbOpen)anim(".nb-b","fd");break;
+    case"week":S.week=+b.dataset.w;render();tapped(b);anim(".list","fd");break;
+    case"day":S.day=+b.dataset.d;render();tapped(b);anim(".list","fd");break;
     case"start":case"open":go(+b.dataset.i);break;
-    case"home":S.screen="day";S.err=null;render();window.scrollTo(0,0);break;
-    case"prev":if(S.idx>0)go(S.idx-1);else{S.screen="day";render()}break;
-    case"next":if(S.idx<days()[S.day].items.length-1)go(S.idx+1);else{S.screen="day";render()}break;
-    case"note":S.note=!S.note;render();break;
-    case"gloss":S.gloss=S.gloss===b.dataset.v?null:b.dataset.v;render();break;
-    case"skip":f().skip=!f().skip;render();break;
-    case"rpe":f().rpe=+b.dataset.v;render();break;
-    case"tec":f().tec=b.dataset.v;render();break;
-    case"pain":{const k=fkey(S.day,S.idx,S.week);const open=S.pain[k]!=null?S.pain[k]:(f().pain!=null)||/fastidi|dolor/i.test(item(S.day,S.idx).note);S.pain[k]=!open;if(open)f().pain=null;render();break}
-    case"painv":{const n=+b.dataset.v;f().pain=f().pain===n?null:n;render();break}
+    case"home":S.screen="day";S.err=null;render();window.scrollTo(0,0);anim(".scroll","in-l");break;
+    case"prev":if(S.idx>0)go(S.idx-1,"back");else{S.screen="day";render();anim(".scroll","in-l")}break;
+    case"next":if(S.idx<days()[S.day].items.length-1)go(S.idx+1);else{S.screen="day";render();anim(".scroll","in-l")}break;
+    case"note":S.note=!S.note;render();if(S.note)anim(".fold>div","fd");break;
+    case"gloss":S.gloss=S.gloss===b.dataset.v?null:b.dataset.v;render();if(S.gloss)anim(".gloss","fd");break;
+    case"skip":f().skip=!f().skip;render();anim(f().skip?"#why":".q","fd");break;
+    case"rpe":f().rpe=+b.dataset.v;render();tapped(b);break;
+    case"tec":f().tec=b.dataset.v;render();tapped(b);break;
+    case"pain":{const k=fkey(S.day,S.idx,S.week);const open=S.pain[k]!=null?S.pain[k]:(f().pain!=null)||/fastidi|dolor/i.test(item(S.day,S.idx).note);S.pain[k]=!open;if(open)f().pain=null;render();if(!open)anim(".g6","fd");break}
+    case"painv":{const n=+b.dataset.v;f().pain=f().pain===n?null:n;render();tapped(b);break}
     case"save":save();break;
   }
 });

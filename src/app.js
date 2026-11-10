@@ -847,7 +847,10 @@ function render(){
   const ae=document.activeElement;
   if(ae&&$("#main").contains(ae)&&/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)&&S.view===S.lastView&&S.sel===S.lastSel){pendingMain=true;return}
   pendingMain=false;S.lastView=S.view;S.lastSel=S.sel;renderMain();
+  const k=S.view+"|"+(S.sel||"");if(k!==S.animKey){S.animKey=k;anim($("#main"),"enter")}
 }
+const calm=()=>window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;
+function anim(el,cls){if(typeof el==="string")el=document.querySelector(el);if(!el||calm())return;el.classList.remove(cls);void el.offsetWidth;el.classList.add(cls);const end=e=>{if(e.target!==el)return;el.classList.remove(cls);el.removeEventListener("animationend",end)};el.addEventListener("animationend",end)}
 function renderBar(){
   const s=S.load,el=$("#sync");let t="";
   if(!S.adapter)t="";else if(s.state==="loading")t=S.athletes.length?"Aggiorno…":"Carico…";
@@ -1331,21 +1334,21 @@ document.addEventListener("click",async ev=>{
   if(t.dataset.sede){S.filter.sede=t.dataset.sede;savePrefs();render();return}
   if(t.dataset.new){initNuovo(t.dataset.new,t.dataset.aid||"");go("nuovo");return}
   if(t.dataset.nk){S.nuovo.kind=t.dataset.nk;S.nuovo.tpl="";S.nuovo.titleEdited=false;S.nuovo.notion=notionDefault(byId(S.nuovo.aid),t.dataset.nk);S.nuovo.date=iso(t.dataset.nk==="scheda"?nextMonday():today());render();return}
-  if(t.dataset.tab&&a){S.tab=t.dataset.tab;S.edit=null;savePrefs();render();return}
+  if(t.dataset.tab&&a){S.tab=t.dataset.tab;S.edit=null;savePrefs();render();anim("#tabbody","fade");return}
   if(t.dataset.sess&&a){S.sessSel[a.id]=t.dataset.sess;S.edit=null;render();return}
   if(t.dataset.edit){startEdit(+t.dataset.edit,t.dataset.sheet);return}
   if(t.dataset.slot){startEdit(+t.dataset.slot,t.dataset.sheet);return}
   if(t.dataset.alt&&a){S.alt[a.id]={id:t.dataset.alt,title:t.dataset.title};S.tab="scheda";S.edit=null;render();return}
   if(t.dataset.sig&&a){t.disabled=true;await addNote(a,{kind:"segnale",signal:t.dataset.sig,text:t.dataset.sig==="auto"?"":"Segnale impostato da te: "+LV[t.dataset.sig],week:a.wk&&!a.wk.future?a.wk.week:null});return}
   if(t.dataset.del){if(S.delArm!==t.dataset.del){S.delArm=t.dataset.del;render();return}const id=S.delArm;S.delArm=null;delNote(id);return}
-  if(t.dataset.fbday!=null){S.fbView.day=+t.dataset.fbday;render();return}
-  if(t.dataset.fbmode){S.fbView.mode=t.dataset.fbmode;render();return}
-  if(t.dataset.fbweek){S.fbView.week=+t.dataset.fbweek;render();return}
+  if(t.dataset.fbday!=null){S.fbView.day=+t.dataset.fbday;render();anim(".fb-list,.fb-ex-list","fade");return}
+  if(t.dataset.fbmode){S.fbView.mode=t.dataset.fbmode;render();anim(".fb-list,.fb-ex-list","fade");return}
+  if(t.dataset.fbweek){S.fbView.week=+t.dataset.fbweek;render();anim(".fb-list","fade");return}
   if(t.dataset.clset&&a){const c=S.clients[a.id];if(!c)return;S.clientBusy=true;render();
     try{const n=await S.adapter.clientSet(c.token,{[t.dataset.clset]:!c[t.dataset.clset]});S.clients[a.id]=Object.assign(c,n)}catch(e){toast("Non riesco a salvare: "+errText(e))}
     S.clientBusy=false;render();return}
   const act=t.dataset.act;if(!act)return;
-  if(act==="client"&&a){S.clientOpen=!S.clientOpen;S.renewArm=false;if(S.clientOpen&&S.clientsState!=="ok")loadClients();render();return}
+  if(act==="client"&&a){S.clientOpen=!S.clientOpen;S.renewArm=false;if(S.clientOpen&&S.clientsState!=="ok")loadClients();render();if(S.clientOpen)anim(".cl-panel","drop");return}
   if(act==="client-create"&&a){S.clientBusy=true;render();try{S.clients[a.id]=await S.adapter.clientLink(a,true);pinClient(a)}catch(e){toast("Non riesco a creare il link: "+errText(e))}S.clientBusy=false;render();return}
   if(act==="client-copy"&&a){const c=S.clients[a.id];if(c)copyText(c.url,"Link copiato");return}
   if(act==="client-renew"&&a){if(!S.renewArm){S.renewArm=true;render();return}S.renewArm=false;const c=S.clients[a.id];S.clientBusy=true;render();
