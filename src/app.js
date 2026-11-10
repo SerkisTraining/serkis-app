@@ -1,6 +1,6 @@
 (function(){
 "use strict";
-const VERSION="1.3";
+const VERSION="2.0";
 const NOTES_ID="1jzW0uELNty_8Dx0AWhwJXzg7YObm6Nr_fYbNlP0Z3mo";
 const NOTES_URL="https://docs.google.com/spreadsheets/d/"+NOTES_ID+"/edit";
 const DS_COACH="collection://264112d7-0f3d-80c1-9340-000bfe370a29";
@@ -21,6 +21,8 @@ const ICON={
   ext:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>',
   edit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/></svg>',
   plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>',
+  link:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>',
+  chat:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 20l1.4-4.2A8 8 0 1 1 8.6 19z"/></svg>',
   copy:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="1"/><path d="M5 15V5a1 1 0 0 1 1-1h10"/></svg>'
 };
 
@@ -33,7 +35,8 @@ const S={
   filter:{sede:"all",stato:"attivi",focus:null,q:""},sort:"urgenza",
   load:{state:"idle",err:null,at:null},edit:null,editErr:null,saving:false,
   templates:null,tplErr:null,nuovo:null,created:null,creating:false,createErr:null,
-  drafts:{},extra:{},nav:0,delArm:null,unlinkArm:false,setupErr:null,setupBusy:false
+  drafts:{},extra:{},nav:0,delArm:null,unlinkArm:false,setupErr:null,setupBusy:false,
+  clients:{},clientsState:"idle",clientOpen:false,clientBusy:false,fbLog:[],fbView:{mode:"week",week:null,day:0},pinned:{}
 };
 (function(){const p=store.get("prefs",{});if(p.sede)S.filter.sede=p.sede;if(p.stato)S.filter.stato=p.stato;if(p.sort)S.sort=p.sort;if(p.tab)S.tab=p.tab})();
 function savePrefs(){store.set("prefs",{sede:S.filter.sede,stato:S.filter.stato,sort:S.sort,tab:S.tab})}
@@ -376,8 +379,29 @@ function autoSignal(a){
     else if(done-an.lastFb>=2){if(level==="ok")level="warn";reasons.push("Feedback fermo alla S"+an.lastFb+" (siamo alla S"+wk+")")}
     else if(done-an.lastFb===1)reasons.push("Manca ancora il feedback della S"+done);
   }
+  const al=clientAlerts(a),wkNow=a.wk&&!a.wk.future?a.wk.week:99;
+  al.filter(x=>x.kind==="hard").forEach(x=>{level="bad";reasons.unshift("Sempre al limite · "+x.text)});
+  al.filter(x=>x.kind==="easy").forEach(x=>{if(level==="ok")level="warn";reasons.push("Sempre facile · "+x.text)});
+  al.filter(x=>x.kind==="skip"&&x.week>=wkNow-1).forEach(x=>{if(level==="ok")level="warn";reasons.push("Esercizio saltato · "+x.text)});
   if(!reasons.length)reasons.push(an.lastFb?"Feedback regolare fino alla S"+an.lastFb:"Scheda appena iniziata");
   return{level,reasons};
+}
+function skOf(sh){if(!sh||!sh.values)return null;if(!sh.SK){try{sh.SK=SK.parse(sh.values)}catch(e){sh.SK={days:[],nb:[],methods:{}}}}return sh.SK}
+function clientAlerts(a){const sh=shOf(a);if(!sh||sh.status!=="ok")return[];const P=skOf(sh);if(!P||!P.days.length)return[];return SK.alerts(P,a.wk&&!a.wk.future?Math.max(a.wk.week,1):12)}
+function lastSession(a){
+  const L=S.fbLog.filter(x=>x.athleteId===a.id);if(!L.length)return null;
+  const x=L.reduce((m,y)=>y.at>m.at?y:m,L[0]);const d=new Date(x.at);
+  return{day:x.day,week:+x.week,date:isNaN(d)?null:d,text:(x.day||"Allenamento")+" · sett. "+x.week+(isNaN(d)?"":" · "+["dom","lun","mar","mer","gio","ven","sab"][d.getDay()]+" "+fd(d))};
+}
+function sessionDates(a,week){const out={};S.fbLog.filter(x=>x.athleteId===a.id&&+x.week===week).forEach(x=>{if(!out[x.day]||x.at>out[x.day])out[x.day]=x.at});return out}
+function linkSig(a){return(a.sheetLinks||[]).map(l=>l.id+(l.gid?":"+l.gid:"")).join(",")}
+function pinClient(a){
+  const c=S.clients[a.id];if(!c||!S.adapter||!S.adapter.caps.client)return;
+  const cs=curSheet(a);if(cs.loading||!cs.sh||cs.sh.status==="error")return;
+  const id=cs.where==="alt"?cs.alt.id:cs.sh.id,tab=cs.sh.tab||"",sig=linkSig(a);
+  if(!id||(c.pinSheet===id&&c.pinTab===tab&&c.pinSig===sig)||S.pinned[a.id]===id+tab+sig)return;
+  S.pinned[a.id]=id+tab+sig;
+  S.adapter.clientPin(a,id,tab,sig).then(()=>{c.pinSheet=id;c.pinTab=tab;c.pinSig=sig}).catch(()=>{delete S.pinned[a.id]});
 }
 function signalOf(a){const c=coachSignal(a.id);if(c)return{level:c.signal,reasons:[c.text||"Segnale impostato da te"],manual:true,date:c.createdAt};return autoSignal(a)}
 const LV={ok:"Va bene",warn:"Da guardare",bad:"Attenzione",none:"Senza dati"};
@@ -441,7 +465,7 @@ function scriptAdapter(cfg){
     return j;
   }
   return{
-    kind:"script",batch:6,caps:{ai:false,notionWrite:true},
+    kind:"script",batch:6,caps:{ai:false,notionWrite:true,client:true},
     ping:()=>call("ping",{},20000),
     athletes:async fresh=>(await call("athletes",{fresh})).athletes,
     sheets:async(ids,fresh,gids)=>(await call("sheets",{ids,fresh,gids:gids||{}})).sheets,
@@ -455,7 +479,12 @@ function scriptAdapter(cfg){
     create:req=>call("create",req,120000),
     notes:async()=>(await call("notes")).notes,
     noteAdd:async n=>(await call("noteAdd",{note:n})).note,
-    noteDel:n=>call("noteDel",{id:n.id})
+    noteDel:n=>call("noteDel",{id:n.id}),
+    clients:async()=>(await call("clients")).clients,
+    clientLink:async(a,create)=>(await call("clientLink",{athleteId:a.id,athleteName:a.name,create:!!create})).client,
+    clientSet:async(token,o)=>(await call("clientSet",Object.assign({token},o))).client,
+    clientPin:(a,sheetId,tab,sig)=>call("clientPin",{athleteId:a.id,sheetId,tab,sig}),
+    fbLog:async since=>(await call("fbLog",{since})).log
   };
 }
 function claudeAdapter(mcp,sample){
@@ -614,6 +643,7 @@ async function loadAll(fresh){
     S.athletes=finalize(list);S.load={state:"ok",err:null,at:new Date()};
     route(true);renderSoon();
     loadNotes();
+    loadClients();
     await scanSheets(fresh);
     cacheSave();
   }catch(e){S.load={state:"error",err:e,at:S.load.at};renderSoon()}
@@ -622,6 +652,16 @@ async function loadNotes(){
   if(!S.notes.length)S.notesState="loading";renderSoon();
   try{S.notes=(await S.adapter.notes()).sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));S.notesState="ok";cacheSave()}
   catch(e){S.notesState="error";S.notesErr=e}
+  renderSoon();
+}
+async function loadClients(){
+  if(!S.adapter||!S.adapter.caps.client)return;
+  S.clientsState="loading";
+  try{
+    const since=iso(addDays(today(),-120));
+    const [cl,lg]=await Promise.all([S.adapter.clients(),S.adapter.fbLog(since).catch(()=>[])]);
+    S.clients={};cl.forEach(c=>{S.clients[c.athleteId]=c});S.fbLog=lg||[];S.clientsState="ok";
+  }catch(e){S.clientsState="error"}
   renderSoon();
 }
 let scanning=false;
@@ -896,19 +936,21 @@ function viewAtleta(a){
   if(a.src==="coach"){facts.push(["Settimana",w?(w.future?"inizia "+fd(a.startD):w.week+(a.dur?" di "+a.dur:"")):"—"]);facts.push(["Scheda",a.startD?fd(a.startD)+" → "+(w&&w.end?fdy(w.end):"?"):"—"]);if(a.subD)facts.push(["Abbonamento dal",fdy(a.subD)])}
   else{facts.push(["Settimana protocollo",w?(w.future?"inizia "+fd(a.startD):String(w.week)):"—"]);facts.push(["Inizio programma",fdy(a.startD)]);facts.push(["Prima valutazione",fdy(a.evalD)])}
   const sh=shOf(a);if(sh&&sh.status==="ok"&&sh.P.meta.periodo)facts.push(["In scheda",sh.P.meta.periodo]);
+  const ls=lastSession(a);if(ls)facts.push(["Ultimo allenamento",ls.text]);
   const sUrl=a.sheetId?"https://docs.google.com/spreadsheets/d/"+a.sheetId+"/edit":null;
   const chips=[`<span class="pill ink">${SEDE[a.sede]}</span>`,a.tag&&a.src==="coach"?`<span class="pill">${esc(a.tag)}</span>`:"",`<span class="pill ${a.status==="In corso"?"ok":isTest(a)?"ink":a.status==="Da fare"?"warn":""}">${esc(a.status)}</span>`,a.active&&w&&w.scad?`<span class="pill ${w.scad.level}">${esc(w.scad.label)}</span>`:""].join("");
   const acts=[sUrl?`<a class="btn pri" href="${esc(sUrl)}" target="_blank" rel="noopener">${ICON.ext}Apri scheda</a>`:"",
     `<button class="btn" type="button" data-new="${a.src==="vf"?"scheda":"scheda"}" data-aid="${a.id}">${ICON.plus}Nuova scheda</button>`,
     `<button class="btn" type="button" data-new="${a.src==="vf"?"vf":a.sede==="stenika"?"test-presenza":"test-online"}" data-aid="${a.id}">${ICON.plus}${a.src==="vf"?"Nuova valutazione":"Nuovo test"}</button>`,
     a.notionUrl?`<a class="btn ghost" href="${esc(a.notionUrl)}" target="_blank" rel="noopener">${ICON.ext}Notion</a>`:"",
+    S.adapter.caps.client?`<button class="btn${S.clientOpen?" on":""}" type="button" data-act="client" aria-expanded="${S.clientOpen}">${ICON.link}Link cliente</button>`:"",
     !S.adapter.caps.ai?`<button class="btn ghost" type="button" data-act="copy-ai">${ICON.copy}Copia per Claude</button>`:""].join("");
-  const tabs=[["scheda","Scheda"],["test",a.src==="vf"?"Valutazione":"Test"],["carichi","Carichi"],["note","Note"],["file","File"],["notion","Notion"]];
+  const tabs=[["feedback","Feedback"],["scheda","Scheda"],["test",a.src==="vf"?"Valutazione":"Test"],["carichi","Carichi"],["note","Note"],["file","File"],["notion","Notion"]];
   if(S.adapter.caps.ai)tabs.push(["ai","Analisi AI"]);
   if(!tabs.some(t=>t[0]===S.tab))S.tab="scheda";
   return`<div class="a-top"><h1 class="disp a-name">${esc(a.name)}</h1><div class="chips">${chips}</div>${plates}
     <dl class="facts">${facts.map(([k,v])=>`<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>
-    <div class="actions">${acts}</div></div>
+    <div class="actions">${acts}</div>${S.clientOpen?clientPanel(a):""}</div>
     ${sigHtml(a)}
     <div class="tabs" role="tablist">${tabs.map(([k,l])=>`<button class="tab" role="tab" type="button" data-tab="${k}" aria-selected="${S.tab===k}">${l}</button>`).join("")}</div>
     <div id="tabbody">${tabBody(a)}</div>`;
@@ -917,12 +959,27 @@ function afterAtleta(a){
   if(!a)return;
   if(!a.sheetId&&!S.alt[a.id]&&(S.tab==="scheda"||S.tab==="carichi")&&!S.files[a.id])ensureFiles(a).then(fl=>{const f=fl&&fl.list&&fl.list.find(x=>x.kind==="scheda");if(f&&!S.alt[a.id]&&!a.sheetId){S.alt[a.id]={id:f.id,title:f.title,auto:true};renderSoon()}});
   if((S.tab==="scheda"||S.tab==="carichi")&&S.alt[a.id])ensureAlt(a);
-  if(S.tab==="scheda"&&!S.alt[a.id]&&a.sheetId&&!shOf(a))loadOneSheet(a,false);
+  if((S.tab==="scheda"||S.tab==="feedback")&&!S.alt[a.id]&&a.sheetId&&!shOf(a))loadOneSheet(a,false);
+  if(S.tab==="feedback"&&S.alt[a.id])ensureAlt(a);
+  pinClient(a);
   if(S.tab==="scheda"&&a.sheetId&&!S.files[a.id])ensureFiles(a);
   if((S.tab==="scheda"||S.tab==="carichi")&&shOf(a)&&shOf(a).status==="error")missingFallback(a,shOf(a).err);
   if(S.tab==="test"&&!S.tests[a.id])ensureTests(a);
   if(S.tab==="file"&&!S.files[a.id])ensureFiles(a);
   if(S.tab==="notion"&&!S.bodies[a.id])ensurePage(a);
+}
+function clientPanel(a){
+  const c=S.clients[a.id];
+  if(S.clientsState==="loading"&&!c)return`<section class="cl-panel"><p class="loading">Cerco il link di ${esc(a.name)}…</p></section>`;
+  if(!c)return`<section class="cl-panel"><div class="cl-h"><h3>Pagina cliente</h3></div><p class="hint">${esc(a.name)} non ha ancora un link. Crealo una volta: resta uguale per sempre e mostra sempre la scheda attuale collegata in Notion.</p><div class="ed-row"><button class="btn pri" type="button" data-act="client-create" ${S.clientBusy?"disabled":""}>${S.clientBusy?"Creo il link…":"Crea il link"}</button></div></section>`;
+  const first=a.name.split(" ")[0];
+  const msg=`Ciao ${first}! Da oggi la scheda la trovi qui: ${c.url}\n\nAprila dal telefono: vedi la giornata esercizio per esercizio e mi lasci il feedback direttamente lì. Salvala sulla schermata Home (iPhone: Condividi → Aggiungi alla schermata Home · Android: menu ⋮ → Aggiungi a schermata Home) così la apri come un'app.`;
+  const sw=(k,l,on)=>`<button class="cl-sw" type="button" role="switch" aria-checked="${on}" data-clset="${k}" ${S.clientBusy?"disabled":""}><span>${l}</span><span class="tr${on?" on":""}"><i></i></span></button>`;
+  return`<section class="cl-panel"><div class="cl-h"><h3>Pagina cliente</h3>${c.active?"":`<span class="pill bad">Disattivata</span>`}</div>
+    <div class="cl-link"><span class="mono">${esc(c.url)}</span></div>
+    <div class="ed-row"><button class="btn pri" type="button" data-act="client-copy">${ICON.copy}Copia link</button><a class="btn" href="https://wa.me/?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">${ICON.chat}Manda su WhatsApp</a><a class="btn ghost" href="${esc(c.url)}" target="_blank" rel="noopener">${ICON.ext}Apri come la vede</a></div>
+    <div class="cl-sws">${sw("active","Pagina attiva",c.active)}${sw("showFuture","Mostra le settimane future",c.showFuture)}${sw("notify","Email quando chiude una giornata",c.notify)}</div>
+    <p class="hint">Il link è lo stesso per tutte le schede: quando aggiorni il link in Notion, la pagina passa da sola alla scheda nuova. <button class="lnk" type="button" data-act="client-renew">${S.renewArm?"Conferma: crea un link nuovo (il vecchio smette di funzionare)":"Crea un link nuovo"}</button></p></section>`;
 }
 function sigHtml(a){
   const s=signalOf(a),cs=coachSignal(a.id);
@@ -933,7 +990,7 @@ function sigHtml(a){
 }
 function tabBody(a){
   switch(S.tab){
-    case"scheda":return tabScheda(a);case"test":return tabTest(a);case"carichi":return tabCarichi(a);
+    case"feedback":return tabFeedback(a);case"scheda":return tabScheda(a);case"test":return tabTest(a);case"carichi":return tabCarichi(a);
     case"note":return tabNote(a);case"file":return tabFile(a);case"notion":return tabNotion(a);case"ai":return tabAI(a);
   }return"";
 }
@@ -943,6 +1000,35 @@ function curSheet(a){
   if(alt&&alt.id===a.sheetId){delete S.alt[a.id];alt=null}
   if(alt)return{where:"alt",sh:alt.sh,loading:alt.loading||!alt.sh,alt};
   return{where:"current",sh:shOf(a),loading:!shOf(a)||["loading","queued"].includes(shOf(a).status)};
+}
+function tabFeedback(a){
+  const c=curSheet(a);
+  if(!c.alt&&!a.sheetId)return`<div class="empty">Nessuna scheda collegata in Notion.</div>`;
+  if(c.loading)return`<p class="loading">Leggo la scheda…</p>`;
+  if(c.sh.status==="error")return errBox(c.sh.err,"Google Sheets","reload-sheet");
+  const P=skOf(c.sh);
+  if(!P||!P.days.length)return`<div class="empty">Questa scheda ha un formato vecchio: i feedback li trovi nella scheda <b>Scheda</b>. La pagina cliente funziona con i template "Programmazione" e "Serkistraining".</div>`;
+  const dur=a.dur||P.weeks||6,now=a.wk&&!a.wk.future?Math.min(a.wk.week,dur):1,V=S.fbView;
+  if(V.aid!==a.id){V.aid=a.id;V.week=Math.max(now,1);V.day=0}
+  const w=V.week,D=P.days[Math.min(V.day,P.days.length-1)];
+  const kg=s=>{const m=String(s).match(/([\d,]+)\s*kg(?![\s\S]*kg)/i);return m?parseFloat(m[1].replace(",",".")):null};
+  const chg=(it,n)=>{if(n<2)return"";const x=SK.doseFor(it.dose,n-1),y=SK.doseFor(it.dose,n);if(x===y)return"";const p=kg(x),q=kg(y);return p!=null&&q!=null&&p!==q?(q>p?"+":"")+String(+(q-p).toFixed(2)).replace(".",",")+" kg":"cambia"};
+  const al=SK.alerts(P,dur),flag=(it,n)=>{const f=SK.readFb(it.fb,n),r=SK.rpeOf(f);
+    if(al.some(x=>x.ex===it.name&&x.kind==="hard"&&n<=x.week&&r===10))return"bad";if(/^SALTATO/i.test(f))return"warn";if(tone(f)==="bad")return"bad";if(r===10||tone(f)==="warn")return"warn";return f?"ok":""};
+  const dates=sessionDates(a,w);
+  let h=`<div class="fb-bar"><div class="seg2">${P.days.map((d,k)=>`<button type="button" data-fbday="${k}" class="${D===d?"on":""}">${esc(d.label)}</button>`).join("")}</div>
+    <div class="seg2">${[["week","Per settimana"],["ex","Per esercizio"]].map(([k,l])=>`<button type="button" data-fbmode="${k}" class="${V.mode===k?"on":""}">${l}</button>`).join("")}</div></div>`;
+  if(V.mode==="week"){
+    h+=`<div class="fb-weeks"><button class="btn sm" type="button" data-fbweek="${Math.max(1,w-1)}" aria-label="Settimana precedente" ${w<=1?"disabled":""}>‹</button>
+      <div class="fb-wk" style="--n:${dur}">${Array.from({length:dur},(_,i)=>i+1).map(n=>`<button type="button" data-fbweek="${n}" class="${n===w?"on":""}${n===now?" now":""}">S${n}</button>`).join("")}</div>
+      <button class="btn sm" type="button" data-fbweek="${Math.min(dur,w+1)}" aria-label="Settimana successiva" ${w>=dur?"disabled":""}>›</button></div>`;
+    const n=D.items.filter(it=>SK.readFb(it.fb,w)).length;
+    h+=`<div class="fb-st"><span>${w<now?"Settimana conclusa":w===now?"Settimana in corso":"Settimana "+w+" · non ancora iniziata"}</span><span class="pill ${n===D.items.length?"ok":""}">${n}/${D.items.length} feedback${dates[D.label]?" · fatto "+fd(new Date(dates[D.label])):""}</span></div>
+      <div class="fb-list">${D.items.map(it=>{const f=SK.readFb(it.fb,w),c=chg(it,w);return`<div class="fb-row"><div class="fb-ex"><b>${esc(it.name)}${c?` <span class="tagy">${esc(c)}</span>`:""}</b><span>${esc((SK.doseFor(it.dose,w).split("\n").find(l=>l.trim())||""))}</span></div><div class="fb-tx"><i class="dot ${flag(it,w)}"></i><span class="${f?"":"muted"}">${esc(f||(w>now?"—":"Nessun feedback"))}</span></div></div>`}).join("")}</div>`;
+  }else{
+    h+=`<p class="hint">Ogni esercizio con tutte le settimane affiancate.</p><div class="fb-ex-list">${D.items.map(it=>`<div class="fb-card"><b>${esc(it.name)}</b><div class="fb-cells">${Array.from({length:dur},(_,i)=>i+1).map(n=>{const f=SK.readFb(it.fb,n),c=chg(it,n);return`<div class="fb-cell ${flag(it,n)}${n===now?" now":""}"><div class="h"><span>S${n}</span><span class="tagy">${esc(c)}</span></div><div class="d">${esc(SK.doseFor(it.dose,n).split("\n").find(l=>l.trim())||"")}</div><div class="f${f?"":" muted"}">${esc(f||"—")}</div></div>`}).join("")}</div></div>`).join("")}</div>`;
+  }
+  return h;
 }
 function tabScheda(a){
   const c=curSheet(a);let top="";
@@ -1195,7 +1281,7 @@ function viewNuovo(){
 /* ---- impostazioni ---- */
 function linkCode(){return S.cfg?"SERKIS1."+btoa(unescape(encodeURIComponent(JSON.stringify({u:S.cfg.url,k:S.cfg.key})))).replace(/=+$/,""):""}
 function viewImpostazioni(){
-  let h=`<div class="page-h"><span class="eyebrow">Serkis Coach ${VERSION}</span><h1 class="disp">Impostazioni</h1></div><div class="fgrid">`;
+  let h=`<div class="page-h"><span class="eyebrow">Serkistraining Coach ${VERSION}</span><h1 class="disp">Impostazioni</h1></div><div class="fgrid">`;
   if(S.mode==="app"){
     let host="";try{host=new URL(S.cfg.url).host}catch(e){}
     h+=`<section class="sec"><div class="sec-h"><h3>Collegamento</h3></div><dl class="kv"><dt>Backend</dt><dd class="mono">${esc(host)} · Google Apps Script</dd><dt>Stato</dt><dd>${S.load.state==="error"?`<span class="err-t">${esc(errText(S.load.err))}</span>`:"Collegato"}</dd></dl></section>
@@ -1210,7 +1296,7 @@ function viewImpostazioni(){
   return h+`</div>`;
 }
 function viewSetup(){
-  return`<div class="setup"><svg class="logo" viewBox="118 100 276 312" aria-hidden="true">${MARK}</svg>
+  return`<div class="setup"><span class="wm" aria-label="serkistraining"><b>serk</b><span class="i"><span></span><span></span></span><b>s</b><em>training</em></span>
     <div><span class="eyebrow">Primo avvio</span><h1 class="disp" style="font-size:56px">Collega Serkis Coach</h1></div>
     <p class="hint" style="font-size:14px">Incolla la chiave che trovi nel registro di Apps Script, alla riga "CHIAVE APP". Su un altro dispositivo puoi incollare invece il codice di collegamento copiato dalle Impostazioni dell'app.</p>
     <form class="fgrid" id="setupform" autocomplete="off">
@@ -1252,7 +1338,18 @@ document.addEventListener("click",async ev=>{
   if(t.dataset.alt&&a){S.alt[a.id]={id:t.dataset.alt,title:t.dataset.title};S.tab="scheda";S.edit=null;render();return}
   if(t.dataset.sig&&a){t.disabled=true;await addNote(a,{kind:"segnale",signal:t.dataset.sig,text:t.dataset.sig==="auto"?"":"Segnale impostato da te: "+LV[t.dataset.sig],week:a.wk&&!a.wk.future?a.wk.week:null});return}
   if(t.dataset.del){if(S.delArm!==t.dataset.del){S.delArm=t.dataset.del;render();return}const id=S.delArm;S.delArm=null;delNote(id);return}
+  if(t.dataset.fbday!=null){S.fbView.day=+t.dataset.fbday;render();return}
+  if(t.dataset.fbmode){S.fbView.mode=t.dataset.fbmode;render();return}
+  if(t.dataset.fbweek){S.fbView.week=+t.dataset.fbweek;render();return}
+  if(t.dataset.clset&&a){const c=S.clients[a.id];if(!c)return;S.clientBusy=true;render();
+    try{const n=await S.adapter.clientSet(c.token,{[t.dataset.clset]:!c[t.dataset.clset]});S.clients[a.id]=Object.assign(c,n)}catch(e){toast("Non riesco a salvare: "+errText(e))}
+    S.clientBusy=false;render();return}
   const act=t.dataset.act;if(!act)return;
+  if(act==="client"&&a){S.clientOpen=!S.clientOpen;S.renewArm=false;if(S.clientOpen&&S.clientsState!=="ok")loadClients();render();return}
+  if(act==="client-create"&&a){S.clientBusy=true;render();try{S.clients[a.id]=await S.adapter.clientLink(a,true);pinClient(a)}catch(e){toast("Non riesco a creare il link: "+errText(e))}S.clientBusy=false;render();return}
+  if(act==="client-copy"&&a){const c=S.clients[a.id];if(c)copyText(c.url,"Link copiato");return}
+  if(act==="client-renew"&&a){if(!S.renewArm){S.renewArm=true;render();return}S.renewArm=false;const c=S.clients[a.id];S.clientBusy=true;render();
+    try{const n=await S.adapter.clientSet(c.token,{renew:true});S.clients[a.id]=n;toast("Link nuovo creato: mandalo all'atleta")}catch(e){toast("Non riesco: "+errText(e))}S.clientBusy=false;render();return}
   if(act==="back"){if(S.nav>0){S.nav--;history.back()}else go(S.view==="atleta"?(S.prev||"atleti"):"oggi");return}
   if(act==="clear-focus"){S.filter.focus=null;render();return}
   if(act==="reload"){S.bodies={};S.files={};S.tests={};loadAll(true);return}

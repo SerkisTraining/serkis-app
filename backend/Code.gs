@@ -25,7 +25,9 @@ const CONFIG = {
   VF_DS: "800b8a16-6f27-4a04-984f-3f9e2ce7f640",
   VF_DB: "d2f147fd8bc840c3ac5b78e509ef365f"
 };
-const VERSION = "1.2";
+const VERSION = "1.3";
+// Indirizzo della pagina cliente (il link che mandi agli atleti finisce con #t=CODICE)
+const CLIENT_PAGE = "https://serkistraining.github.io/serkis-app/c/";
 
 /* ---------- installazione ---------- */
 function setup() {
@@ -82,6 +84,11 @@ function doPost(e) {
   let req;
   try { req = JSON.parse((e && e.postData && e.postData.contents) || "{}"); }
   catch (err) { return out_({ error: "Richiesta non valida" }); }
+  // Pagina cliente: niente chiave app, solo il codice personale dell'atleta
+  if (CLIENT_ACTIONS[req.action]) {
+    try { return out_(CLIENT_ACTIONS[req.action](req)); }
+    catch (err) { return out_({ error: String((err && err.message) || err) }); }
+  }
   const key = PropertiesService.getScriptProperties().getProperty("APP_KEY");
   if (!key || req.key !== key) return out_({ error: "Chiave non valida", code: "auth" });
   const fn = ACTIONS[req.action];
@@ -102,7 +109,12 @@ const ACTIONS = {
   create: create_,
   notes: notes_,
   noteAdd: noteAdd_,
-  noteDel: noteDel_
+  noteDel: noteDel_,
+  clients: clients_,
+  clientLink: clientLink_,
+  clientSet: clientSet_,
+  clientPin: clientPin_,
+  fbLog: fbLog_
 };
 
 function out_(o) {
@@ -472,4 +484,192 @@ function noteDel_(req) {
     for (let i = 0; i < ids.length; i++) { if (ids[i][0] === req.id) { sh.deleteRow(i + 2); break; } }
     return { ok: true };
   } finally { lock.releaseLock(); }
+}
+
+/* ---------- pagina cliente ---------- */
+// Foglio "Clienti" nel file note: un codice per atleta, con le impostazioni della sua pagina.
+// Foglio "Feedback": registro di ogni invio (data, giornata, settimana, RPE…), per date sessioni e avvisi.
+const CL_COLS = ["token", "athleteId", "athleteName", "active", "showFuture", "notify", "pinSheet", "pinTab", "pinSig", "createdAt"];
+const FB_COLS = ["at", "athleteId", "athleteName", "sheetId", "tab", "day", "week", "exercise", "rpe", "tec", "pain", "skip", "why", "nota"];
+
+function tab_(name, cols) {
+  const ss = SpreadsheetApp.openById(CONFIG.NOTES_ID);
+  let sh = ss.getSheetByName(name);
+  if (!sh) {
+    sh = ss.insertSheet(name);
+    sh.getRange(1, 1, 1, cols.length).setValues([cols]);
+    sh.getRange("A:Z").setNumberFormat("@");
+  }
+  return sh;
+}
+function rows_(sh, n) {
+  const lr = sh.getLastRow();
+  return lr < 2 ? [] : sh.getRange(2, 1, lr - 1, n).getDisplayValues();
+}
+function clientRow_(r, i) {
+  const o = {}; CL_COLS.forEach(function (k, j) { o[k] = r[j]; });
+  o.active = o.active !== "no"; o.showFuture = o.showFuture !== "no"; o.notify = o.notify !== "no"; o.row = i + 2;
+  return o;
+}
+function clientByToken_(token) {
+  if (!/^[a-z0-9]{20,}$/.test(String(token || ""))) return null;
+  const all = rows_(tab_("Clienti", CL_COLS), CL_COLS.length);
+  for (let i = 0; i < all.length; i++) if (all[i][0] === token) return clientRow_(all[i], i);
+  return null;
+}
+function clientUrl_(token) { return CLIENT_PAGE + "#t=" + token; }
+
+function clients_() {
+  return { clients: rows_(tab_("Clienti", CL_COLS), CL_COLS.length).map(clientRow_).map(function (c) { c.url = clientUrl_(c.token); return c; }) };
+}
+
+function clientLink_(req) {
+  if (!req.athleteId) throw new Error("Atleta mancante");
+  const lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    const sh = tab_("Clienti", CL_COLS), all = rows_(sh, CL_COLS.length);
+    for (let i = 0; i < all.length; i++) if (all[i][1] === req.athleteId) { const c = clientRow_(all[i], i); c.url = clientUrl_(c.token); return { client: c }; }
+    if (!req.create) return { client: null };
+    const token = (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, "").slice(0, 28).toLowerCase();
+    const row = [token, req.athleteId, req.athleteName || "", "si", "si", "si", "", "", "", new Date().toISOString()];
+    sh.getRange(sh.getLastRow() + 1, 1, 1, row.length).setNumberFormat("@").setValues([row]);
+    const c = clientRow_(row, sh.getLastRow() - 2); c.url = clientUrl_(token);
+    return { client: c };
+  } finally { lock.releaseLock(); }
+}
+
+// Attiva/disattiva il link, settimane future, notifica. Con "renew" crea un codice nuovo (il vecchio smette di funzionare).
+function clientSet_(req) {
+  const lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    const c = clientByToken_(req.token); if (!c) throw new Error("Link non trovato");
+    const sh = tab_("Clienti", CL_COLS), yn = function (v) { return v ? "si" : "no"; };
+    if (req.active != null) sh.getRange(c.row, 4).setValue(yn(req.active));
+    if (req.showFuture != null) sh.getRange(c.row, 5).setValue(yn(req.showFuture));
+    if (req.notify != null) sh.getRange(c.row, 6).setValue(yn(req.notify));
+    let token = c.token;
+    if (req.renew) { token = (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, "").slice(0, 28).toLowerCase(); sh.getRange(c.row, 1).setValue(token); }
+    const n = clientByToken_(token); n.url = clientUrl_(token);
+    return { client: n };
+  } finally { lock.releaseLock(); }
+}
+
+// L'app del coach comunica quale scheda (file e foglio) ha riconosciuto come attuale:
+// la pagina cliente usa la stessa, finché in Notion non cambiano i link.
+function clientPin_(req) {
+  const all = rows_(tab_("Clienti", CL_COLS), CL_COLS.length);
+  for (let i = 0; i < all.length; i++) if (all[i][1] === req.athleteId) {
+    const sh = tab_("Clienti", CL_COLS);
+    sh.getRange(i + 2, 7, 1, 3).setNumberFormat("@").setValues([[req.sheetId || "", req.tab || "", req.sig || ""]]);
+    return { ok: true };
+  }
+  return { ok: false };
+}
+
+function fbLog_(req) {
+  const since = String(req.since || "");
+  const v = rows_(tab_("Feedback", FB_COLS), FB_COLS.length);
+  return { log: v.filter(function (r) { return !since || r[0] >= since; }).map(function (r) {
+    const o = {}; FB_COLS.forEach(function (k, j) { o[k] = r[j]; }); return o;
+  }) };
+}
+
+// Dati dell'atleta direttamente dalla sua pagina Notion (Coaching o Valutazione funzionale)
+function athleteOne_(id) {
+  const r = notion_("/v1/pages/" + id, "get");
+  if (r.code !== 200) throw notionErr_(r);
+  const P = r.json.properties || {};
+  const vf = !!P["Scheda"] && !P["Training Program"];
+  const links = links_(pt_(vf ? P["Scheda"] : P["Training Program"]));
+  return { id: id, name: pt_(P["Nome Cognome"]).trim(), start: pt_(vf ? P["Inizio programma"] : P["Data inizio"]) || null,
+    dur: vf ? null : (parseInt(pt_(P["Durata scheda"]), 10) || null), links: links };
+}
+function sigOf_(links) { return links.map(function (l) { return l.id + (l.gid ? ":" + l.gid : ""); }).join(","); }
+
+function clientSheet_(c) {
+  const a = athleteOne_(c.athleteId);
+  const sig = sigOf_(a.links);
+  let sheetId = null, tab = null, gid = null;
+  if (c.pinSheet && c.pinSig === sig) { sheetId = c.pinSheet; tab = c.pinTab || null; }
+  else { const cur = pickCurrent_(a.links); if (cur) { sheetId = cur.id; gid = cur.gid; } }
+  if (!sheetId && !c.pinSheet) return { a: a, sheet: null };
+  let s;
+  try { s = readSheet_(sheetId || c.pinSheet, sheetId ? tab : c.pinTab, 220, 12, gid); }
+  catch (e) {
+    // link Notion a un file eliminato: usa la scheda che l'app del coach ha riconosciuto
+    if (!c.pinSheet || c.pinSheet === sheetId) throw e;
+    s = readSheet_(c.pinSheet, c.pinTab || null, 220, 12, null);
+  }
+  return { a: a, sheet: s };
+}
+
+const CLIENT_ACTIONS = {
+  c_load: function (req) {
+    const c = clientByToken_(req.token);
+    if (!c || !c.active) return { error: "Link non valido o disattivato. Chiedi al tuo coach un link nuovo.", code: "token" };
+    const r = clientSheet_(c);
+    if (!r.sheet) return { error: "La tua scheda non è ancora pronta. Il coach te la manda a breve.", code: "nosheet" };
+    return { name: r.a.name, start: r.a.start, dur: r.a.dur, showFuture: c.showFuture,
+      sheet: { id: r.sheet.id, tab: r.sheet.tab, title: r.sheet.title, values: r.sheet.values } };
+  },
+  // Scrive la riga della settimana nella cella FEEDBACK dell'esercizio, senza toccare le altre righe
+  c_save: function (req) {
+    const c = clientByToken_(req.token);
+    if (!c || !c.active) return { error: "Link non valido o disattivato.", code: "token" };
+    const r = clientSheet_(c);
+    if (!r.sheet || r.sheet.id !== req.sheetId || r.sheet.tab !== req.tab) return { error: "La scheda è cambiata: ricarica la pagina.", code: "changed" };
+    const row = Number(req.row), col = Number(req.col), week = Number(req.week);
+    if (!(row > 1 && row <= 220 && col >= 1 && col <= 12 && week >= 1 && week <= 12)) throw new Error("Cella non valida");
+    let isFb = false;
+    for (let i = row - 2; i >= 0 && i >= row - 40; i--) { if (/FEEDBACK/i.test((r.sheet.values[i] || [])[col - 1] || "")) { isFb = true; break; } }
+    if (!isFb) throw new Error("Non è una cella di feedback");
+    const text = String(req.text || "").replace(/[\r\n]+/g, " ").replace(/^[=+\-@]+/, "").trim().slice(0, 600);
+    const lock = LockService.getScriptLock(); lock.waitLock(20000);
+    let cell;
+    try {
+      const ss = SpreadsheetApp.openById(r.sheet.id), sh = ss.getSheetByName(r.sheet.tab);
+      const rg = sh.getRange(row, col);
+      cell = fbWrite_(rg.getDisplayValue(), week, text);
+      rg.setValue(cell);
+      SpreadsheetApp.flush();
+      const m = req.meta || {};
+      const log = [new Date().toISOString(), c.athleteId, c.athleteName, r.sheet.id, r.sheet.tab, m.day || "", String(week), m.exercise || "",
+        m.rpe == null ? "" : String(m.rpe), m.tec || "", m.pain == null ? "" : String(m.pain), m.skip ? "si" : "", m.why || "", m.nota || ""];
+      const lg = tab_("Feedback", FB_COLS);
+      lg.getRange(lg.getLastRow() + 1, 1, 1, log.length).setNumberFormat("@").setValues([log.map(function (x) { return String(x).slice(0, 600); })]);
+    } finally { lock.releaseLock(); }
+    CacheService.getScriptCache().removeAll(["sh:" + r.sheet.id + ":" + r.sheet.tab + ":", "sh:" + r.sheet.id + "::"]);
+    if (req.dayDone && c.notify) {
+      try {
+        MailApp.sendEmail(Session.getEffectiveUser().getEmail(), c.athleteName + " ha chiuso " + (req.meta && req.meta.day || "una giornata") + " · sett. " + week,
+          c.athleteName + " ha inviato i feedback di " + (req.meta && req.meta.day || "una giornata") + ", settimana " + week + ".\n\n" + (req.summary || "") +
+          "\n\nScheda: https://docs.google.com/spreadsheets/d/" + r.sheet.id + "/edit");
+      } catch (e) {}
+    }
+    return { ok: true, cell: cell };
+  }
+};
+
+// Righe "Sett. 2: …" (template Programmazione) oppure "S2  │  …" (template Serkistraining)
+function fbWrite_(cell, w, text) {
+  const lines = String(cell || "").replace(/\r/g, "").split("\n");
+  const re = new RegExp("^(\\s*(?:Sett\\.?\\s*|S)" + w + "\\s*(?::|│)\\s*)(.*)$");
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(re);
+    if (m) { lines[i] = m[1] + text; return lines.join("\n"); }
+  }
+  const pipe = lines.some(function (l) { return /^\s*S\d+\s*│/.test(l); });
+  if (lines.length === 1 && !lines[0].trim()) return (pipe ? "S" + w + "  │  " : "Sett. " + w + ": ") + text;
+  lines.push((pipe ? "S" + w + "  │  " : "Sett. " + w + ": ") + text);
+  return lines.join("\n");
+}
+
+// Prova dall'editor: Esegui → provaPaginaCliente (legge i link creati, non scrive niente)
+function provaPaginaCliente() {
+  const all = rows_(tab_("Clienti", CL_COLS), CL_COLS.length).map(clientRow_);
+  Logger.log("Link cliente: " + all.length);
+  all.forEach(function (c) {
+    try { const r = clientSheet_(c); Logger.log(c.athleteName + " → " + (r.sheet ? r.sheet.title + " · " + r.sheet.tab : "nessuna scheda") + (c.active ? "" : " (disattivato)")); }
+    catch (e) { Logger.log(c.athleteName + " → errore: " + e.message); }
+  });
 }

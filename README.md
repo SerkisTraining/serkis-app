@@ -45,6 +45,24 @@ Il repository contiene solo il codice: nessun dato degli atleti, nessun token. N
 - **App**: carica i nuovi file in `docs/` su GitHub. L'app si aggiorna da sola al successivo avvio.
 - **Backend**: incolla il nuovo `Code.gs` (rimetti il token), poi **Distribuisci** → **Gestisci distribuzioni** → matita → **Nuova versione** → Distribuisci. L'URL resta lo stesso.
 
+## Versione 2.0 · pagina cliente e nuovo stile
+
+**Indirizzi**
+- App coach, versione di prova: `https://serkistraining.github.io/serkis-app/beta/`
+- Pagina cliente: `https://serkistraining.github.io/serkis-app/c/#t=CODICE` (il link si crea dall'app: atleta → **Link cliente**)
+
+**Aggiornare il backend (una volta)**
+1. script.google.com → progetto `Serkis Coach — backend` → incolla il nuovo `backend/Code.gs` e rimetti il token Notion nella riga `NOTION_TOKEN`. Salva.
+2. In alto scegli la funzione **provaPaginaCliente** → **Esegui** → autorizza. Google chiede due permessi nuovi: scrivere nelle schede per conto dell'atleta e mandarti l'email quando chiude una giornata.
+3. **Distribuisci** → **Gestisci distribuzioni** → matita → **Nuova versione** → Distribuisci. L'URL resta lo stesso.
+
+**Come funziona**
+- Ogni atleta ha un codice personale (foglio `Clienti` nel file note). Il link resta uguale per tutte le schede: la pagina mostra sempre la scheda attuale collegata in Notion.
+- Il feedback scrive solo la riga della settimana (`Sett. 2:` oppure `S2  │`) nella cella FEEDBACK dell'esercizio. Ogni invio finisce anche nel foglio `Feedback` del file note (data, giornata, RPE…).
+- Il backend scrive con il tuo account: le schede di altri coach servono condivise con te come **Editor**.
+- Template letti: "Programmazione" (GIORNO A/B/C) e "Serkistraining" (G1/G2/G3). Prova del lettore: `node tools/test_scheda.js`.
+- Per pubblicare la 2.0 come app ufficiale: `python3 tools/icons2.py docs && python3 tools/build.py`.
+
 ## Dove stanno i dati
 
 | Cosa | Dove |
