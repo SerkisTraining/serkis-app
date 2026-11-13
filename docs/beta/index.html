@@ -620,6 +620,29 @@ body::before{background:var(--barbg)}
 .bar .desk-only{display:none!important}
 .cl-g{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:14px}
 .cl-g .seg2 button{min-width:56px}
+
+/* barra laterale richiudibile (solo computer) */
+.rail-toggle{display:none}
+@media (min-width:960px){
+  .tabbar,.bar,.shell{transition:width .22s cubic-bezier(.2,.7,.2,1),margin-left .22s cubic-bezier(.2,.7,.2,1)}
+  .rail-toggle{display:grid;place-items:center;position:absolute;top:16px;right:10px;width:34px;height:34px;border-radius:10px;border:0;background:none;color:rgba(247,246,242,.6)}
+  .rail-toggle:hover{background:rgba(255,255,255,.1);color:#F7F6F2}
+  .rail-toggle svg{width:20px;height:20px}
+  .rail-toggle .chev{transition:transform .22s}
+  .tabbar{position:fixed}
+  .tabbar-in{position:relative}
+  .rail-brand{margin-right:44px}
+  body.rail-mini{--rail:76px}
+  body.rail-mini .tabbar{padding-inline:12px}
+  body.rail-mini .rail-brand{display:none}
+  body.rail-mini .rail-toggle{position:static;margin:0 auto 18px;width:44px;height:40px}
+  body.rail-mini .rail-toggle .chev{transform:translateX(-1px) scaleX(-1);transform-origin:14px 12px}
+  body.rail-mini .tb{justify-content:center;padding:11px 0;gap:0}
+  body.rail-mini .tb>span:not(.pl),body.rail-mini #tb-impostazioni span{display:none}
+  body.rail-mini .tb.plus{padding:11px 0}
+  body.rail-mini .badge{position:absolute;top:5px;left:auto;right:9px;min-width:17px;height:17px;font-size:10.5px;padding:0 4px;margin:0}
+}
+@media (prefers-reduced-motion:reduce){.tabbar,.bar,.shell{transition:none!important}}
 </style>
 </head><body>
 <header class="bar gut">
@@ -668,6 +691,7 @@ body::before{background:var(--barbg)}
 </div>
 <nav class="tabbar" aria-label="Sezioni">
   <div class="tabbar-in">
+    <button class="rail-toggle" type="button" data-act="rail" aria-label="Chiudi la barra laterale" title="Chiudi o apri la barra"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/><path class="chev" d="m15.5 9.5-2.5 2.5 2.5 2.5"/></svg></button>
     <span class="rail-brand"><span class="wm" aria-label="serkistraining"><b>serk</b><span class="i"><span></span><span></span></span><b>s</b><em>training</em></span></span>
     <button class="tb" type="button" data-go="oggi" id="tb-oggi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span>Oggi</span></button>
     <button class="tb" type="button" data-go="atleti" id="tb-atleti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5M16 4.8a3.4 3.4 0 0 1 0 6.4M18 14.8c1.9.7 3.1 2.4 3.5 5.2"/></svg><span>Atleti</span></button>
@@ -868,6 +892,9 @@ const S={
 };
 function applyTheme(t){document.documentElement.dataset.theme=t||"light";const m=document.querySelector('meta[name="theme-color"]');if(m)m.content="#161615"}
 applyTheme(store.get("theme","light"));
+function applyRail(){const m=!!store.get("railMini",false);document.body.classList.toggle("rail-mini",m);const b=document.querySelector(".rail-toggle");if(b){b.setAttribute("aria-label",m?"Apri la barra laterale":"Chiudi la barra laterale");b.setAttribute("aria-expanded",String(!m))}
+  document.querySelectorAll(".tb").forEach(t=>{const l=t.querySelector("span:not(.pl)");if(l)t.title=m?l.textContent:""})}
+document.addEventListener("DOMContentLoaded",applyRail);if(document.readyState!=="loading")setTimeout(applyRail,0);
 (function(){const p=store.get("prefs",{});if(p.sede)S.filter.sede=p.sede;if(p.stato)S.filter.stato=p.stato;if(p.sort)S.sort=p.sort;if(p.tab)S.tab=p.tab})();
 function savePrefs(){store.set("prefs",{sede:S.filter.sede,stato:S.filter.stato,sort:S.sort,tab:S.tab})}
 
@@ -2294,6 +2321,7 @@ document.addEventListener("click",async ev=>{
     try{const n=await S.adapter.clientSet(c.token,{[t.dataset.clset]:!c[t.dataset.clset]});S.clients[a.id]=Object.assign(c,n)}catch(e){toast("Non riesco a salvare: "+errText(e))}
     S.clientBusy=false;render();return}
   const act=t.dataset.act;if(!act)return;
+  if(act==="rail"){store.set("railMini",!store.get("railMini",false));applyRail();return}
   if(act==="menu"&&a){S.menu=true;renderSheet();return}
   if(act==="menu-close"){S.menu=false;renderSheet();return}
   if(act==="todo-all"){S.todoAll=true;render();return}

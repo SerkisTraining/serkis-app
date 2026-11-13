@@ -44,6 +44,9 @@ const S={
 };
 function applyTheme(t){document.documentElement.dataset.theme=t||"light";const m=document.querySelector('meta[name="theme-color"]');if(m)m.content="#161615"}
 applyTheme(store.get("theme","light"));
+function applyRail(){const m=!!store.get("railMini",false);document.body.classList.toggle("rail-mini",m);const b=document.querySelector(".rail-toggle");if(b){b.setAttribute("aria-label",m?"Apri la barra laterale":"Chiudi la barra laterale");b.setAttribute("aria-expanded",String(!m))}
+  document.querySelectorAll(".tb").forEach(t=>{const l=t.querySelector("span:not(.pl)");if(l)t.title=m?l.textContent:""})}
+document.addEventListener("DOMContentLoaded",applyRail);if(document.readyState!=="loading")setTimeout(applyRail,0);
 (function(){const p=store.get("prefs",{});if(p.sede)S.filter.sede=p.sede;if(p.stato)S.filter.stato=p.stato;if(p.sort)S.sort=p.sort;if(p.tab)S.tab=p.tab})();
 function savePrefs(){store.set("prefs",{sede:S.filter.sede,stato:S.filter.stato,sort:S.sort,tab:S.tab})}
 
@@ -1470,6 +1473,7 @@ document.addEventListener("click",async ev=>{
     try{const n=await S.adapter.clientSet(c.token,{[t.dataset.clset]:!c[t.dataset.clset]});S.clients[a.id]=Object.assign(c,n)}catch(e){toast("Non riesco a salvare: "+errText(e))}
     S.clientBusy=false;render();return}
   const act=t.dataset.act;if(!act)return;
+  if(act==="rail"){store.set("railMini",!store.get("railMini",false));applyRail();return}
   if(act==="menu"&&a){S.menu=true;renderSheet();return}
   if(act==="menu-close"){S.menu=false;renderSheet();return}
   if(act==="todo-all"){S.todoAll=true;render();return}
