@@ -568,6 +568,23 @@ function athleteNew_(req) {
   return { athlete: { id: id.replace(/-/g, ""), src: w, name: name, notionUrl: r.json.url }, template: tpl };
 }
 
+// Prova dall'editor: crea un cliente di prova con il modello, mostra i campi salvati e lo sposta nel cestino
+function provaNuovoCliente() {
+  const s = notionSchema_();
+  Logger.log("Campi Coaching: " + (s.coach || []).map(function (f) { return f.name; }).join(", ") + (s.coachErr ? " ERRORE " + s.coachErr : ""));
+  Logger.log("Campi Kineva: " + (s.vf || []).map(function (f) { return f.name; }).join(", ") + (s.vfErr ? " ERRORE " + s.vfErr : ""));
+  const r = athleteNew_({ db: "coach", name: "PROVA APP da cancellare", props: { "Status programma": "Da mandare", "Multi-select": "ONLINE COLLABO", "Inizio abbonamento": "2026-11-16", "Stato": "In corso" } });
+  Logger.log("Creato con modello: " + r.template);
+  Utilities.sleep(3000);
+  const pg = notion_("/v1/pages/" + r.athlete.id, "get");
+  const P = pg.json.properties;
+  Logger.log("Salvato: " + ["Nome Cognome", "Status programma", "Multi-select", "Inizio abbonamento", "Stato"].map(function (k) { return k + "=" + pt_(P[k]); }).join(" · "));
+  const bl = notion_("/v1/blocks/" + r.athlete.id + "/children?page_size=5", "get");
+  Logger.log("Blocchi del modello nella pagina: " + ((bl.json && bl.json.results) || []).length);
+  notion_("/v1/pages/" + r.athlete.id, "patch", { in_trash: true }, "2025-09-03");
+  Logger.log("Pagina di prova spostata nel cestino");
+}
+
 /* ---------- note ---------- */
 function notesSheet_() { return SpreadsheetApp.openById(CONFIG.NOTES_ID).getSheets()[0]; }
 
