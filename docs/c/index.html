@@ -94,6 +94,8 @@ h1{margin:0;font-family:"Space Grotesk",sans-serif;font-size:30px;font-weight:60
 .grp .gt b{font-size:15px}.grp .gt small{font-size:12px;color:var(--mut);line-height:1.35}
 .grp .gb{flex:1;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
 .grp .gb .opt{height:46px;font-size:16px}
+.g2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.g2 .opt{font-size:14px;min-height:48px;height:auto;padding:6px 8px}
+.box{padding:16px;border-radius:18px;background:var(--s1);border:1px solid rgba(242,194,48,.35)}
 .g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.g3 .opt{font-size:14px}
 .g6{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px}.g6 .opt{height:44px;font-size:14px}
 .g6 .opt.hi:not(.on){color:var(--warn)}
@@ -174,10 +176,15 @@ const SK=(()=>{
   function fbWeeks(cell){return(String(cell||"").match(/^\s*(?:Sett\.?\s*|S)(\d+)\s*(?::|│)/gm)||[]).length}
 
   // Testo che va nel foglio, e lettura al contrario per riprendere un feedback già inviato
+  const PART_WHY=["Carico troppo alto","Stanchezza","Fastidio","Tecnica che cedeva","Poco tempo","Altro"];
+  // Maschile o femminile: scelto dal coach, altrimenti indovinato dal nome
+  const MALE_A=/^(andrea|luca|nicola|mattia|elia|tobia|enea|gianluca|gianmattia|zaccaria|isaia|geremia|giosia|joshua|battista|evangelista|nicolò|nicolo)$/i;
+  function genderOf(name,set){if(set==="f"||set==="m")return set;const n=String(name||"").trim().split(/\s+/)[0]||"";if(MALE_A.test(n))return"m";return /a$/i.test(n)?"f":"m"}
   function word(n){return n<=4?"facile":n<=7?"medio":"duro"}
   function line(f){
     if(f.skip)return"SALTATO · "+clean(f.why);
-    return[`RPE ${f.rpe} (${word(f.rpe)})`,`tecnica ${f.tec.toLowerCase()}`,f.pain!=null?`fastidio ${f.pain}/10`:null,clean(f.nota)||null].filter(Boolean).join(" · ");
+    const part=f.part?"non chiuso: "+([f.partWhy?f.partWhy.toLowerCase():null,clean(f.partDone)?"fatto "+clean(f.partDone).replace(/\s+·\s+/g,", "):null].filter(Boolean).join(", ")||"—"):null;
+    return[`RPE ${f.rpe} (${word(f.rpe)})`,`tecnica ${f.tec.toLowerCase()}`,part,f.pain!=null?`fastidio ${f.pain}/10`:null,clean(f.nota)||null].filter(Boolean).join(" · ");
   }
   function unline(s){
     s=clean(s);if(!s)return null;
@@ -187,6 +194,7 @@ const SK=(()=>{
       if((m=p.match(/^RPE\s*(\d{1,2})/i)))f.rpe=+m[1];
       else if((m=p.match(/^tecnica\s+(pulita|così così|da rivedere)$/i)))f.tec=m[1][0].toUpperCase()+m[1].slice(1);
       else if((m=p.match(/^fastidio\s*(\d{1,2})\s*\/\s*10$/i)))f.pain=+m[1];
+      else if((m=p.match(/^non chiuso:?\s*(.*)$/i))){f.part=true;const x=m[1],k=PART_WHY.find(r=>x.toLowerCase().startsWith(r.toLowerCase()));if(k)f.partWhy=k;const d=x.match(/fatto\s+(.*)$/i);if(d)f.partDone=d[1]}
       else rest.push(p)});
     if(!f.rpe&&!f.tec)return{free:s};
     f.nota=rest.join(" · ");return f;
@@ -251,11 +259,12 @@ const SK=(()=>{
   function alerts(P,upto){
     const out=[];
     P.days.forEach(d=>d.items.forEach(it=>{
-      let run10=0,runLow=0,best10=0,bestLow=0,end10=0,endLow=0;
+      let run10=0,runLow=0,best10=0,bestLow=0,end10=0,endLow=0,runPart=0,partWarned=false;
       for(let w=1;w<=(upto||12);w++){
         const s=readFb(it.fb,w),r=rpeOf(s);
         if(r===10){run10++;if(run10>=best10){best10=run10;end10=w}}else run10=0;
         if(r!=null&&r<=6){runLow++;if(runLow>=bestLow){bestLow=runLow;endLow=w}}else runLow=0;
+        if(/(^|·\s*)non chiuso/i.test(s)){runPart++;if(runPart>=2&&!partWarned){partWarned=true;out.push({kind:"part",level:"warn",day:d.label,ex:it.name,week:w,text:it.name+": schema non completato per 2 settimane di fila (fino alla sett. "+w+")"})}}else runPart=0;
         if(/^SALTATO/i.test(s))out.push({kind:"skip",level:"warn",day:d.label,ex:it.name,week:w,text:it.name+": saltato in sett. "+w+(s.replace(/^SALTATO\s*·?\s*/i,"")?" ("+s.replace(/^SALTATO\s*·?\s*/i,"")+")":"")});
       }
       if(best10>=3)out.push({kind:"hard",level:"bad",day:d.label,ex:it.name,week:end10,text:it.name+": RPE 10 per "+best10+" settimane di fila (fino alla sett. "+end10+")"});
@@ -264,7 +273,7 @@ const SK=(()=>{
     return out;
   }
 
-  return{doseFor,hasWeeks,video,readFb,fbWeeks,line,unline,rpeOf,word,parse,methodsIn,alerts};
+  return{PART_WHY,genderOf,doseFor,hasWeeks,video,readFb,fbWeeks,line,unline,rpeOf,word,parse,methodsIn,alerts};
 })();
 if(typeof module!=="undefined")module.exports=SK;
 
@@ -313,7 +322,7 @@ async function load(){
     S.cur=S.start?(days<0?0:Math.min(Math.floor(days/7)+1,S.dur)):1;
     S.ended=S.start&&days>=S.dur*7;
     S.week=Math.max(1,S.cur);
-    S.first=(d.name||"").split(" ")[0];
+    S.first=(d.name||"").split(" ")[0];S.g=SK.genderOf(d.name,d.g);
     S.screen="day";
   }catch(e){S.screen="msg";S.msg=e&&e.error?e.error:"Connessione non riuscita. Controlla la rete e riprova.";S.retry=true}
   render();
@@ -322,7 +331,7 @@ async function load(){
 /* ---------- logica ---------- */
 const days=()=>S.P.days;
 const item=(d,i)=>S.P.days[d].items[i];
-const editable=w=>S.cur>0&&(w===S.cur||w===S.cur-1);
+const editable=w=>S.cur===0?w===1:(w===S.cur||w===S.cur-1);
 function fkey(d,i,w){return d+":"+i+":"+w}
 function form(d,i,w){
   const k=fkey(d,i,w);if(S.forms[k])return S.forms[k];
@@ -337,9 +346,9 @@ function change(it,w){
   return"Cambia";
 }
 function splitRest(t){const rest=[],body=[];t.split("\n").forEach(l=>{/^\s*(rest|recupero)\b/i.test(l)?rest.push(l.trim()):body.push(l)});return{body:body.join("\n").trim(),rest}}
-function canSave(f){return f.skip?!!(f.why&&f.why.trim()):!!(f.rpe&&f.tec)}
+function canSave(f){return f.skip?!!(f.why&&f.why.trim()):!!(f.rpe&&f.tec&&(!f.part||f.partWhy))}
 function weekLabel(w){
-  if(S.cur===0)return"La scheda inizia "+fd(S.start)+" · intanto puoi guardarla";
+  if(S.cur===0)return w===1?"La scheda inizia "+fd(S.start)+" · se parti prima, compila qui":"Anteprima · il feedback si apre quando ci arrivi";
   if(w===S.cur)return S.ended?"Ultima settimana · completa i feedback che mancano":"Settimana in corso · compila il feedback qui";
   if(w===S.cur-1)return"Settimana scorsa · puoi ancora completarla";
   return w<S.cur?"Settimana conclusa · rivedi cosa hai scritto":"Anteprima · il feedback si apre quando ci arrivi";
@@ -399,15 +408,19 @@ function vEx(){
     fb=`${prevLine?`<div style="display:flex;flex-direction:column;gap:6px;padding:0 4px"><div class="lbl">LA VOLTA SCORSA · SETT. ${w-1}</div><div class="quote">“${esc(prevLine)}”</div></div>`:""}
     <div class="sep"></div>
     ${wasFree&&wasFree.free?`<div class="was">Nel foglio per questa settimana c'è già scritto: “${esc(was)}”. Se invii, la sostituisci.</div>`:""}
-    <button class="sw" data-a="skip" role="switch" aria-checked="${!!f.skip}"><span style="font-size:15px">Ho saltato questo esercizio</span><span class="tr ${f.skip?"on":""}"><i></i></span></button>
-    ${f.skip?`<div class="q"><label class="f" for="why">Perché l'hai saltato? <span style="font-weight:400;color:var(--y);font-size:14px">(obbligatorio)</span></label><textarea id="why" class="req" rows="3" data-in="why" placeholder="Es. fastidio alla spalla, poco tempo, attrezzo occupato">${esc(f.why||"")}</textarea></div>`:
-    `<div class="q"><div class="q-h">Quanto è stata dura?<span>${f.rpe?"RPE "+f.rpe+" · "+SK.word(f.rpe)[0].toUpperCase()+SK.word(f.rpe).slice(1):""}</span></div>
+    ${f.skip?"":`<div class="q"><div class="q-h">Quanto è stata dura?<span>${f.rpe?"RPE "+f.rpe+" · "+SK.word(f.rpe)[0].toUpperCase()+SK.word(f.rpe).slice(1):""}</span></div>
       <div class="hint">Pensa alla fatica generale, soprattutto nell'ultima serie.</div>
       ${groups.map(g=>`<div class="grp ${f.rpe&&g[3].includes(f.rpe)?"on":""}"><div class="gt"><span><b>${g[0]}</b> <small>${g[1]}</small></span><small>${g[2]}</small></div><div class="gb">${g[3].map(n=>`<button class="opt ${f.rpe===n?"on":""}" data-a="rpe" data-v="${n}" aria-label="RPE ${n}">${n}</button>`).join("")}</div></div>`).join("")}</div>
-    <div class="q"><div class="q-h">Com'era la tecnica?</div><div class="g3">${["Pulita","Così così","Da rivedere"].map(t=>`<button class="opt ${f.tec===t?"on":""}" data-a="tec" data-v="${t}">${t}</button>`).join("")}</div></div>
+    <div class="q"><div class="q-h">Come ti sei ${S.g==="f"?"sentita":"sentito"} tecnicamente?</div><div class="g3">${["Pulita","Così così","Da rivedere"].map(t=>`<button class="opt ${f.tec===t?"on":""}" data-a="tec" data-v="${t}">${t}</button>`).join("")}</div></div>
     <div class="q"><button class="sw" data-a="pain" style="min-height:48px"><span>Fastidio o dolore?</span><span style="font-size:14px;color:var(--mut)">${f.pain!=null?f.pain+" / 10":painOpen?"Chiudi":"Segnala"}</span></button>
       ${painOpen?`<div class="g6">${Array.from({length:11},(_,n)=>`<button class="opt ${f.pain===n?"on":""} ${n>5?"hi":""}" data-a="painv" data-v="${n}" aria-label="Fastidio ${n} su 10">${n}</button>`).join("")}</div>`:""}</div>
-    <div class="q"><label class="f" for="nota">Nota <span style="font-weight:400;color:var(--mut);font-size:14px">(facoltativa)</span></label><textarea id="nota" rows="3" data-in="nota" placeholder="Carichi usati, sensazioni, cosa è andato bene o male">${esc(f.nota||"")}</textarea></div>`}
+    <div class="q"><label class="f" for="nota">Nota <span style="font-weight:400;color:var(--mut);font-size:14px">(facoltativa)</span></label><textarea id="nota" rows="3" data-in="nota" placeholder="Carichi usati, sensazioni, cosa è andato bene o male">${esc(f.nota||"")}</textarea></div><div class="sep"></div>`}
+    <button class="sw" data-a="skip" role="switch" aria-checked="${!!f.skip}"><span style="font-size:15px">Ho saltato questo esercizio</span><span class="tr ${f.skip?"on":""}"><i></i></span></button>
+    ${f.skip?`<div class="q box"><label class="f" for="why">Perché l'hai saltato? <span style="font-weight:400;color:var(--y);font-size:14px">(obbligatorio)</span></label><textarea id="why" class="req" rows="3" data-in="why" placeholder="Es. fastidio alla spalla, poco tempo, attrezzo occupato">${esc(f.why||"")}</textarea></div>`:
+    `<button class="sw" data-a="part" role="switch" aria-checked="${!!f.part}"><span style="font-size:15px">Non ho completato tutto lo schema</span><span class="tr ${f.part?"on":""}"><i></i></span></button>
+    ${f.part?`<div class="q box"><div class="q-h">Cosa ti ha fermato?</div><div class="hint">Capita. Mi serve per calibrare la prossima settimana.</div>
+      <div class="g2">${SK.PART_WHY.map(t=>`<button class="opt ${f.partWhy===t?"on":""}" data-a="partwhy" data-v="${t}">${t}</button>`).join("")}</div>
+      <label class="f" for="partDone" style="margin-top:4px">Cosa hai completato? <span style="font-weight:400;color:var(--mut);font-size:14px">(serie, rep, peso)</span></label><textarea id="partDone" rows="2" data-in="partDone" placeholder="Es. 3×6 invece di 3×8, ultima serie a 4 rep">${esc(f.partDone||"")}</textarea></div>`:""}`}
     ${S.err?`<div class="err">${esc(S.err)}</div>`:""}`;
   }else if(w<S.cur){
     fb=`<div class="card" style="padding:16px;display:flex;flex-direction:column;gap:6px"><div class="lbl">IL TUO FEEDBACK · SETT. ${w}</div><div class="quote">${was?"“"+esc(was)+"”":"Nessun feedback"}</div></div>`;
@@ -432,14 +445,14 @@ function foot(){
   const prev=`<button class="btn sq" data-a="prev" aria-label="Esercizio precedente">${IC.back}</button>`;
   if(!editable(w))return prev+`<button class="btn" data-a="next">${last?"Torna alla settimana":"Esercizio successivo"}</button>`;
   const f=form(d,i,w),ok=canSave(f);
-  const lbl=S.saving?"Salvo…":ok?(last?"Salva e chiudi la giornata":"Salva e avanti"):(f.skip?"Scrivi perché l'hai saltato":"Scegli fatica e tecnica");
+  const lbl=S.saving?"Salvo…":ok?(last?"Salva e chiudi la giornata":"Salva e avanti"):(f.skip?"Scrivi perché l'hai saltato":f.rpe&&f.tec&&f.part?"Scegli cosa ti ha fermato":"Scegli fatica e tecnica");
   return prev+`<button class="btn ${ok?"pri":"off"}" data-a="save" ${ok&&!S.saving?"":"aria-disabled=\"true\""}>${lbl}</button>`;
 }
 function vDone(){
   const D=days()[S.day],w=S.week;
   return`<div class="scroll" style="padding-top:calc(env(safe-area-inset-top,0px) + 56px)">
     <div class="ok-ic">${IC.check}</div>
-    <div><h1>${esc(D.label)} completato</h1><p class="sub">Settimana ${w}. Bel lavoro.</p></div>
+    <div><h1>${esc(D.label)} completato</h1><p class="sub">Settimana ${w}. Bel lavoro${S.g==="f"?", brava":""}.</p></div>
     <div class="card" style="display:flex;align-items:center;gap:12px;padding:14px 16px"><img class="av" src="serkis.jpg" alt="${COACH}" width="44" height="44"><div><div style="font-size:15px;font-weight:600">Feedback inviato a ${COACH}</div><div class="hint">Li legge prima di aggiornarti la scheda.</div></div></div>
     <div style="display:flex;flex-direction:column;gap:8px"><div class="lbl">COSA HAI INVIATO</div>
       ${D.items.map((it,i)=>`<div class="sum"><b>${esc(it.name)}</b><span>${esc(sent(S.day,i,w)||"nessun feedback")}</span></div>`).join("")}</div>
@@ -457,7 +470,7 @@ async function save(){
   try{
     const r=await call("c_save",{sheetId:S.d.sheet.id,tab:S.d.sheet.tab,row:it.row,col:it.col,week:w,text,dayDone:others&&!already,
       summary:D.items.map((x,k)=>x.name+": "+(k===i?text:sent(d,k,w))).join("\n"),
-      meta:{day:D.label,exercise:it.name,rpe:f.skip?null:f.rpe,tec:f.skip?"":f.tec,pain:f.skip?null:f.pain,skip:!!f.skip,why:f.why||"",nota:f.skip?"":f.nota||""}});
+      meta:{day:D.label,exercise:it.name,rpe:f.skip?null:f.rpe,tec:f.skip?"":f.tec,pain:f.skip?null:f.pain,skip:!!f.skip,why:f.skip?f.why||"":f.part?"Non chiuso: "+[f.partWhy,f.partDone].filter(Boolean).join(" · "):"",nota:f.skip?"":f.nota||""}});
     it.fb=r.cell;S.saving=false;
     if(others){S.screen="done";render();window.scrollTo(0,0);anim(".scroll","in-u")}
     else{const nx=D.items.findIndex((_,k)=>k>i&&!sent(d,k,w));go(nx>=0?nx:Math.min(i+1,D.items.length-1))}
@@ -477,9 +490,11 @@ document.addEventListener("click",e=>{
     case"next":if(S.idx<days()[S.day].items.length-1)go(S.idx+1);else{S.screen="day";render();anim(".scroll","in-l")}break;
     case"note":S.note=!S.note;render();if(S.note)anim(".fold>div","fd");break;
     case"gloss":S.gloss=S.gloss===b.dataset.v?null:b.dataset.v;render();if(S.gloss)anim(".gloss","fd");break;
-    case"skip":f().skip=!f().skip;render();anim(f().skip?"#why":".q","fd");break;
+    case"skip":f().skip=!f().skip;render();if(f().skip){anim(".box","fd");const t=$("#why");if(t)t.scrollIntoView({block:"center",behavior:"smooth"})}break;
     case"rpe":f().rpe=+b.dataset.v;render();tapped(b);break;
     case"tec":f().tec=b.dataset.v;render();tapped(b);break;
+    case"part":f().part=!f().part;if(!f().part){f().partWhy=null;f().partDone=""}render();if(f().part)anim(".box","fd");break;
+    case"partwhy":{f().partWhy=b.dataset.v;if(b.dataset.v==="Fastidio")S.pain[fkey(S.day,S.idx,S.week)]=true;render();tapped(b);break}
     case"pain":{const k=fkey(S.day,S.idx,S.week);const open=S.pain[k]!=null?S.pain[k]:(f().pain!=null)||/fastidi|dolor/i.test(item(S.day,S.idx).note);S.pain[k]=!open;if(open)f().pain=null;render();if(!open)anim(".g6","fd");break}
     case"painv":{const n=+b.dataset.v;f().pain=f().pain===n?null:n;render();tapped(b);break}
     case"save":save();break;

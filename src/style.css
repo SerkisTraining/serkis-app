@@ -600,3 +600,5 @@ body::before{background:var(--barbg)}
 @keyframes st-sheet{from{transform:translateY(40px);opacity:.5}}
 .themes{display:flex;gap:6px;flex-wrap:wrap}
 .bar .desk-only{display:none!important}
+.cl-g{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:14px}
+.cl-g .seg2 button{min-width:56px}

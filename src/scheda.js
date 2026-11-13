@@ -39,10 +39,15 @@ const SK=(()=>{
   function fbWeeks(cell){return(String(cell||"").match(/^\s*(?:Sett\.?\s*|S)(\d+)\s*(?::|│)/gm)||[]).length}
 
   // Testo che va nel foglio, e lettura al contrario per riprendere un feedback già inviato
+  const PART_WHY=["Carico troppo alto","Stanchezza","Fastidio","Tecnica che cedeva","Poco tempo","Altro"];
+  // Maschile o femminile: scelto dal coach, altrimenti indovinato dal nome
+  const MALE_A=/^(andrea|luca|nicola|mattia|elia|tobia|enea|gianluca|gianmattia|zaccaria|isaia|geremia|giosia|joshua|battista|evangelista|nicolò|nicolo)$/i;
+  function genderOf(name,set){if(set==="f"||set==="m")return set;const n=String(name||"").trim().split(/\s+/)[0]||"";if(MALE_A.test(n))return"m";return /a$/i.test(n)?"f":"m"}
   function word(n){return n<=4?"facile":n<=7?"medio":"duro"}
   function line(f){
     if(f.skip)return"SALTATO · "+clean(f.why);
-    return[`RPE ${f.rpe} (${word(f.rpe)})`,`tecnica ${f.tec.toLowerCase()}`,f.pain!=null?`fastidio ${f.pain}/10`:null,clean(f.nota)||null].filter(Boolean).join(" · ");
+    const part=f.part?"non chiuso: "+([f.partWhy?f.partWhy.toLowerCase():null,clean(f.partDone)?"fatto "+clean(f.partDone).replace(/\s+·\s+/g,", "):null].filter(Boolean).join(", ")||"—"):null;
+    return[`RPE ${f.rpe} (${word(f.rpe)})`,`tecnica ${f.tec.toLowerCase()}`,part,f.pain!=null?`fastidio ${f.pain}/10`:null,clean(f.nota)||null].filter(Boolean).join(" · ");
   }
   function unline(s){
     s=clean(s);if(!s)return null;
@@ -52,6 +57,7 @@ const SK=(()=>{
       if((m=p.match(/^RPE\s*(\d{1,2})/i)))f.rpe=+m[1];
       else if((m=p.match(/^tecnica\s+(pulita|così così|da rivedere)$/i)))f.tec=m[1][0].toUpperCase()+m[1].slice(1);
       else if((m=p.match(/^fastidio\s*(\d{1,2})\s*\/\s*10$/i)))f.pain=+m[1];
+      else if((m=p.match(/^non chiuso:?\s*(.*)$/i))){f.part=true;const x=m[1],k=PART_WHY.find(r=>x.toLowerCase().startsWith(r.toLowerCase()));if(k)f.partWhy=k;const d=x.match(/fatto\s+(.*)$/i);if(d)f.partDone=d[1]}
       else rest.push(p)});
     if(!f.rpe&&!f.tec)return{free:s};
     f.nota=rest.join(" · ");return f;
@@ -116,11 +122,12 @@ const SK=(()=>{
   function alerts(P,upto){
     const out=[];
     P.days.forEach(d=>d.items.forEach(it=>{
-      let run10=0,runLow=0,best10=0,bestLow=0,end10=0,endLow=0;
+      let run10=0,runLow=0,best10=0,bestLow=0,end10=0,endLow=0,runPart=0,partWarned=false;
       for(let w=1;w<=(upto||12);w++){
         const s=readFb(it.fb,w),r=rpeOf(s);
         if(r===10){run10++;if(run10>=best10){best10=run10;end10=w}}else run10=0;
         if(r!=null&&r<=6){runLow++;if(runLow>=bestLow){bestLow=runLow;endLow=w}}else runLow=0;
+        if(/(^|·\s*)non chiuso/i.test(s)){runPart++;if(runPart>=2&&!partWarned){partWarned=true;out.push({kind:"part",level:"warn",day:d.label,ex:it.name,week:w,text:it.name+": schema non completato per 2 settimane di fila (fino alla sett. "+w+")"})}}else runPart=0;
         if(/^SALTATO/i.test(s))out.push({kind:"skip",level:"warn",day:d.label,ex:it.name,week:w,text:it.name+": saltato in sett. "+w+(s.replace(/^SALTATO\s*·?\s*/i,"")?" ("+s.replace(/^SALTATO\s*·?\s*/i,"")+")":"")});
       }
       if(best10>=3)out.push({kind:"hard",level:"bad",day:d.label,ex:it.name,week:end10,text:it.name+": RPE 10 per "+best10+" settimane di fila (fino alla sett. "+end10+")"});
@@ -129,6 +136,6 @@ const SK=(()=>{
     return out;
   }
 
-  return{doseFor,hasWeeks,video,readFb,fbWeeks,line,unline,rpeOf,word,parse,methodsIn,alerts};
+  return{PART_WHY,genderOf,doseFor,hasWeeks,video,readFb,fbWeeks,line,unline,rpeOf,word,parse,methodsIn,alerts};
 })();
 if(typeof module!=="undefined")module.exports=SK;

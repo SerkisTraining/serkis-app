@@ -388,6 +388,7 @@ function autoSignal(a){
   const al=clientAlerts(a),wkNow=a.wk&&!a.wk.future?a.wk.week:99;
   al.filter(x=>x.kind==="hard").forEach(x=>{level="bad";reasons.unshift("Sempre al limite · "+x.text)});
   al.filter(x=>x.kind==="easy").forEach(x=>{if(level==="ok")level="warn";reasons.push("Sempre facile · "+x.text)});
+  al.filter(x=>x.kind==="part"&&x.week>=wkNow-1).forEach(x=>{if(level==="ok")level="warn";reasons.push("Schema non chiuso · "+x.text)});
   al.filter(x=>x.kind==="skip"&&x.week>=wkNow-1).forEach(x=>{if(level==="ok")level="warn";reasons.push("Esercizio saltato · "+x.text)});
   if(!reasons.length)reasons.push(an.lastFb?"Feedback regolare fino alla S"+an.lastFb:"Scheda appena iniziata");
   return{level,reasons};
@@ -969,8 +970,9 @@ function fbSessions(){
     s.hard=R.filter(r=>+r.rpe===10).map(r=>r.exercise);s.skip=R.filter(r=>r.skip==="si").map(r=>r.exercise+(r.why?": "+r.why:""));
     s.pain=R.filter(r=>+r.pain>=4).map(r=>r.exercise+" "+r.pain+"/10");s.avg=rp.length?Math.round(rp.reduce((a,b)=>a+b,0)/rp.length*10)/10:null;
     s.tec=R.filter(r=>/rivedere/i.test(r.tec)).map(r=>r.exercise);
+    s.part=R.filter(r=>r.skip!=="si"&&/^Non chiuso/i.test(r.why)).map(r=>r.exercise+(r.why.replace(/^Non chiuso:?\s*/i,"")?": "+r.why.replace(/^Non chiuso:?\s*/i,"").toLowerCase():""));
     s.note=R.map(r=>r.nota).filter(Boolean).join(" · ");s.n=R.length;
-    s.alert=s.hard.length||s.pain.length?"bad":s.skip.length||s.tec.length?"warn":"";
+    s.alert=s.hard.length||s.pain.length?"bad":s.skip.length||s.tec.length||s.part.length?"warn":"";
     return s;
   }).sort((a,b)=>b.at.localeCompare(a.at));
 }
@@ -985,7 +987,7 @@ function fbItem(s){
   const a=byId(s.athleteId);
   const ch=[`<span>${esc(s.day||"Allenamento")} · S${s.week}</span>`]
     .concat(s.hard.map(e=>`<span class="bad">${esc(e)} RPE 10</span>`)).concat(s.pain.map(e=>`<span class="bad">Fastidio ${esc(e)}</span>`))
-    .concat(s.skip.map(e=>`<span class="warn">Saltato ${esc(e)}</span>`)).concat(s.tec.map(e=>`<span class="warn">Tecnica da rivedere: ${esc(e)}</span>`))
+    .concat(s.skip.map(e=>`<span class="warn">Saltato ${esc(e)}</span>`)).concat(s.part.map(e=>`<span class="warn">Non chiuso ${esc(e)}</span>`)).concat(s.tec.map(e=>`<span class="warn">Tecnica da rivedere: ${esc(e)}</span>`))
     .concat(s.avg!=null&&!s.hard.length?[`<span class="${s.avg>=9?"warn":"ok"}">RPE medio ${String(s.avg).replace(".",",")}</span>`]:[]);
   return`<button class="fbi" type="button" ${a?`data-id="${a.id}" data-jtab="feedback"`:""}><span class="h">${isNew?`<i class="new" aria-label="nuovo"></i>`:""}<b>${esc(a?a.name:s.name)}</b><small>${esc(whenOf(s.at))}</small></span><span class="r">${ch.join("")}</span>${s.note?`<p>${esc(s.note)}</p>`:""}</button>`;
 }
@@ -995,7 +997,7 @@ function viewFeedback(){
   if(S.clientsState==="loading"&&!S.fbLog.length)return head+`<p class="loading">Carico i feedback…</p>`;
   if(S.clientsState==="error")return head+`<div class="notice err">Non riesco a leggere i feedback.<br><button class="btn sm" type="button" data-act="reload">Riprova</button></div>`;
   const all=fbSessions(),prev=S.fbPrevSeen;
-  const F={tutti:["Tutti",()=>true],avvisi:["Con avvisi",s=>!!s.alert],saltati:["Saltati",s=>s.skip.length>0],nuovi:["Nuovi",s=>s.at>(prev||fbCut(fbSeen()))]};
+  const F={tutti:["Tutti",()=>true],avvisi:["Con avvisi",s=>!!s.alert],saltati:["Saltati o non chiusi",s=>s.skip.length>0||s.part.length>0],nuovi:["Nuovi",s=>s.at>(prev||fbCut(fbSeen()))]};
   const L=all.filter(F[S.fbf][1]);
   return head+`<div class="fbfl">${Object.entries(F).map(([k,[l,f]])=>`<button class="chip" type="button" data-fbf="${k}" aria-pressed="${S.fbf===k}">${l}${k!=="tutti"?" · "+all.filter(f).length:""}</button>`).join("")}</div>`+
     (L.length?`<div class="todo">${L.slice(0,60).map(fbItem).join("")}</div>`:`<div class="empty">${all.length?"Nessun feedback con questo filtro.":"Ancora nessun feedback. Arrivano qui quando un atleta compila la sua pagina cliente."}</div>`);
@@ -1091,6 +1093,7 @@ function clientPanel(a){
   return`<section class="cl-panel"><div class="cl-h"><h3>Pagina cliente</h3>${c.active?"":`<span class="pill bad">Disattivata</span>`}</div>
     <div class="cl-link"><span class="mono">${esc(c.url)}</span></div>
     <div class="ed-row"><button class="btn pri" type="button" data-act="client-copy">${ICON.copy}Copia link</button><a class="btn" href="https://wa.me/?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">${ICON.chat}Manda su WhatsApp</a><a class="btn ghost" href="${esc(c.url)}" target="_blank" rel="noopener">${ICON.ext}Apri come la vede</a></div>
+    <div class="cl-g"><span>Nella pagina si rivolge a</span><div class="seg2">${[["m","lui"],["f","lei"]].map(([k,l])=>`<button type="button" data-clg="${k}" class="${SK.genderOf(a.name,c.gender)===k?"on":""}" ${S.clientBusy?"disabled":""}>${l}</button>`).join("")}</div></div>
     <div class="cl-sws">${sw("active","Pagina attiva",c.active)}${sw("showFuture","Mostra le settimane future",c.showFuture)}${sw("notify","Email quando chiude una giornata",c.notify)}</div>
     <p class="hint">Il link è lo stesso per tutte le schede: quando aggiorni il link in Notion, la pagina passa da sola alla scheda nuova. <button class="lnk" type="button" data-act="client-renew">${S.renewArm?"Conferma: crea un link nuovo (il vecchio smette di funzionare)":"Crea un link nuovo"}</button></p></section>`;
 }
@@ -1128,7 +1131,7 @@ function tabFeedback(a){
   const kg=s=>{const m=String(s).match(/([\d,]+)\s*kg(?![\s\S]*kg)/i);return m?parseFloat(m[1].replace(",",".")):null};
   const chg=(it,n)=>{if(n<2)return"";const x=SK.doseFor(it.dose,n-1),y=SK.doseFor(it.dose,n);if(x===y)return"";const p=kg(x),q=kg(y);return p!=null&&q!=null&&p!==q?(q>p?"+":"")+String(+(q-p).toFixed(2)).replace(".",",")+" kg":"cambia"};
   const al=SK.alerts(P,dur),flag=(it,n)=>{const f=SK.readFb(it.fb,n),r=SK.rpeOf(f);
-    if(al.some(x=>x.ex===it.name&&x.kind==="hard"&&n<=x.week&&r===10))return"bad";if(/^SALTATO/i.test(f))return"warn";if(tone(f)==="bad")return"bad";if(r===10||tone(f)==="warn")return"warn";return f?"ok":""};
+    if(al.some(x=>x.ex===it.name&&x.kind==="hard"&&n<=x.week&&r===10))return"bad";if(/^SALTATO/i.test(f)||/(^|·\s*)non chiuso/i.test(f))return"warn";if(tone(f)==="bad")return"bad";if(r===10||tone(f)==="warn")return"warn";return f?"ok":""};
   const dates=sessionDates(a,w);
   let h=`<div class="fb-bar"><div class="seg2">${P.days.map((d,k)=>`<button type="button" data-fbday="${k}" class="${D===d?"on":""}">${esc(d.label)}</button>`).join("")}</div>
     <div class="seg2">${[["week","Per settimana"],["ex","Per esercizio"]].map(([k,l])=>`<button type="button" data-fbmode="${k}" class="${V.mode===k?"on":""}">${l}</button>`).join("")}</div></div>`;
@@ -1460,6 +1463,9 @@ document.addEventListener("click",async ev=>{
   if(t.dataset.fbday!=null){S.fbView.day=+t.dataset.fbday;render();anim(".fb-list,.fb-ex-list","fade");return}
   if(t.dataset.fbmode){S.fbView.mode=t.dataset.fbmode;render();anim(".fb-list,.fb-ex-list","fade");return}
   if(t.dataset.fbweek){S.fbView.week=+t.dataset.fbweek;render();anim(".fb-list","fade");return}
+  if(t.dataset.clg&&a){const c=S.clients[a.id];if(!c)return;S.clientBusy=true;render();
+    try{await S.adapter.clientSet(c.token,{gender:t.dataset.clg});c.gender=t.dataset.clg}catch(e){toast("Non riesco a salvare: "+errText(e))}
+    S.clientBusy=false;render();return}
   if(t.dataset.clset&&a){const c=S.clients[a.id];if(!c)return;S.clientBusy=true;render();
     try{const n=await S.adapter.clientSet(c.token,{[t.dataset.clset]:!c[t.dataset.clset]});S.clients[a.id]=Object.assign(c,n)}catch(e){toast("Non riesco a salvare: "+errText(e))}
     S.clientBusy=false;render();return}

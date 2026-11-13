@@ -25,7 +25,7 @@ const CONFIG = {
   VF_DS: "800b8a16-6f27-4a04-984f-3f9e2ce7f640",
   VF_DB: "d2f147fd8bc840c3ac5b78e509ef365f"
 };
-const VERSION = "1.3";
+const VERSION = "1.4";
 // Indirizzo della pagina cliente (il link che mandi agli atleti finisce con #t=CODICE)
 const CLIENT_PAGE = "https://serkistraining.github.io/serkis-app/c/";
 
@@ -497,7 +497,7 @@ function noteDel_(req) {
 /* ---------- pagina cliente ---------- */
 // Foglio "Clienti" nel file note: un codice per atleta, con le impostazioni della sua pagina.
 // Foglio "Feedback": registro di ogni invio (data, giornata, settimana, RPE…), per date sessioni e avvisi.
-const CL_COLS = ["token", "athleteId", "athleteName", "active", "showFuture", "notify", "pinSheet", "pinTab", "pinSig", "createdAt"];
+const CL_COLS = ["token", "athleteId", "athleteName", "active", "showFuture", "notify", "pinSheet", "pinTab", "pinSig", "createdAt", "gender"];
 const FB_COLS = ["at", "athleteId", "athleteName", "sheetId", "tab", "day", "week", "exercise", "rpe", "tec", "pain", "skip", "why", "nota"];
 
 function tab_(name, cols) {
@@ -555,6 +555,7 @@ function clientSet_(req) {
     if (req.active != null) sh.getRange(c.row, 4).setValue(yn(req.active));
     if (req.showFuture != null) sh.getRange(c.row, 5).setValue(yn(req.showFuture));
     if (req.notify != null) sh.getRange(c.row, 6).setValue(yn(req.notify));
+    if (req.gender === "m" || req.gender === "f" || req.gender === "") { sh.getRange(1, 11).setValue("gender"); sh.getRange(c.row, 11).setNumberFormat("@").setValue(req.gender); }
     let token = c.token;
     if (req.renew) { token = (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, "").slice(0, 28).toLowerCase(); sh.getRange(c.row, 1).setValue(token); }
     const n = clientByToken_(token); n.url = clientUrl_(token);
@@ -617,7 +618,7 @@ const CLIENT_ACTIONS = {
     if (!c || !c.active) return { error: "Link non valido o disattivato. Chiedi al tuo coach un link nuovo.", code: "token" };
     const r = clientSheet_(c);
     if (!r.sheet) return { error: "La tua scheda non è ancora pronta. Il coach te la manda a breve.", code: "nosheet" };
-    return { name: r.a.name, start: r.a.start, dur: r.a.dur, showFuture: c.showFuture,
+    return { name: r.a.name, start: r.a.start, dur: r.a.dur, showFuture: c.showFuture, g: c.gender || "",
       sheet: { id: r.sheet.id, tab: r.sheet.tab, title: r.sheet.title, values: r.sheet.values } };
   },
   // Scrive la riga della settimana nella cella FEEDBACK dell'esercizio, senza toccare le altre righe
