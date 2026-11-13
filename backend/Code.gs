@@ -25,7 +25,7 @@ const CONFIG = {
   VF_DS: "800b8a16-6f27-4a04-984f-3f9e2ce7f640",
   VF_DB: "d2f147fd8bc840c3ac5b78e509ef365f"
 };
-const VERSION = "1.4";
+const VERSION = "1.5";
 // Indirizzo della pagina cliente (il link che mandi agli atleti finisce con #t=CODICE)
 const CLIENT_PAGE = "https://serkistraining.github.io/serkis-app/c/";
 
@@ -682,3 +682,131 @@ function provaPaginaCliente() {
     catch (e) { Logger.log(c.athleteName + " → errore: " + e.message); }
   });
 }
+
+/* ---------- mail del mattino ---------- */
+// Ogni giorno verso le 6:00 (ora di Roma) manda al coach l'elenco delle cose da fare sulle schede.
+// Per attivarla, una volta sola: Esegui → installaMailMattino. Per provarla subito: Esegui → provaMailMattino.
+const DIGEST_TO = "s.pretta98@gmail.com";
+const APP_URL = "https://serkistraining.github.io/serkis-app/";
+
+function installaMailMattino() {
+  ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === "mailMattino") ScriptApp.deleteTrigger(t); });
+  ScriptApp.newTrigger("mailMattino").timeBased().atHour(6).nearMinute(0).everyDays(1).inTimezone("Europe/Rome").create();
+  Logger.log("Mail del mattino attiva: ogni giorno verso le 6:00 a " + DIGEST_TO);
+}
+function provaMailMattino() { mailMattino(); Logger.log("Mail di prova inviata a " + DIGEST_TO); }
+
+function mailMattino() {
+  const d = digest_();
+  MailApp.sendEmail({ to: DIGEST_TO, subject: d.subject, htmlBody: d.html, body: d.text, name: "Serkis Coach" });
+}
+
+function romeToday_() {
+  const s = Utilities.formatDate(new Date(), "Europe/Rome", "yyyy-MM-dd").split("-");
+  return new Date(+s[0], +s[1] - 1, +s[2]);
+}
+function isoDay_(s) { const m = String(s || "").match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null; }
+function addD_(d, n) { const x = new Date(d.getTime()); x.setDate(x.getDate() + n); return x; }
+function itD_(d) { return ["dom", "lun", "mar", "mer", "gio", "ven", "sab"][d.getDay()] + " " + ("0" + d.getDate()).slice(-2) + "/" + ("0" + (d.getMonth() + 1)).slice(-2); }
+function escH_(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+
+function digest_() {
+  const today = romeToday_();
+  const list = athletes_({ fresh: true }).athletes.filter(function (a) { return a.status !== "Fine collaborazione"; });
+  const S = { scadute: [], ultima: [], arrivo: [], dolore: [], rpe: [], saltati: [], fermi: [], test: [], nuovi: [], problemi: [] };
+  list.forEach(function (a) {
+    if (a.status === "Mandare test/testare") S.test.push({ a: a, t: "test da fare" });
+    if (a.status === "Da fare" || a.status === "In coda") S.nuovi.push({ a: a, t: a.status });
+    const start = isoDay_(a.start), dur = a.dur;
+    let week = null;
+    if (start) {
+      const days = Math.round((today - start) / 864e5);
+      week = days < 0 ? 0 : Math.floor(days / 7) + 1;
+      if (dur && a.src === "coach" && days >= 0) {
+        const end = addD_(start, dur * 7 - 1);
+        if (week > dur) S.scadute.push({ a: a, t: "scheda finita " + itD_(end) + " (" + (days - dur * 7 + 1) + " gg fa)" });
+        else if (week === dur) S.ultima.push({ a: a, t: "ultima settimana, finisce " + itD_(end) + ": la nuova parte " + itD_(addD_(end, 1)) });
+        else if (week === dur - 1) S.arrivo.push({ a: a, t: "penultima settimana, finisce " + itD_(end) });
+      }
+    } else if (a.src === "coach" && a.sheetId) S.problemi.push({ a: a, t: "manca la data di inizio in Notion" });
+    if (!a.sheetId) { if (a.src === "coach" && a.status === "In corso") S.problemi.push({ a: a, t: "nessuna scheda collegata in Notion" }); return; }
+    if (!week) return;
+    let P;
+    try {
+      const sh = readSheet_(a.sheetId, null, 220, 12, a.sheetGid);
+      P = SK.parse(sh.values);
+    } catch (e) { S.problemi.push({ a: a, t: "non riesco ad aprire la scheda (" + e.message + ")" }); return; }
+    if (!P.days.length) return; // formato vecchio: il controllo dei feedback si fa solo sui template nuovi
+    const cur = Math.min(week, dur || week), recent = [cur, cur - 1].filter(function (w) { return w >= 1; });
+    let lastFb = 0;
+    P.days.forEach(function (d) {
+      d.items.forEach(function (it) {
+        const name = it.name.split("\n")[0];
+        for (let w = 1; w <= (dur || 12); w++) if (SK.readFb(it.fb, w)) lastFb = Math.max(lastFb, w);
+        recent.forEach(function (w) {
+          const s = SK.readFb(it.fb, w); if (!s) return;
+          const pm = s.match(/fastidio\s*(\d{1,2})\s*\/\s*10/i);
+          if ((pm && +pm[1] > 0) || (!pm && /dolor|fastidi|male\b|infortun/i.test(s))) S.dolore.push({ a: a, t: name + " · sett. " + w + ": " + (pm ? "fastidio " + pm[1] + "/10" : s.slice(0, 120)) });
+          if (/^SALTATO/i.test(s)) S.saltati.push({ a: a, t: name + " saltato in sett. " + w + (s.replace(/^SALTATO\s*·?\s*/i, "") ? " (" + s.replace(/^SALTATO\s*·?\s*/i, "") + ")" : "") });
+          const nc = s.match(/non chiuso:?\s*([^·]*)/i);
+          if (nc) S.saltati.push({ a: a, t: name + " non completato in sett. " + w + (nc[1].trim() ? " (" + nc[1].trim() + ")" : "") });
+        });
+        // RPE 10, oppure sotto 5, per 2 settimane di fila o più, ancora in corso
+        let r10 = 0, rLow = 0;
+        for (let w = 1; w <= cur; w++) {
+          const r = SK.rpeOf(SK.readFb(it.fb, w));
+          r10 = r === 10 ? r10 + 1 : (r == null ? r10 : 0);
+          rLow = (r != null && r < 5) ? rLow + 1 : (r == null ? rLow : 0);
+          if (w >= cur - 1 && r != null) {
+            if (r === 10 && r10 >= 2) S.rpe.push({ a: a, t: name + ": RPE 10 per " + r10 + " settimane di fila (fino alla sett. " + w + ")", k: a.id + name + "h" });
+            if (r < 5 && rLow >= 2) S.rpe.push({ a: a, t: name + ": RPE sotto 5 per " + rLow + " settimane di fila (fino alla sett. " + w + ")", k: a.id + name + "l" });
+          }
+        }
+      });
+    });
+    if (cur >= 3 && lastFb <= cur - 2 && !(dur && week > dur)) S.fermi.push({ a: a, t: lastFb ? "ultimo feedback in sett. " + lastFb + ", ora siamo alla " + cur : "nessun feedback, siamo alla sett. " + cur });
+  });
+  // un solo avviso RPE per esercizio (il più recente)
+  const seen = {}; S.rpe = S.rpe.reverse().filter(function (x) { if (seen[x.k]) return false; seen[x.k] = 1; return true; }).reverse();
+
+  const sections = [
+    ["Schede scadute", S.scadute, "#B42318"],
+    ["Schede da fare per la settimana prossima", S.ultima, "#B42318"],
+    ["Dolori e fastidi segnalati", S.dolore, "#B42318"],
+    ["RPE da controllare (2+ settimane di fila)", S.rpe, "#8A5C00"],
+    ["Esercizi saltati o non completati", S.saltati, "#8A5C00"],
+    ["Test da fare", S.test, "#8A5C00"],
+    ["Nuovi atleti da impostare", S.nuovi, "#8A5C00"],
+    ["Feedback fermi da 2+ settimane", S.fermi, "#45443F"],
+    ["In arrivo (penultima settimana)", S.arrivo, "#45443F"],
+    ["Da sistemare in Notion", S.problemi, "#45443F"]
+  ].filter(function (s) { return s[1].length; });
+  const urgent = S.scadute.length + S.ultima.length + S.dolore.length + S.rpe.length;
+  const giorno = ["Domenica", "Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato"][today.getDay()] + " " + today.getDate() + "/" + (today.getMonth() + 1);
+  const subject = "Serkis Coach · " + giorno + " · " + (sections.length ? urgent + " cose urgenti" : "niente di urgente");
+  const byAthlete = function (items) {
+    const g = {}; items.forEach(function (x) { (g[x.a.name] = g[x.a.name] || []).push(x.t); });
+    return Object.keys(g).sort(function (x, y) { return x.localeCompare(y, "it"); }).map(function (n) { return { n: n, t: g[n] }; });
+  };
+  let html = '<div style="font-family:Inter,Arial,sans-serif;max-width:620px;color:#161615;font-size:15px;line-height:1.5">' +
+    '<div style="background:#161615;color:#F7F6F2;padding:16px 20px;border-radius:14px 14px 0 0;font-size:18px;font-weight:700">serkistraining · ' + escH_(giorno) + '</div>' +
+    '<div style="border:1px solid #DCDBD5;border-top:0;border-radius:0 0 14px 14px;padding:8px 20px 18px">';
+  let text = "Serkis Coach · " + giorno + "\n";
+  if (!sections.length) { html += '<p>Niente di urgente oggi: nessuna scheda in scadenza e nessun avviso dai feedback.</p>'; text += "\nNiente di urgente oggi.\n"; }
+  sections.forEach(function (s) {
+    const g = byAthlete(s[1]);
+    html += '<h3 style="margin:18px 0 6px;font-size:15px;color:' + s[2] + '">' + escH_(s[0]) + ' · ' + g.length + '</h3><ul style="margin:0;padding-left:18px">';
+    text += "\n" + s[0].toUpperCase() + "\n";
+    g.forEach(function (x) {
+      html += '<li style="margin:3px 0"><b>' + escH_(x.n) + '</b>: ' + x.t.map(escH_).join("; ") + '</li>';
+      text += "- " + x.n + ": " + x.t.join("; ") + "\n";
+    });
+    html += '</ul>';
+  });
+  html += '<p style="margin-top:20px"><a href="' + APP_URL + '" style="background:#F2C230;color:#161615;padding:10px 16px;border-radius:10px;text-decoration:none;font-weight:600">Apri Serkis Coach</a></p>' +
+    '<p style="font-size:12px;color:#64625C">I controlli sui feedback valgono per le schede con il template nuovo. Mail automatica dal tuo backend Serkis Coach.</p></div></div>';
+  text += "\nApri l'app: " + APP_URL + "\n";
+  return { subject: subject, html: html, text: text, counts: sections.map(function (s) { return s[0] + ": " + s[1].length; }) };
+}
+// Anteprima nel registro, senza mandare la mail
+function anteprimaMailMattino() { const d = digest_(); Logger.log(d.subject); Logger.log(d.text); }
