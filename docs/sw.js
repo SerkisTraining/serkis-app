@@ -1,4 +1,4 @@
-const C="serkis-1.3";
+const C="serkis-3.0";
 const BASE=new URL("./",self.registration.scope).pathname;
 const SHELL=["./","index.html","manifest.webmanifest","favicon.svg","icons/icon-192.png","icons/icon-512.png","icons/apple-touch-icon.png","icons/favicon-32.png"];
 self.addEventListener("install",e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting()))});

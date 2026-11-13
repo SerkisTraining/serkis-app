@@ -1,14 +1,14 @@
 {
-  "name": "Serkis Coach",
-  "short_name": "Serkis",
+  "name": "Serkistraining Coach",
+  "short_name": "Coach",
   "description": "Atleti, schede, test e feedback di Serkistraining",
   "lang": "it",
   "start_url": "./#oggi",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#0b0c0e",
-  "theme_color": "#0b0c0e",
+  "background_color": "#0F0F10",
+  "theme_color": "#0F0F10",
   "icons": [
     {
       "src": "icons/icon-192.png",

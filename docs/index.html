@@ -2,19 +2,19 @@
 <html lang="it"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Serkis Coach</title>
+<title>Serkistraining Coach</title>
 <meta name="description" content="Atleti, schede, test e feedback di Serkistraining">
-<meta name="theme-color" content="#0b0c0e">
+<meta name="theme-color" content="#0F0F10">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Serkis">
+<meta name="apple-mobile-web-app-title" content="Coach">
 <meta name="robots" content="noindex">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..900&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap">
 <style>html{-webkit-text-size-adjust:100%}:root{padding-top:env(safe-area-inset-top,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}
 /* Layout: app a due colonne. Elenco atleti fisso a sinistra, schermata attiva a destra; su telefono una schermata alla volta con barra in basso.
    Identità Serkistraining: nero freddo, osso, rosso solo per marchio e priorità. Tema unico scuro, scelto. */
@@ -293,20 +293,347 @@ input[type=number].inp{width:76px}
 @media (min-width:960px){.toast{bottom:24px}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 @media (prefers-reduced-motion:no-preference){.row,.tile,.chip,.btn,.tab{transition:background .12s,border-color .12s,color .12s}}
+
+/* ===== 2.0 · Identità giallo e nero: forme morbide, Space Grotesk + Inter, giallo solo per azioni e selezioni ===== */
+:root{
+  --bg:#0F0F10; --bg-2:#141416; --surface:#1B1B1D; --raised:#222225; --hover:#252528;
+  --line:#2A2A2E; --line-2:#3A3A3F;
+  --ink:#F4F2EC; --ink-2:#BDBAB2; --ink-3:#8E8C85; --on-ink:#141414;
+  --red:#F2C230; --red-ink:#FF9F5A; --red-soft:#3A2E10;
+  --ok:#6FCF97; --ok-soft:#14301F; --warn:#E9B949; --warn-soft:#332810; --bad:#FF8A5C; --bad-soft:#3A1E14;
+  --y:#F2C230; --y-soft:rgba(242,194,48,.14);
+  --f-d:"Space Grotesk","Inter",system-ui,sans-serif;
+  --f-b:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-m:"Inter",system-ui,sans-serif;
+  --r:14px;
+}
+body::after{display:none}
+.disp{font-stretch:100%;font-weight:600;text-transform:none;line-height:1.08;letter-spacing:-.02em}
+.eyebrow{letter-spacing:.06em;font-weight:600;font-size:12px}
+.mono,.num{font-variant-numeric:tabular-nums}
+.today-h .disp{font-size:clamp(32px,7vw,48px)}
+.a-name{font-size:clamp(30px,6vw,44px)}
+.page-h .disp{font-size:clamp(30px,6vw,44px)}
+.btn{border-radius:12px;padding:9px 15px;border-color:var(--line)}
+.btn.pri,.btn.red{background:var(--y);color:var(--on-ink);border-color:var(--y)}
+.btn.pri:hover,.btn.red:hover{background:#FFD24D}
+.btn.on{border-color:var(--y);color:var(--y)}
+.btn:hover{border-color:var(--line-2)}
+.pill{border-radius:99px;padding:3px 9px;font-weight:600}
+.pill.ink{background:var(--y-soft);color:var(--y);border-color:transparent}
+.av{border-radius:12px;font-family:var(--f-b);font-stretch:100%;font-weight:600;font-size:14px;background:var(--surface);border-color:var(--line)}
+.tile{border-radius:18px;background:var(--surface);margin:0}
+.tile:hover{background:var(--raised)}
+.tile .n{font-stretch:100%;font-weight:600;font-size:40px;line-height:1}
+.tile .l{text-transform:none;letter-spacing:0;font-size:13px;font-weight:600}
+.tile.hot .n{color:var(--bad)}
+.tb{text-transform:none;letter-spacing:0;font-size:12px}
+.tb[aria-current="page"]{color:var(--ink)}
+.tb[aria-current="page"]::before{left:44%;right:44%;height:4px;border-radius:99px;top:auto;bottom:6px}
+.tab{border-radius:0}
+.sig{border-radius:18px;border-left-width:1px}
+.sig.bad{border-color:rgba(255,138,92,.4);background:rgba(255,138,92,.08)}
+.sig.warn{border-color:rgba(233,185,73,.35);background:rgba(233,185,73,.07)}
+.empty,.notice,.banner{border-radius:16px}
+.row[aria-current="true"]{background:var(--surface);border-radius:14px}
+.row[aria-current="true"]::after{display:none}
+.brand{gap:8px;align-items:baseline}
+.brand .wm{display:flex;align-items:baseline;font-family:"Space Grotesk",sans-serif;font-size:22px;letter-spacing:-.02em;line-height:1}
+.wm b{font-weight:700}.wm em{font-style:normal;font-weight:400;color:#CFCBC2}
+.wm .i{display:inline-flex;flex-direction:column;align-items:center;gap:.09em;margin:0 .07em}
+.wm .i span:first-child{width:.16em;height:.46em;border-radius:.03em;background:var(--ink)}
+.wm .i span:last-child{width:.21em;height:.21em;border-radius:50%;background:var(--y)}
+.brand-s{font-family:var(--f-b);letter-spacing:0;text-transform:none;font-size:12px;padding:2px 8px;border:1px solid var(--line);border-radius:99px;transform:none}
+.setup .wm{font-size:40px}
+/* pannello link cliente */
+.cl-panel{margin-top:14px;padding:18px;border-radius:20px;background:var(--surface);display:flex;flex-direction:column;gap:14px;max-width:640px}
+.cl-h{display:flex;align-items:center;gap:10px}.cl-h h3{margin:0;font-family:var(--f-d);font-size:18px;font-weight:600}
+.cl-link{padding:10px 12px;border-radius:12px;background:var(--raised);font-size:13px;color:var(--ink-2);overflow-wrap:anywhere}
+.cl-sws{display:flex;flex-direction:column;gap:2px}
+.cl-sw{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;padding:0;border:0;background:none;text-align:left;font-size:14px}
+.tr{width:40px;height:24px;flex:none;border-radius:99px;display:flex;align-items:center;padding:3px;background:var(--line-2)}
+.tr i{width:18px;height:18px;border-radius:50%;background:var(--ink-3)}
+.tr.on{background:var(--y);justify-content:flex-end}.tr.on i{background:var(--on-ink)}
+.lnk{border:0;background:none;padding:0;color:var(--y);font-weight:600;text-decoration:underline;text-underline-offset:3px}
+/* scheda Feedback */
+.fb-bar{display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;margin-bottom:14px}
+.seg2{display:flex;gap:4px;padding:4px;border-radius:12px;background:var(--bg-2);flex-wrap:wrap}
+.seg2 button{border:0;background:none;color:var(--ink-3);padding:8px 14px;border-radius:9px;font-size:13px}
+.seg2 button.on{background:var(--hover);color:var(--ink);font-weight:600}
+.fb-weeks{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.fb-weeks .btn.sm{width:40px;height:40px;justify-content:center;padding:0;font-size:18px}
+.fb-wk{flex:1;display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:6px}
+.fb-wk button{height:40px;border-radius:12px;border:1px solid var(--line);background:var(--surface);font-size:13px;position:relative}
+.fb-wk button.on{background:var(--ink);color:var(--on-ink);border-color:var(--ink);font-weight:600}
+.fb-wk button.now::after{content:"";position:absolute;bottom:4px;left:50%;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:var(--y)}
+.fb-st{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;font-size:14px;color:var(--ink-2)}
+.fb-list{border-radius:20px;background:var(--bg-2);border:1px solid var(--line);overflow:hidden}
+.fb-row{display:flex;flex-wrap:wrap;gap:6px 16px;padding:14px 18px;border-top:1px solid var(--line)}
+.fb-row:first-child{border-top:0}
+.fb-ex{flex:1 1 200px;min-width:0;display:flex;flex-direction:column;gap:3px}
+.fb-ex b{font-size:14px}.fb-ex span{font-size:12px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fb-tx{flex:2 1 280px;min-width:0;display:flex;gap:10px;font-size:14px;line-height:1.5;color:var(--ink-2)}
+.fb-tx .dot{margin-top:7px;background:transparent}.fb-tx .dot.ok{background:var(--line-2)}
+.muted{color:var(--ink-3)}
+.tagy{display:inline-block;padding:1px 7px;border-radius:99px;background:var(--y-soft);color:var(--y);font-size:11px;font-weight:600}
+.tagy:empty{display:none}
+.fb-ex-list{display:flex;flex-direction:column;gap:10px}
+.fb-card{padding:14px 16px;border-radius:18px;background:var(--bg-2);border:1px solid var(--line);display:flex;flex-direction:column;gap:10px}
+.fb-cells{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}
+.fb-cell{padding:10px 12px;border-radius:12px;background:var(--surface);border:1px solid var(--line);display:flex;flex-direction:column;gap:4px;min-width:0}
+.fb-cell.now{border-color:var(--line-2)}
+.fb-cell.bad{background:rgba(255,138,92,.1);border-color:rgba(255,138,92,.4)}
+.fb-cell.warn{border-color:rgba(233,185,73,.4)}
+.fb-cell .h{display:flex;justify-content:space-between;font-size:11px;font-weight:600;color:var(--ink-3)}
+.fb-cell .d{font-size:12px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fb-cell .f{font-size:12px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.tab{font-family:var(--f-b);text-transform:none;letter-spacing:0;font-size:14px;font-weight:500}
+.tab[aria-selected="true"]{font-weight:600}
+.fb-cells{grid-template-columns:repeat(auto-fill,minmax(108px,1fr))}
+/* barra in alto: il logo non si stringe, l'orario si nasconde sui telefoni stretti */
+.brand{flex:none}
+.sync{flex:1 1 auto;text-align:right}
+@media (max-width:460px){.sync{display:none}}
+/* movimento: discreto, mai più di un terzo di secondo */
+@keyframes st-enter{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes st-fade{from{opacity:0}to{opacity:1}}
+@keyframes st-drop{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+@keyframes st-toast{from{opacity:0;transform:translate(-50%,10px)}}
+.enter{animation:st-enter .28s cubic-bezier(.2,.7,.2,1)}
+.enter .tile,.enter .block,.enter .a-top,.enter .sig{animation:st-enter .34s cubic-bezier(.2,.7,.2,1) both}
+.enter .tile:nth-child(2){animation-delay:.03s}.enter .tile:nth-child(3){animation-delay:.06s}.enter .tile:nth-child(4){animation-delay:.09s}
+.enter .block:nth-of-type(2){animation-delay:.05s}.enter .block:nth-of-type(3){animation-delay:.1s}.enter .sig{animation-delay:.05s}
+.fade{animation:st-fade .22s ease}
+.drop{animation:st-drop .22s cubic-bezier(.2,.7,.2,1)}
+.btn,.tile,.row,.tb,.tab,.seg2 button,.fb-wk button,.cl-sw,.trow .go,.ibtn,.brand{transition:transform .12s ease,background-color .15s,border-color .15s,color .15s}
+.btn:active,.ibtn:active,.seg2 button:active,.fb-wk button:active{transform:scale(.96)}
+.tile:active,.row:active,.trow .go:active,.tb:active{transform:scale(.985)}
+.toast:not([hidden]){animation:st-toast .22s ease}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+.tiles{background:none;border:0;gap:8px;border-radius:0}
+
+/* ===== 3.0 · Leggibilità e navigazione =====
+   Tema chiaro di base, scuro leggibile a scelta (o automatico). Testo 16, livelli ben separati.
+   Navigazione: Oggi · Atleti · Nuovo · Feedback · Altro, in basso su telefono e a sinistra sul computer. */
+:root{
+  --bg:#F2F2F0; --bg-2:#F7F7F5; --surface:#FFFFFF; --raised:#F6F6F4; --hover:#EDEDEA;
+  --line:#DCDBD5; --line-2:#C4C3BC;
+  --ink:#161615; --ink-2:#45443F; --ink-3:#64625C; --on-ink:#FFFFFF;
+  --red:#F2C230; --red-ink:#B42318; --red-soft:#FCF1CC;
+  --y:#F2C230; --y-ink:#161615; --y-text:#7A5800; --y-soft:#FCF1CC;
+  --ok:#1D7A4B; --ok-soft:#E2F2E8; --warn:#8A5C00; --warn-soft:#FBEFCF; --bad:#B42318; --bad-soft:#FBE3DF;
+  --barbg:#161615; --sh:0 1px 2px rgba(20,20,18,.06),0 2px 8px rgba(20,20,18,.05);
+  --rail:220px;
+  color-scheme:light;
+}
+:root[data-theme="dark"]{
+  --bg:#0D0D0E; --bg-2:#161618; --surface:#1F1F22; --raised:#28282C; --hover:#2E2E33;
+  --line:#3A3A40; --line-2:#4C4C53;
+  --ink:#F7F6F2; --ink-2:#D4D2CB; --ink-3:#A9A79F; --on-ink:#161615;
+  --red:#F5C83A; --red-ink:#FF907A; --red-soft:rgba(245,200,58,.16);
+  --y:#F5C83A; --y-text:#F5C83A; --y-soft:rgba(245,200,58,.16);
+  --ok:#7FE0A7; --ok-soft:rgba(127,224,167,.14); --warn:#F5C24A; --warn-soft:rgba(245,194,74,.14); --bad:#FF907A; --bad-soft:rgba(255,144,122,.15);
+  --barbg:#0D0D0E; --sh:none; color-scheme:dark;
+}
+@media (prefers-color-scheme:dark){:root[data-theme="auto"]{
+  --bg:#0D0D0E; --bg-2:#161618; --surface:#1F1F22; --raised:#28282C; --hover:#2E2E33;
+  --line:#3A3A40; --line-2:#4C4C53;
+  --ink:#F7F6F2; --ink-2:#D4D2CB; --ink-3:#A9A79F; --on-ink:#161615;
+  --red:#F5C83A; --red-ink:#FF907A; --red-soft:rgba(245,200,58,.16);
+  --y:#F5C83A; --y-text:#F5C83A; --y-soft:rgba(245,200,58,.16);
+  --ok:#7FE0A7; --ok-soft:rgba(127,224,167,.14); --warn:#F5C24A; --warn-soft:rgba(245,194,74,.14); --bad:#FF907A; --bad-soft:rgba(255,144,122,.15);
+  --barbg:#0D0D0E; --sh:none; color-scheme:dark;
+}}
+html,body{background:var(--bg)}
+body{font-size:16px;color:var(--ink)}
+body::before{background:var(--barbg)}
+:focus-visible{outline:2px solid var(--ink)}
+.hint,.r-sub,.listfoot,.foot,.sig-h .src,.note-h,.file span,.card p{font-size:14px}
+.eyebrow{font-size:13px}
+.pill{font-size:12.5px}
+.facts dt,.ex-t,.editor label,.fld>span,th{font-size:12.5px;letter-spacing:.04em;font-family:var(--f-b);font-weight:600}
+.facts dd{font-family:var(--f-b);font-size:15px;font-weight:600}
+.btn{font-size:15px}
+.btn.sm{font-size:14px}
+.btn.pri,.btn.red{color:var(--y-ink)}
+.btn.on{color:var(--y-text);border-color:var(--y)}
+.chip[aria-pressed="true"]{color:var(--on-ink)}
+.pill.ink{color:var(--y-text)}
+.tagy,.lnk{color:var(--y-text)}
+.tile.hot .n{color:var(--bad)}
+.fb-wk button.on{color:var(--on-ink)}
+.tr.on i{background:var(--y-ink)}
+.ex-s{font-family:var(--f-b);font-size:14px}
+.row{padding-left:8px;border-radius:12px;border-bottom-color:var(--line)}
+.row[aria-current="true"]{background:var(--surface);box-shadow:var(--sh),inset 3px 0 0 var(--y)}
+.av{background:var(--raised);border-color:var(--line)}
+.av i{border-color:var(--bg)}
+.sig{background:var(--surface);border-color:var(--line)}
+.sig.bad{border-color:var(--bad);background:var(--bad-soft)}
+.sig.warn{border-color:var(--warn);background:var(--warn-soft)}
+.sig ul{color:var(--ink);font-size:15px}
+.sig-set button{font-size:13px;padding:5px 11px;border-radius:99px}
+.empty,.notice{background:var(--surface)}
+.fb-list,.fb-card{background:var(--surface)}
+.fb-cell{background:var(--raised)}
+.card{background:var(--surface);box-shadow:var(--sh)}
+.toast{background:var(--ink);color:var(--on-ink)}
+.cl-panel{background:var(--surface);border:1px solid var(--line);box-shadow:var(--sh)}
+.cl-link{background:var(--raised)}
+
+/* barra in alto: sempre scura, porta il marchio */
+.bar{background:var(--barbg);border-bottom:0;
+  --ink:#F7F6F2; --ink-2:#D4D2CB; --ink-3:#A9A79F; --surface:transparent; --line:rgba(255,255,255,.22); --line-2:rgba(255,255,255,.32); --hover:rgba(255,255,255,.08);color:var(--ink)}
+.bar .ibtn{border-radius:12px;width:40px;height:40px}
+.wm em{color:inherit;opacity:.8}
+.crumb{font-size:17px}
+.desk-gear{display:none!important}
+
+/* navigazione */
+.tabbar{background:var(--surface);border-top:1px solid var(--line)}
+.tabbar-in{grid-template-columns:repeat(5,1fr);align-items:end;padding-top:4px}
+.rail-brand{display:none}
+.tb{font-size:12px;color:var(--ink-3);padding-bottom:6px}
+.tb>span{line-height:1.2}
+.tb[aria-current="page"]{color:var(--ink)}
+.tb[aria-current="page"]::before{top:-4px;bottom:auto;left:32%;right:32%;height:3px;border-radius:99px;background:var(--y)}
+.tb.plus span.pl{width:48px;height:48px;border-radius:16px;background:var(--y);color:var(--y-ink);margin-top:-20px;box-shadow:0 4px 14px rgba(0,0,0,.18)}
+.tb.plus svg{width:22px;height:22px}
+.tb.plus[aria-current="page"]::before{display:none}
+.badge{position:absolute;top:2px;left:54%;min-width:19px;height:19px;padding:0 5px;border-radius:99px;background:var(--bad);color:#fff;font-size:11.5px;font-weight:700;display:grid;place-items:center;font-style:normal}
+@media (max-width:959px){
+  body[data-view="feedback"] .main{display:block}
+  body[data-view="feedback"] .side,body[data-view="impostazioni"] .side{display:none}
+  body[data-view="atleta"] .crumb{display:block;flex:1}
+  body[data-view="atleta"] .bar-act .ibtn:not(#menubtn){display:none}
+}
+@media (min-width:960px){
+  .tabbar{display:block!important;top:0;bottom:0;right:auto;width:var(--rail);border-top:0;border-right:1px solid rgba(255,255,255,.08);background:var(--barbg);padding:18px 12px;
+    --ink:#F7F6F2; --ink-3:rgba(247,246,242,.68)}
+  .tabbar-in{height:100%;display:flex;flex-direction:column;align-items:stretch;gap:4px}
+  .rail-brand{display:block;color:var(--ink);margin:0 8px 22px}
+  .rail-brand .wm{font-size:21px}
+  .tb{flex-direction:row;justify-content:flex-start;gap:12px;padding:11px 12px;border-radius:12px;font-size:15px;font-weight:500;color:var(--ink-3)}
+  .tb[aria-current="page"]{background:rgba(255,255,255,.1);color:var(--ink);font-weight:600}
+  .tb[aria-current="page"]::before{display:none}
+  .tb.plus{order:9;margin-top:14px;background:var(--y);color:var(--y-ink);justify-content:center;font-weight:600}
+  .tb.plus span.pl{width:auto;height:auto;margin:0;background:none;box-shadow:none;color:inherit}
+  .tb.plus span.pl svg{width:18px;height:18px}
+  #tb-impostazioni{order:10;margin-top:auto}
+  #tb-impostazioni span{font-size:0}#tb-impostazioni span::after{content:"Impostazioni";font-size:15px}
+  .badge{position:static;margin-left:auto}
+  .bar,.shell{margin-left:var(--rail)}
+  .bar .brand{display:none}
+  .bar-in{max-width:none}
+  .shell{max-width:none}
+  .side{background:var(--bg)}
+  body[data-view="atleta"] .crumb{display:none}
+}
+
+/* elenco atleti a gruppi */
+.grp{font-size:13px;font-weight:600;color:var(--ink-3);padding:14px 4px 6px;display:flex;justify-content:space-between}
+.list .row:first-of-type{border-top:0}
+
+/* oggi */
+.hello{display:flex;flex-direction:column;gap:2px;margin-bottom:16px}
+.hello h1{font-family:var(--f-d);font-weight:600;font-size:clamp(28px,6vw,40px);letter-spacing:-.02em;line-height:1.1;margin:0}
+.hello p{margin:0;color:var(--ink-2)}
+.counts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:20px}
+.counts button{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:12px 14px;text-align:left;box-shadow:var(--sh);display:flex;flex-direction:column;gap:2px;min-width:0}
+.counts b{font-family:var(--f-d);font-size:30px;font-weight:600;line-height:1.1;font-variant-numeric:tabular-nums}
+.counts b.hot{color:var(--bad)}
+.counts span{font-size:13.5px;color:var(--ink-2);font-weight:500;line-height:1.25}
+.lbl{font-size:14px;font-weight:600;color:var(--ink-3);margin:18px 2px 8px;display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.lbl .lnk{font-size:14px;text-decoration:none}
+.todo{background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--sh);overflow:hidden}
+.todo>div{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px 14px;border-top:1px solid var(--line)}
+.todo>div:first-child{border-top:0}
+.todo .who{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;align-items:center;background:none;border:0;padding:0;text-align:left;min-width:0;grid-column:1/3}
+.todo .who b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.todo .who small{display:block;color:var(--ink-2);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ico{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-weight:700;font-size:14px;flex:none}
+.ico.bad{background:var(--bad-soft);color:var(--bad)}.ico.warn{background:var(--warn-soft);color:var(--warn)}.ico.ok{background:var(--ok-soft);color:var(--ok)}.ico.y{background:var(--y-soft);color:var(--y-text)}
+.todo .more{display:block;width:100%;border:0;border-top:1px solid var(--line);background:none;padding:12px;font-weight:600;color:var(--ink-2);font-size:14px}
+
+/* feedback in arrivo */
+.fbi{display:flex;flex-direction:column;gap:7px;padding:13px 14px;border-top:1px solid var(--line);background:none;border-left:0;border-right:0;border-bottom:0;width:100%;text-align:left}
+.fbi:first-child{border-top:0}
+.fbi .h{display:flex;gap:10px;align-items:center;min-width:0}
+.fbi .h b{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fbi .h small{color:var(--ink-3);font-size:13px;margin-left:auto;white-space:nowrap}
+.fbi .r{display:flex;gap:6px;flex-wrap:wrap}
+.fbi .r span{font-size:13px;padding:3px 9px;border-radius:8px;background:var(--raised);color:var(--ink-2);font-weight:500}
+.fbi .r span.bad{background:var(--bad-soft);color:var(--bad)}.fbi .r span.warn{background:var(--warn-soft);color:var(--warn)}.fbi .r span.ok{background:var(--ok-soft);color:var(--ok)}
+.fbi p{margin:0;font-size:14.5px;color:var(--ink-2)}
+.fbi .new{width:9px;height:9px;border-radius:50%;background:var(--y);flex:none;box-shadow:0 0 0 2px var(--y-soft)}
+.fbfl{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+
+/* atleta */
+.a-head{display:flex;gap:14px;align-items:center;margin-bottom:14px}
+.a-head .av{width:54px;height:54px;border-radius:16px;font-size:18px}
+.a-head h1{font-family:var(--f-d);font-weight:600;font-size:clamp(26px,5.5vw,38px);letter-spacing:-.02em;line-height:1.1;margin:0;text-wrap:balance;overflow-wrap:anywhere}
+.a-head p{margin:2px 0 0;color:var(--ink-2);font-size:15px}
+.a-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
+.a-side{display:flex;flex-direction:column;gap:12px;min-width:0}
+.a-main{min-width:0}
+.next{border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;background:var(--surface);border:1px solid var(--line);box-shadow:var(--sh)}
+.next.bad{background:var(--bad-soft);border-color:transparent;box-shadow:none}
+.next.warn{background:var(--warn-soft);border-color:transparent;box-shadow:none}
+.next.ok{background:var(--ok-soft);border-color:transparent;box-shadow:none}
+.next>b{font-size:14px;font-weight:700}
+.next.bad>b{color:var(--bad)}.next.warn>b{color:var(--warn)}.next.ok>b{color:var(--ok)}
+.next p{margin:0;font-size:15.5px}
+.next .ed-row .btn{min-height:44px}
+.a-tools{display:none;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.wkbox{display:flex;gap:6px;margin-bottom:12px}
+.wkbox span{flex:1;min-width:0;height:32px;border-radius:9px;display:grid;place-items:center;font-size:13px;font-weight:600;background:var(--surface);border:1px solid var(--line);color:var(--ink-3)}
+.wkbox span.done{background:var(--raised);color:var(--ink-2)}
+.wkbox span.now{background:var(--ink);color:var(--on-ink);border-color:var(--ink)}
+.wkbox span.over{background:var(--bad-soft);color:var(--bad);border-color:transparent}
+.facts2{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:14px;overflow:hidden;margin:0 0 14px}
+.facts2 div{background:var(--surface);padding:10px 12px;min-width:0}
+.facts2 dt{font-size:12.5px;color:var(--ink-3);font-weight:600}
+.facts2 dd{margin:1px 0 0;font-weight:600;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.tabs{background:var(--bg);border-bottom-color:var(--line)}
+.tab{font-size:15px;padding:12px 13px;color:var(--ink-3)}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--y)}
+.only-d{display:none}
+@media (min-width:1180px){
+  .a-grid{grid-template-columns:minmax(0,1fr) 320px;align-items:start}
+  .a-side{order:2;position:sticky;top:calc(var(--bar-h) + 12px)}
+  .a-main{order:1}
+  .a-tools{display:flex}
+  .only-d{display:block}.only-m{display:none}
+}
+@media (min-width:960px){body[data-view="atleta"] #menubtn{display:none!important}}
+
+/* menu azioni dal basso */
+.sheet{position:fixed;inset:0;z-index:50;background:rgba(10,10,10,.45);display:flex;align-items:flex-end;justify-content:center}
+.sheet .panel{width:100%;max-width:520px;background:var(--surface);border-radius:22px 22px 0 0;padding:8px 16px calc(18px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:2px;animation:st-sheet .22s cubic-bezier(.2,.7,.2,1)}
+.sheet .grab{width:40px;height:5px;border-radius:99px;background:var(--line-2);margin:6px auto 10px}
+.sheet .it{display:flex;align-items:center;gap:14px;border:0;background:none;padding:13px 8px;font-size:16px;font-weight:500;text-align:left;border-radius:12px;color:var(--ink);text-decoration:none}
+.sheet .it:hover{background:var(--raised)}
+.sheet .it svg{width:20px;height:20px;color:var(--ink-2);flex:none}
+.sheet .it small{margin-left:auto;color:var(--ink-3);font-size:13px}
+@keyframes st-sheet{from{transform:translateY(40px);opacity:.5}}
+.themes{display:flex;gap:6px;flex-wrap:wrap}
+.bar .desk-only{display:none!important}
 </style>
 </head><body>
 <header class="bar gut">
   <div class="bar-in">
     <button class="back" type="button" data-act="back" aria-label="Indietro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg><span id="backlbl">Atleti</span></button>
     <button class="brand" type="button" data-go="oggi" aria-label="Serkis, vai a Oggi">
-      <svg viewBox="118 100 276 312" aria-hidden="true"><polygon fill="#eef0f2" points="148.0,104.0 334.0,104.0 364.0,134.0 364.0,156.0 200.0,156.0 200.0,214.0 148.0,214.0"/><polygon fill="#e3262b" points="126.0,230.0 386.0,230.0 386.0,282.0 126.0,282.0"/><polygon fill="#eef0f2" points="312.0,298.0 364.0,298.0 364.0,408.0 178.0,408.0 148.0,378.0 148.0,356.0 312.0,356.0"/></svg>
-      <span class="brand-w">SERKIS</span><span class="brand-s">Coach</span>
+      <svg viewBox="118 100 276 312" aria-hidden="true" hidden><polygon fill="#eef0f2" points="148.0,104.0 334.0,104.0 364.0,134.0 364.0,156.0 200.0,156.0 200.0,214.0 148.0,214.0"/><polygon fill="#e3262b" points="126.0,230.0 386.0,230.0 386.0,282.0 126.0,282.0"/><polygon fill="#eef0f2" points="312.0,298.0 364.0,298.0 364.0,408.0 178.0,408.0 148.0,378.0 148.0,356.0 312.0,356.0"/></svg>
+      <span class="wm"><b>serk</b><span class="i"><span></span><span></span></span><b>s</b><em>training</em></span><span class="brand-s">coach</span>
     </button>
+    <span class="crumb" id="crumb"></span>
     <div class="bar-act">
       <span class="sync" id="sync"></span>
       <button class="btn sm pri desk-only" type="button" data-go="nuovo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>Nuovo</button>
       <button class="ibtn" type="button" id="refresh" aria-label="Aggiorna dati"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg></button>
-      <button class="ibtn" type="button" data-go="impostazioni" aria-label="Impostazioni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+      <button class="ibtn" type="button" id="menubtn" data-act="menu" aria-label="Altre azioni" hidden><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
+      <button class="ibtn desk-gear" type="button" data-go="impostazioni" aria-label="Impostazioni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
     </div>
   </div>
 </header>
@@ -339,17 +666,156 @@ input[type=number].inp{width:76px}
 </div>
 <nav class="tabbar" aria-label="Sezioni">
   <div class="tabbar-in">
-    <button class="tb" type="button" data-go="oggi" id="tb-oggi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="1"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Oggi</button>
-    <button class="tb" type="button" data-go="atleti" id="tb-atleti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5M16 4.8a3.4 3.4 0 0 1 0 6.4M18 14.8c1.9.7 3.1 2.4 3.5 5.2"/></svg>Atleti</button>
-    <button class="tb plus" type="button" data-go="nuovo" id="tb-nuovo"><span class="pl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M12 5v14M5 12h14"/></svg></span>Nuovo</button>
+    <span class="rail-brand"><span class="wm" aria-label="serkistraining"><b>serk</b><span class="i"><span></span><span></span></span><b>s</b><em>training</em></span></span>
+    <button class="tb" type="button" data-go="oggi" id="tb-oggi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span>Oggi</span></button>
+    <button class="tb" type="button" data-go="atleti" id="tb-atleti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5M16 4.8a3.4 3.4 0 0 1 0 6.4M18 14.8c1.9.7 3.1 2.4 3.5 5.2"/></svg><span>Atleti</span></button>
+    <button class="tb plus" type="button" data-go="nuovo" id="tb-nuovo"><span class="pl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M12 5v14M5 12h14"/></svg></span><span>Nuovo</span></button>
+    <button class="tb" type="button" data-go="feedback" id="tb-feedback"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/></svg><span>Feedback</span><b class="badge" id="fbbadge" hidden></b></button>
+    <button class="tb" type="button" data-go="impostazioni" id="tb-impostazioni"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg><span>Altro</span></button>
   </div>
 </nav>
+<div class="sheet" id="sheet" hidden></div>
 <div class="toast" id="toast" role="status" hidden></div>
 
 <script>
+/* Lettore delle schede per la pagina cliente e per l'app del coach.
+   Template supportati: "Programmazione" (GIORNO A/B/C, PROTOCOLLO, FEEDBACK con righe "Sett. N:")
+   e "Serkistraining" (G1/G2/G3, SCHEMA E REST, FEEDBACK con righe "SN  │"). */
+const SK=(()=>{
+  const MARK=/\((?:sett\.?|settimane?|s)\s*(\d+)(?:\s*[-\/]\s*(\d+))?\)\s*/i;
+  const DAY=/^(GIORNO|G|DAY|SEDUTA)\s*([A-Z0-9]{1,3})$/i;
+  const clean=v=>String(v==null?"":v).replace(/\r/g,"").trim();
+
+  // Dose della settimana w: righe senza "(sett. X)" valgono sempre; le altre solo nelle settimane indicate.
+  // Il testo prima del marcatore ("Emom:", "Ramping:") viene riportato sulle righe sorelle.
+  function doseFor(text,w){
+    const out=[];let prefix="";
+    for(const raw of String(text||"").split("\n")){
+      const m=raw.match(MARK);
+      if(!m){prefix="";out.push(raw);continue}
+      const before=raw.slice(0,m.index).trim();if(before)prefix=before;
+      const a=+m[1],b=m[2]?+m[2]:a;
+      if(w>=a&&w<=b)out.push(((prefix?prefix+" ":"")+raw.slice(m.index+m[0].length)).trim());
+    }
+    return out.join("\n").replace(/\n{3,}/g,"\n\n").trim();
+  }
+  function hasWeeks(text){return MARK.test(String(text||""))}
+
+  // Settimane in cui la nota chiede un video. Nessuna settimana indicata = tutte.
+  function video(note,n){
+    const s=String(note||"").split(/(?<=[.!?])\s+|\n+/).find(x=>/video/i.test(x));
+    if(!s)return null;
+    const tail=s.slice(s.search(/video/i));
+    const nums=/settiman|sett\./i.test(s)?[...tail.matchAll(/(\d+(?:[.,]\d+)?)(?!\s*(?:kg|rep|x|×|″|"|'|′|%|[.,]?\d))/gi)].map(m=>+m[1].replace(",",".")).filter(x=>Number.isInteger(x)&&x>=1&&x<=n):[];
+    return{weeks:nums.length?[...new Set(nums)]:Array.from({length:n},(_,i)=>i+1),text:s.trim()};
+  }
+
+  // Riga della settimana w nella cella FEEDBACK
+  function readFb(cell,w){
+    const re=new RegExp("^\\s*(?:Sett\\.?\\s*|S)"+w+"\\s*(?::|│)\\s*(.*)$");
+    const l=String(cell||"").split("\n").find(x=>re.test(x));
+    return l?l.match(re)[1].trim():"";
+  }
+  function fbWeeks(cell){return(String(cell||"").match(/^\s*(?:Sett\.?\s*|S)(\d+)\s*(?::|│)/gm)||[]).length}
+
+  // Testo che va nel foglio, e lettura al contrario per riprendere un feedback già inviato
+  function word(n){return n<=4?"facile":n<=7?"medio":"duro"}
+  function line(f){
+    if(f.skip)return"SALTATO · "+clean(f.why);
+    return[`RPE ${f.rpe} (${word(f.rpe)})`,`tecnica ${f.tec.toLowerCase()}`,f.pain!=null?`fastidio ${f.pain}/10`:null,clean(f.nota)||null].filter(Boolean).join(" · ");
+  }
+  function unline(s){
+    s=clean(s);if(!s)return null;
+    const sk=s.match(/^SALTATO\s*·?\s*(.*)$/i);if(sk)return{skip:true,why:sk[1]};
+    const f={},parts=s.split(" · ");const rest=[];
+    parts.forEach(p=>{let m;
+      if((m=p.match(/^RPE\s*(\d{1,2})/i)))f.rpe=+m[1];
+      else if((m=p.match(/^tecnica\s+(pulita|così così|da rivedere)$/i)))f.tec=m[1][0].toUpperCase()+m[1].slice(1);
+      else if((m=p.match(/^fastidio\s*(\d{1,2})\s*\/\s*10$/i)))f.pain=+m[1];
+      else rest.push(p)});
+    if(!f.rpe&&!f.tec)return{free:s};
+    f.nota=rest.join(" · ");return f;
+  }
+  function rpeOf(s){const m=String(s||"").match(/\bRPE\s*(\d{1,2})\b/i);return m?+m[1]:null}
+
+  function dayName(m){const k=m[1].toUpperCase();return(k==="SEDUTA"?"Seduta ":k==="DAY"?"Day ":"Giorno ")+m[2].toUpperCase()}
+
+  function parse(values){
+    const rows=(values||[]).map(r=>(r||[]).map(clean));
+    const out={days:[],nb:[],methods:{},weeks:null,start:null};
+    // intestazione: durata e data di inizio nelle prime righe
+    for(let r=0;r<Math.min(12,rows.length);r++)for(const c of rows[r]){
+      if(out.weeks==null){const m=c.match(/(\d{1,2})\s*settimane/i);if(m)out.weeks=+m[1]}
+      if(!out.start){const m=c.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);if(m)out.start=new Date(+m[3],+m[2]-1,+m[1])}
+    }
+    let pendingDay=null,cur=null;
+    for(let r=0;r<rows.length;r++){
+      const row=rows[r],first=row.findIndex(c=>c);
+      if(first<0){cur=null;continue}
+      const u=row[first].toUpperCase();
+      if(u==="NB"){
+        const txt=row.slice(first+1).find(c=>c)||"";
+        out.nb=txt.split("\n").map(l=>l.replace(/^[•·\-\s]+/,"").trim()).filter(Boolean).map(l=>{const m=l.match(/^([^:]{2,40}):\s*(.+)$/);return m?{t:m[1].trim()+":",d:m[2].trim()}:{t:"",d:l}});
+        continue;
+      }
+      if(/^METODI PRESENTI/i.test(row[first])){
+        const nx=(rows[r+1]||[]).find(c=>c)||"";
+        nx.split(/\n\s*\n/).forEach(b=>{const m=b.trim().match(/^([A-ZÀ-Ü][A-ZÀ-Ü0-9 \-]{1,24}):\s*([\s\S]+)$/);if(m)out.methods[m[1].trim().toUpperCase()]=m[2].trim()});
+        r++;cur=null;continue;
+      }
+      const iName=row.findIndex(c=>/^ESERCIZIO/i.test(c)),iFb=row.findIndex(c=>/FEEDBACK/i.test(c));
+      const dm=row.map(c=>c.match(DAY)).find(Boolean);
+      if(iName>=0&&iFb>=0){
+        const label=dm?dayName(dm):pendingDay||("Giorno "+(out.days.length+1));
+        cur={label,row:r+1,cols:{name:iName,fb:iFb,dose:row.findIndex(c=>/PROTOCOLLO|SCHEMA|SET\b|SERIE/i.test(c)),note:row.findIndex(c=>/^NOTE/i.test(c))},items:[]};
+        out.days.push(cur);pendingDay=null;continue;
+      }
+      if(dm&&row.filter(c=>c).length<=3+12){pendingDay=dayName(dm);cur=null;continue}
+      if(!cur)continue;
+      const name=row[cur.cols.name]||"";
+      if(!name)continue;
+      cur.items.push({
+        name:name.replace(/\n\s*(?:SS|\+)\s*\n/gi," + ").replace(/\n+/g," "),
+        dose:cur.cols.dose>=0?row[cur.cols.dose]||"":"",
+        note:cur.cols.note>=0?row[cur.cols.note]||"":"",
+        fb:row[cur.cols.fb]||"",row:r+1,col:cur.cols.fb+1
+      });
+    }
+    out.days=out.days.filter(d=>d.items.length);
+    if(out.weeks==null){let m=0;out.days.forEach(d=>d.items.forEach(it=>{m=Math.max(m,fbWeeks(it.fb));(it.dose.match(new RegExp(MARK.source,"gi"))||[]).forEach(x=>{const k=x.match(MARK);m=Math.max(m,+(k[2]||k[1]))})}));out.weeks=m||null}
+    return out;
+  }
+
+  // Termini spiegati nella sezione METODI presenti nella dose
+  function methodsIn(text,methods){
+    const t=String(text||"");
+    return Object.keys(methods).filter(k=>new RegExp("(^|[^A-Za-zÀ-ü])"+k.replace(/[-\s]+/g,"[\\s-]*")+"(?![A-Za-zÀ-ü])","i").test(t));
+  }
+
+  // Avvisi: stesso esercizio a RPE 10 (o a RPE ≤6) per 3 settimane di fila, ed esercizi saltati
+  function alerts(P,upto){
+    const out=[];
+    P.days.forEach(d=>d.items.forEach(it=>{
+      let run10=0,runLow=0,best10=0,bestLow=0,end10=0,endLow=0;
+      for(let w=1;w<=(upto||12);w++){
+        const s=readFb(it.fb,w),r=rpeOf(s);
+        if(r===10){run10++;if(run10>=best10){best10=run10;end10=w}}else run10=0;
+        if(r!=null&&r<=6){runLow++;if(runLow>=bestLow){bestLow=runLow;endLow=w}}else runLow=0;
+        if(/^SALTATO/i.test(s))out.push({kind:"skip",level:"warn",day:d.label,ex:it.name,week:w,text:it.name+": saltato in sett. "+w+(s.replace(/^SALTATO\s*·?\s*/i,"")?" ("+s.replace(/^SALTATO\s*·?\s*/i,"")+")":"")});
+      }
+      if(best10>=3)out.push({kind:"hard",level:"bad",day:d.label,ex:it.name,week:end10,text:it.name+": RPE 10 per "+best10+" settimane di fila (fino alla sett. "+end10+")"});
+      if(bestLow>=3)out.push({kind:"easy",level:"warn",day:d.label,ex:it.name,week:endLow,text:it.name+": RPE 6 o meno per "+bestLow+" settimane di fila (fino alla sett. "+endLow+")"});
+    }));
+    return out;
+  }
+
+  return{doseFor,hasWeeks,video,readFb,fbWeeks,line,unline,rpeOf,word,parse,methodsIn,alerts};
+})();
+if(typeof module!=="undefined")module.exports=SK;
+
 (function(){
 "use strict";
-const VERSION="1.3";
+const VERSION="3.0";
 const NOTES_ID="1jzW0uELNty_8Dx0AWhwJXzg7YObm6Nr_fYbNlP0Z3mo";
 const NOTES_URL="https://docs.google.com/spreadsheets/d/"+NOTES_ID+"/edit";
 const DS_COACH="collection://264112d7-0f3d-80c1-9340-000bfe370a29";
@@ -370,6 +836,12 @@ const ICON={
   ext:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>',
   edit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/></svg>',
   plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>',
+  link:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>',
+  chat:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 20l1.4-4.2A8 8 0 1 1 8.6 19z"/></svg>',
+  sheet:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>',
+  test:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-9V3"/></svg>',
+  notion:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 16V8l6 8V8"/></svg>',
+  msg:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/></svg>',
   copy:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="1"/><path d="M5 15V5a1 1 0 0 1 1-1h10"/></svg>'
 };
 
@@ -378,12 +850,15 @@ const S={
   mode:IN_CLAUDE?"claude":"app",adapter:null,cfg:null,
   athletes:[],sheets:{},notes:[],notesState:"idle",notesErr:null,
   files:{},tests:{},bodies:{},hist:{},ai:{},alt:{},sessSel:{},pickTab:{},
-  view:"oggi",sel:null,tab:"scheda",prev:"oggi",
+  view:"oggi",sel:null,tab:"panoramica",prev:"oggi",fbf:"tutti",todoAll:false,menu:false,fbPrevSeen:null,
   filter:{sede:"all",stato:"attivi",focus:null,q:""},sort:"urgenza",
   load:{state:"idle",err:null,at:null},edit:null,editErr:null,saving:false,
   templates:null,tplErr:null,nuovo:null,created:null,creating:false,createErr:null,
-  drafts:{},extra:{},nav:0,delArm:null,unlinkArm:false,setupErr:null,setupBusy:false
+  drafts:{},extra:{},nav:0,delArm:null,unlinkArm:false,setupErr:null,setupBusy:false,
+  clients:{},clientsState:"idle",clientOpen:false,clientBusy:false,fbLog:[],fbView:{mode:"week",week:null,day:0},pinned:{}
 };
+function applyTheme(t){document.documentElement.dataset.theme=t||"light";const m=document.querySelector('meta[name="theme-color"]');if(m)m.content="#161615"}
+applyTheme(store.get("theme","light"));
 (function(){const p=store.get("prefs",{});if(p.sede)S.filter.sede=p.sede;if(p.stato)S.filter.stato=p.stato;if(p.sort)S.sort=p.sort;if(p.tab)S.tab=p.tab})();
 function savePrefs(){store.set("prefs",{sede:S.filter.sede,stato:S.filter.stato,sort:S.sort,tab:S.tab})}
 
@@ -725,8 +1200,29 @@ function autoSignal(a){
     else if(done-an.lastFb>=2){if(level==="ok")level="warn";reasons.push("Feedback fermo alla S"+an.lastFb+" (siamo alla S"+wk+")")}
     else if(done-an.lastFb===1)reasons.push("Manca ancora il feedback della S"+done);
   }
+  const al=clientAlerts(a),wkNow=a.wk&&!a.wk.future?a.wk.week:99;
+  al.filter(x=>x.kind==="hard").forEach(x=>{level="bad";reasons.unshift("Sempre al limite · "+x.text)});
+  al.filter(x=>x.kind==="easy").forEach(x=>{if(level==="ok")level="warn";reasons.push("Sempre facile · "+x.text)});
+  al.filter(x=>x.kind==="skip"&&x.week>=wkNow-1).forEach(x=>{if(level==="ok")level="warn";reasons.push("Esercizio saltato · "+x.text)});
   if(!reasons.length)reasons.push(an.lastFb?"Feedback regolare fino alla S"+an.lastFb:"Scheda appena iniziata");
   return{level,reasons};
+}
+function skOf(sh){if(!sh||!sh.values)return null;if(!sh.SK){try{sh.SK=SK.parse(sh.values)}catch(e){sh.SK={days:[],nb:[],methods:{}}}}return sh.SK}
+function clientAlerts(a){const sh=shOf(a);if(!sh||sh.status!=="ok")return[];const P=skOf(sh);if(!P||!P.days.length)return[];return SK.alerts(P,a.wk&&!a.wk.future?Math.max(a.wk.week,1):12)}
+function lastSession(a){
+  const L=S.fbLog.filter(x=>x.athleteId===a.id);if(!L.length)return null;
+  const x=L.reduce((m,y)=>y.at>m.at?y:m,L[0]);const d=new Date(x.at);
+  return{day:x.day,week:+x.week,date:isNaN(d)?null:d,text:(x.day||"Allenamento")+" · sett. "+x.week+(isNaN(d)?"":" · "+["dom","lun","mar","mer","gio","ven","sab"][d.getDay()]+" "+fd(d))};
+}
+function sessionDates(a,week){const out={};S.fbLog.filter(x=>x.athleteId===a.id&&+x.week===week).forEach(x=>{if(!out[x.day]||x.at>out[x.day])out[x.day]=x.at});return out}
+function linkSig(a){return(a.sheetLinks||[]).map(l=>l.id+(l.gid?":"+l.gid:"")).join(",")}
+function pinClient(a){
+  const c=S.clients[a.id];if(!c||!S.adapter||!S.adapter.caps.client)return;
+  const cs=curSheet(a);if(cs.loading||!cs.sh||cs.sh.status==="error")return;
+  const id=cs.where==="alt"?cs.alt.id:cs.sh.id,tab=cs.sh.tab||"",sig=linkSig(a);
+  if(!id||(c.pinSheet===id&&c.pinTab===tab&&c.pinSig===sig)||S.pinned[a.id]===id+tab+sig)return;
+  S.pinned[a.id]=id+tab+sig;
+  S.adapter.clientPin(a,id,tab,sig).then(()=>{c.pinSheet=id;c.pinTab=tab;c.pinSig=sig}).catch(()=>{delete S.pinned[a.id]});
 }
 function signalOf(a){const c=coachSignal(a.id);if(c)return{level:c.signal,reasons:[c.text||"Segnale impostato da te"],manual:true,date:c.createdAt};return autoSignal(a)}
 const LV={ok:"Va bene",warn:"Da guardare",bad:"Attenzione",none:"Senza dati"};
@@ -790,7 +1286,7 @@ function scriptAdapter(cfg){
     return j;
   }
   return{
-    kind:"script",batch:6,caps:{ai:false,notionWrite:true},
+    kind:"script",batch:6,caps:{ai:false,notionWrite:true,client:true},
     ping:()=>call("ping",{},20000),
     athletes:async fresh=>(await call("athletes",{fresh})).athletes,
     sheets:async(ids,fresh,gids)=>(await call("sheets",{ids,fresh,gids:gids||{}})).sheets,
@@ -804,7 +1300,12 @@ function scriptAdapter(cfg){
     create:req=>call("create",req,120000),
     notes:async()=>(await call("notes")).notes,
     noteAdd:async n=>(await call("noteAdd",{note:n})).note,
-    noteDel:n=>call("noteDel",{id:n.id})
+    noteDel:n=>call("noteDel",{id:n.id}),
+    clients:async()=>(await call("clients")).clients,
+    clientLink:async(a,create)=>(await call("clientLink",{athleteId:a.id,athleteName:a.name,create:!!create})).client,
+    clientSet:async(token,o)=>(await call("clientSet",Object.assign({token},o))).client,
+    clientPin:(a,sheetId,tab,sig)=>call("clientPin",{athleteId:a.id,sheetId,tab,sig}),
+    fbLog:async since=>(await call("fbLog",{since})).log
   };
 }
 function claudeAdapter(mcp,sample){
@@ -938,7 +1439,10 @@ function setSheet(aid,r){const P=parseSheet(r.values);const old=S.sheets[aid];S.
 // File con più schede su fogli diversi: la scheda attuale è il foglio più recente (data nel foglio, stimata se manca)
 const resolving={};let resolveQ=Promise.resolve();
 function resolveTab(a){
-  const sh=S.sheets[a.id];if(!sh||sh.status!=="ok"||resolving[a.id+sh.id])return;resolving[a.id+sh.id]=1;
+  const sh=S.sheets[a.id];if(!sh||sh.status!=="ok"||resolving[a.id+sh.id])return;
+  // Il link in Notion indica un foglio preciso (gid): vale quello, senza indovinare dalle date
+  if(a.sheetGid&&sh.id===a.sheetId&&!sh.picked)return;
+  resolving[a.id+sh.id]=1;
   resolveQ=resolveQ.then(async()=>{
     try{
       let tabs=sh.tabs;if(!tabs&&S.adapter.tabs){try{tabs=(await S.adapter.tabs(sh.id)).map(t=>t.name)}catch(e){}}
@@ -963,6 +1467,7 @@ async function loadAll(fresh){
     S.athletes=finalize(list);S.load={state:"ok",err:null,at:new Date()};
     route(true);renderSoon();
     loadNotes();
+    loadClients();
     await scanSheets(fresh);
     cacheSave();
   }catch(e){S.load={state:"error",err:e,at:S.load.at};renderSoon()}
@@ -971,6 +1476,16 @@ async function loadNotes(){
   if(!S.notes.length)S.notesState="loading";renderSoon();
   try{S.notes=(await S.adapter.notes()).sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));S.notesState="ok";cacheSave()}
   catch(e){S.notesState="error";S.notesErr=e}
+  renderSoon();
+}
+async function loadClients(){
+  if(!S.adapter||!S.adapter.caps.client)return;
+  S.clientsState="loading";
+  try{
+    const since=iso(addDays(today(),-120));
+    const [cl,lg]=await Promise.all([S.adapter.clients(),S.adapter.fbLog(since).catch(()=>[])]);
+    S.clients={};cl.forEach(c=>{S.clients[c.athleteId]=c});S.fbLog=lg||[];S.clientsState="ok";
+  }catch(e){S.clientsState="error"}
   renderSoon();
 }
 let scanning=false;
@@ -1156,7 +1671,10 @@ function render(){
   const ae=document.activeElement;
   if(ae&&$("#main").contains(ae)&&/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)&&S.view===S.lastView&&S.sel===S.lastSel){pendingMain=true;return}
   pendingMain=false;S.lastView=S.view;S.lastSel=S.sel;renderMain();
+  const k=S.view+"|"+(S.sel||"");if(k!==S.animKey){S.animKey=k;anim($("#main"),"enter")}
 }
+const calm=()=>window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;
+function anim(el,cls){if(typeof el==="string")el=document.querySelector(el);if(!el||calm())return;el.classList.remove(cls);void el.offsetWidth;el.classList.add(cls);const end=e=>{if(e.target!==el)return;el.classList.remove(cls);el.removeEventListener("animationend",end)};el.addEventListener("animationend",end)}
 function renderBar(){
   const s=S.load,el=$("#sync");let t="";
   if(!S.adapter)t="";else if(s.state==="loading")t=S.athletes.length?"Aggiorno…":"Carico…";
@@ -1165,8 +1683,12 @@ function renderBar(){
     t=(ok<tot?"Schede "+ok+"/"+tot+" · ":"")+(s.at?"Agg. "+p2(s.at.getHours())+":"+p2(s.at.getMinutes()):"")}
   el.textContent=t;
   const rb=$("#refresh");rb.classList.toggle("spin",s.state==="loading"||scanning);rb.disabled=!S.adapter;
-  ["oggi","atleti","nuovo"].forEach(k=>{const b=$("#tb-"+k);if(b)b.setAttribute("aria-current",S.view===k||(k==="atleti"&&S.view==="atleta"&&S.prev==="atleti")?"page":"false")});
-  $("#backlbl").textContent=S.view==="atleta"?(S.prev==="oggi"?"Oggi":"Atleti"):"Indietro";
+  ["oggi","atleti","nuovo","feedback","impostazioni"].forEach(k=>{const b=$("#tb-"+k);if(b)b.setAttribute("aria-current",S.view===k||(k==="atleti"&&S.view==="atleta"&&S.prev!=="oggi"&&S.prev!=="feedback")||(k===S.prev&&S.view==="atleta"&&k!=="atleti")?"page":"false")});
+  const nb=fbNewCount(),bd=$("#fbbadge");if(bd){bd.hidden=!nb;bd.textContent=nb>9?"9+":String(nb)}
+  const sa=S.view==="atleta"?byId(S.sel):null;$("#crumb").textContent=sa?sa.name:"";
+  $("#menubtn").hidden=!sa;
+  renderSheet();
+  $("#backlbl").textContent=S.view==="atleta"?"":"Indietro";
 }
 function avatar(a){const sg=signalOf(a).level;return`<span class="av" aria-hidden="true">${esc(a.ini)}<i class="${sg}"></i></span>`}
 function rowSub(a){
@@ -1193,10 +1715,14 @@ function renderSide(){
     foot.textContent="";return;
   }
   const L=visible();
+  const grouped=S.sort==="urgenza"&&!S.filter.focus&&!S.filter.q;
+  const grpOf=a=>!a.active?"Collaborazione finita":urgency(a)<=4?"Da sistemare":"In corso";
+  let lastG="";
   el.innerHTML=L.length?L.map(a=>{
+    let gh="";if(grouped){const g=grpOf(a);if(g!==lastG){lastG=g;gh=`<div class="grp"><span>${g}</span><span>${L.filter(x=>grpOf(x)===g).length}</span></div>`}}
     const sc=a.active&&a.wk&&a.wk.scad,sh=S.sheets[a.id];
     const flags=[sc?`<span class="pill ${sc.level}">${esc(sc.label)}</span>`:"",statusPill(a),sh&&sh.status==="error"?`<span class="pill dim">Scheda?</span>`:""].join("");
-    return`<button class="row" type="button" data-id="${a.id}" aria-current="${S.sel===a.id&&S.view==="atleta"}">${avatar(a)}<span><span class="r-name">${esc(a.name)}</span><span class="r-sub">${esc(rowSub(a))}</span></span><span class="r-flags">${flags}</span></button>`;
+    return gh+`<button class="row" type="button" data-id="${a.id}" aria-current="${S.sel===a.id&&S.view==="atleta"}">${avatar(a)}<span><span class="r-name">${esc(a.name)}</span><span class="r-sub">${esc(rowSub(a))}</span></span><span class="r-flags">${flags}</span></button>`;
   }).join(""):`<div class="empty">Nessun atleta con questi filtri.</div>`;
   foot.textContent=L.length+" su "+S.athletes.length+" atleti"+(S.load.state==="error"?" · ultimo aggiornamento non riuscito":"");
 }
@@ -1206,72 +1732,182 @@ function renderMain(){
   if(S.view==="atleta"){const a=byId(S.sel);m.innerHTML=a?viewAtleta(a):(S.athletes.length?`<div class="empty">Atleta non trovato.</div>`:`<p class="loading">Carico…</p>`);afterAtleta(a);return}
   if(S.view==="nuovo"){m.innerHTML=viewNuovo();return}
   if(S.view==="impostazioni"){m.innerHTML=viewImpostazioni();return}
+  if(S.view==="feedback"){m.innerHTML=viewFeedback();return}
   m.innerHTML=viewOggi();
 }
 
 /* ---- oggi ---- */
+// Cose da fare: una riga per atleta, con il bottone giusto
+function todoList(){
+  const act=S.athletes.filter(a=>a.active),out=[];
+  act.forEach(a=>{
+    const sc=a.wk&&a.wk.scad,sg=signalOf(a);
+    if(sc)out.push({a,u:sc.rank,ico:sc.rank<=1?"bad":"warn",i:"!",t:sc.label+(a.wk.end?" · fine "+fd(a.wk.end):""),btn:`<button class="btn sm${sc.rank<=1?" pri":""}" type="button" data-new="scheda" data-aid="${a.id}">Prepara</button>`});
+    else if(isTest(a))out.push({a,u:3,ico:"y",i:"T",t:"Test da fare · "+SEDE[a.sede],btn:`<button class="btn sm" type="button" data-new="${a.sede==="stenika"?"test-presenza":a.src==="vf"?"vf":"test-online"}" data-aid="${a.id}">Test</button>`});
+    else if(sg.level==="bad"||sg.level==="warn")out.push({a,u:sg.level==="bad"?1.5:3.5,ico:sg.level,i:sg.level==="bad"?"!":"?",t:sg.reasons[0],btn:`<button class="btn sm" type="button" data-id="${a.id}" data-jtab="feedback">Guarda</button>`});
+    else if(isTodo(a))out.push({a,u:4,ico:"y",i:"+",t:a.status+" · "+SEDE[a.sede],btn:`<button class="btn sm" type="button" data-id="${a.id}">Apri</button>`});
+  });
+  return out.sort((x,y)=>x.u-y.u||x.a.name.localeCompare(y.a.name,"it"));
+}
+function todoHtml(list,max){
+  const L=max?list.slice(0,max):list;
+  return`<div class="todo">${L.map(x=>`<div><button class="who" type="button" data-id="${x.a.id}"><span class="ico ${x.ico}">${x.i}</span><span style="min-width:0"><b>${esc(x.a.name)}</b><small>${esc(x.t)}</small></span></button>${x.btn}</div>`).join("")}${max&&list.length>max?`<button class="more" type="button" data-act="todo-all">Mostra tutte (${list.length})</button>`:""}</div>`;
+}
 function viewOggi(){
   const d=today(),act=S.athletes.filter(a=>a.active);
-  const head=`<div class="today-h"><span class="eyebrow">${GIORNI[d.getDay()]} ${d.getDate()} ${MESI[d.getMonth()]}</span><h1 class="disp">Oggi</h1></div>`;
-  if(!S.athletes.length)return head+(S.load.state==="error"?`<div class="notice err">${esc(errText(S.load.err,S.mode==="claude"?"Notion":"Il backend"))}<br><button class="btn sm" type="button" data-act="reload">Riprova</button></div>`:`<p class="loading">Leggo atleti e schede…</p>`);
-  const sch=act.filter(a=>a.wk&&a.wk.scad).sort((x,y)=>x.wk.scad.rank-y.wk.scad.rank);
-  const tst=act.filter(a=>isTest(a)||isTodo(a));
-  const look=act.map(a=>({a,s:signalOf(a)})).filter(x=>x.s.level==="bad"||x.s.level==="warn").sort((x,y)=>(x.s.level==="bad"?0:1)-(y.s.level==="bad"?0:1));
-  const kin=act.filter(a=>a.sede==="kineva");
   const scanned=S.athletes.filter(a=>a.sheetId&&a.active).every(a=>S.sheets[a.id]&&["ok","error"].includes(S.sheets[a.id].status));
-  const tile=(f,n,l,s,cls)=>`<button class="tile ${cls}" type="button" data-focus="${f}"><span class="n num">${n}</span><span class="l">${l}</span><span class="s">${esc(s)}</span></button>`;
-  const ult=sch.filter(a=>a.wk.scad.rank<=1).length;
-  let h=head+`<div class="tiles">
-    ${tile("schede",sch.length,"Schede",ult?ult+" da fare subito":sch.length?"in arrivo":"nessuna in scadenza",ult?"hot":sch.length?"mid":"")}
-    ${tile("test",tst.length,"Test e partenze",act.filter(isTest).length+" test · "+act.filter(isTodo).length+" da fare","")}
-    ${tile("guardare",scanned?look.length:"…","Da guardare",scanned?look.filter(x=>x.s.level==="bad").length+" attenzione":"leggo le schede",look.some(x=>x.s.level==="bad")?"hot":look.length?"mid":"")}
-    ${tile("kineva",kin.length,"Kineva","valutazione funzionale","")}
-  </div>`;
-  const tr=(a,why,btn)=>`<div class="trow"><button class="go" type="button" data-id="${a.id}">${avatar(a)}<span style="min-width:0"><span class="r-name">${esc(a.name)}</span><span class="why">${esc(why)}</span></span></button>${btn||"<span></span>"}</div>`;
-  h+=`<section class="block"><div class="block-h"><h2>Schede da preparare</h2><span class="c">${sch.length}</span></div>`+
-    (sch.length?sch.map(a=>tr(a,a.wk.scad.label+" · "+SEDE[a.sede]+(a.wk.end?" · fine "+fd(a.wk.end):""),`<button class="btn sm" type="button" data-new="scheda" data-aid="${a.id}">${ICON.plus}Scheda</button>`)).join(""):`<p class="hint">Nessuna scheda in scadenza nelle prossime due settimane.</p>`)+`</section>`;
-  h+=`<section class="block"><div class="block-h"><h2>Test e partenze</h2><span class="c">${tst.length}</span></div>`+
-    (tst.length?tst.map(a=>tr(a,a.status+" · "+SEDE[a.sede],isTest(a)?`<button class="btn sm" type="button" data-new="${a.sede==="stenika"?"test-presenza":"test-online"}" data-aid="${a.id}">${ICON.plus}Test</button>`:"")).join(""):`<p class="hint">Nessun test o partenza in sospeso.</p>`)+`</section>`;
-  h+=`<section class="block"><div class="block-h"><h2>Da guardare</h2><span class="c">${scanned?look.length:"…"}</span></div>`+
-    (look.length?look.map(x=>tr(x.a,x.s.reasons[0])).join(""):`<p class="hint">${scanned?"Nessun segnale dai feedback.":"Leggo i feedback nelle schede…"}</p>`)+`</section>`;
+  const list=S.athletes.length?todoList():[];
+  const head=`<div class="hello"><h1>Ciao Serkis</h1><p>${GIORNI[d.getDay()].replace(/^./,c=>c.toUpperCase())} ${d.getDate()} ${MESI[d.getMonth()]}${S.athletes.length?" · "+(list.length?list.length+(list.length===1?" cosa da fare":" cose da fare"):"niente di urgente"):""}</p></div>`;
+  if(!S.athletes.length)return head+(S.load.state==="error"?`<div class="notice err">${esc(errText(S.load.err,S.mode==="claude"?"Notion":"Il backend"))}<br><button class="btn sm" type="button" data-act="reload">Riprova</button></div>`:`<p class="loading">Leggo atleti e schede…</p>`);
+  const nb=fbNewCount(),urg=list.filter(x=>x.u<=1.5).length;
+  let h=head+`<div class="counts">
+    <button type="button" data-go="atleti"><b class="${urg?"hot":""}">${list.length}</b><span>da sistemare</span></button>
+    <button type="button" data-go="feedback"><b>${S.clientsState==="ok"?nb:"…"}</b><span>feedback nuovi</span></button>
+    <button type="button" data-go="atleti"><b>${act.length}</b><span>atleti attivi</span></button></div>`;
+  h+=`<div class="lbl"><span>Da fare</span>${scanned?"":`<span>leggo le schede…</span>`}</div>`;
+  h+=list.length?todoHtml(list,S.todoAll?0:6):`<div class="empty">Nessuna scheda in scadenza, nessun test e nessun avviso dai feedback.</div>`;
+  const ses=fbSessions().slice(0,3);
+  if(S.adapter&&S.adapter.caps.client){
+    h+=`<div class="lbl"><span>Ultimi feedback</span><button class="lnk" type="button" data-go="feedback">Tutti</button></div>`;
+    h+=ses.length?`<div class="todo">${ses.map(fbItem).join("")}</div>`:`<div class="empty">${S.clientsState==="loading"?"Carico i feedback…":"Ancora nessun feedback dalla pagina cliente."}</div>`;
+  }
   return h;
 }
 
+/* ---- feedback in arrivo dalla pagina cliente ---- */
+function fbSessions(){
+  const m={};
+  S.fbLog.forEach(x=>{const k=x.athleteId+"|"+x.sheetId+"|"+x.week+"|"+x.day;(m[k]=m[k]||{k,athleteId:x.athleteId,name:x.athleteName,week:+x.week,day:x.day,at:"",rows:[]}).rows.push(x);if(x.at>m[k].at)m[k].at=x.at});
+  return Object.values(m).map(s=>{
+    const by={};s.rows.sort((a,b)=>a.at.localeCompare(b.at)).forEach(r=>{by[r.exercise||r.at]=r});const R=Object.values(by);
+    const rp=R.map(r=>parseFloat(r.rpe)).filter(n=>!isNaN(n));
+    s.hard=R.filter(r=>+r.rpe===10).map(r=>r.exercise);s.skip=R.filter(r=>r.skip==="si").map(r=>r.exercise+(r.why?": "+r.why:""));
+    s.pain=R.filter(r=>+r.pain>=4).map(r=>r.exercise+" "+r.pain+"/10");s.avg=rp.length?Math.round(rp.reduce((a,b)=>a+b,0)/rp.length*10)/10:null;
+    s.tec=R.filter(r=>/rivedere/i.test(r.tec)).map(r=>r.exercise);
+    s.note=R.map(r=>r.nota).filter(Boolean).join(" · ");s.n=R.length;
+    s.alert=s.hard.length||s.pain.length?"bad":s.skip.length||s.tec.length?"warn":"";
+    return s;
+  }).sort((a,b)=>b.at.localeCompare(a.at));
+}
+function fbSeen(){return store.get("fbseen",null)}
+function fbCut(v){return v||new Date(Date.now()-3*864e5).toISOString()}
+function fbNewCount(){const seen=fbSeen();return fbSessions().filter(s=>s.at>fbCut(seen)).length}
+function markFbSeen(){S.fbPrevSeen=fbCut(fbSeen());const ses=fbSessions();if(ses.length)store.set("fbseen",ses[0].at)}
+function whenOf(iso){const d=new Date(iso);if(isNaN(d))return"";const t=today(),dd=new Date(d.getFullYear(),d.getMonth(),d.getDate()),df=Math.round((t-dd)/86400000);
+  const hm=p2(d.getHours())+":"+p2(d.getMinutes());return df===0?"oggi "+hm:df===1?"ieri "+hm:df<7?["dom","lun","mar","mer","gio","ven","sab"][d.getDay()]+" "+hm:fd(d)}
+function fbItem(s){
+  const prev=S.view==="feedback"&&S.fbPrevSeen?S.fbPrevSeen:fbCut(fbSeen()),isNew=s.at>prev;
+  const a=byId(s.athleteId);
+  const ch=[`<span>${esc(s.day||"Allenamento")} · S${s.week}</span>`]
+    .concat(s.hard.map(e=>`<span class="bad">${esc(e)} RPE 10</span>`)).concat(s.pain.map(e=>`<span class="bad">Fastidio ${esc(e)}</span>`))
+    .concat(s.skip.map(e=>`<span class="warn">Saltato ${esc(e)}</span>`)).concat(s.tec.map(e=>`<span class="warn">Tecnica da rivedere: ${esc(e)}</span>`))
+    .concat(s.avg!=null&&!s.hard.length?[`<span class="${s.avg>=9?"warn":"ok"}">RPE medio ${String(s.avg).replace(".",",")}</span>`]:[]);
+  return`<button class="fbi" type="button" ${a?`data-id="${a.id}" data-jtab="feedback"`:""}><span class="h">${isNew?`<i class="new" aria-label="nuovo"></i>`:""}<b>${esc(a?a.name:s.name)}</b><small>${esc(whenOf(s.at))}</small></span><span class="r">${ch.join("")}</span>${s.note?`<p>${esc(s.note)}</p>`:""}</button>`;
+}
+function viewFeedback(){
+  const head=`<div class="hello"><h1>Feedback</h1><p>Quello che gli atleti scrivono dalla pagina cliente, i più recenti in cima.</p></div>`;
+  if(!S.adapter||!S.adapter.caps.client)return head+`<div class="empty">I feedback dalla pagina cliente si vedono nell'app installata.</div>`;
+  if(S.clientsState==="loading"&&!S.fbLog.length)return head+`<p class="loading">Carico i feedback…</p>`;
+  if(S.clientsState==="error")return head+`<div class="notice err">Non riesco a leggere i feedback.<br><button class="btn sm" type="button" data-act="reload">Riprova</button></div>`;
+  const all=fbSessions(),prev=S.fbPrevSeen;
+  const F={tutti:["Tutti",()=>true],avvisi:["Con avvisi",s=>!!s.alert],saltati:["Saltati",s=>s.skip.length>0],nuovi:["Nuovi",s=>s.at>(prev||fbCut(fbSeen()))]};
+  const L=all.filter(F[S.fbf][1]);
+  return head+`<div class="fbfl">${Object.entries(F).map(([k,[l,f]])=>`<button class="chip" type="button" data-fbf="${k}" aria-pressed="${S.fbf===k}">${l}${k!=="tutti"?" · "+all.filter(f).length:""}</button>`).join("")}</div>`+
+    (L.length?`<div class="todo">${L.slice(0,60).map(fbItem).join("")}</div>`:`<div class="empty">${all.length?"Nessun feedback con questo filtro.":"Ancora nessun feedback. Arrivano qui quando un atleta compila la sua pagina cliente."}</div>`);
+}
+
 /* ---- atleta ---- */
+function actionsOf(a){
+  const sUrl=a.sheetId?"https://docs.google.com/spreadsheets/d/"+a.sheetId+"/edit":null,L=[];
+  if(sUrl)L.push({k:"open",ic:ICON.sheet,l:"Apri scheda",href:sUrl,sub:"Google Fogli"});
+  L.push({k:"new",ic:ICON.plus,l:"Nuova scheda",data:`data-new="scheda" data-aid="${a.id}"`});
+  L.push({k:"test",ic:ICON.test,l:a.src==="vf"?"Nuova valutazione":"Nuovo test",data:`data-new="${a.src==="vf"?"vf":a.sede==="stenika"?"test-presenza":"test-online"}" data-aid="${a.id}"`});
+  if(S.adapter.caps.client)L.push({k:"client",ic:ICON.link,l:"Link cliente",data:`data-act="client"`,sub:S.clients[a.id]?"già creato":""});
+  if(a.notionUrl)L.push({k:"notion",ic:ICON.notion,l:"Apri in Notion",href:a.notionUrl});
+  if(!S.adapter.caps.ai)L.push({k:"ai",ic:ICON.copy,l:"Copia per Claude",data:`data-act="copy-ai"`});
+  return L;
+}
+function nextStep(a){
+  const sc=a.wk&&a.wk.scad,sg=signalOf(a),cl=S.adapter.caps.client&&a.src==="coach"&&S.clientsState==="ok"&&!S.clients[a.id];
+  const bNew=`<button class="btn pri" type="button" data-new="scheda" data-aid="${a.id}">${ICON.plus}Nuova scheda</button>`;
+  const bCl=`<button class="btn" type="button" data-act="client">${ICON.link}${S.clients[a.id]?"Link cliente":"Crea link cliente"}</button>`;
+  if(!a.active)return{lv:"",t:"Collaborazione finita",p:"Nessuna scheda da preparare.",b:""};
+  if(sc&&sc.rank<=1)return{lv:"bad",t:"Prossimo passo",p:(sc.rank===0?"La scheda è finita il "+fd(a.wk.end):"È l'ultima settimana della scheda")+". Prepara la nuova"+(cl?" e crea il suo link cliente.":"."),b:bNew+(S.adapter.caps.client&&a.src==="coach"?bCl:"")};
+  if(isTest(a))return{lv:"warn",t:"Prossimo passo",p:"Test da fare. Crea il file del test dal template.",b:`<button class="btn pri" type="button" data-new="${a.sede==="stenika"?"test-presenza":a.src==="vf"?"vf":"test-online"}" data-aid="${a.id}">${ICON.plus}${a.src==="vf"?"Nuova valutazione":"Nuovo test"}</button>`};
+  if(sg.level==="bad")return{lv:"bad",t:"Da guardare",p:sg.reasons[0],b:`<button class="btn pri" type="button" data-tab="feedback">Guarda i feedback</button>`};
+  if(cl&&a.sheetId)return{lv:"warn",t:"Prossimo passo",p:"Non ha ancora la pagina cliente. Crea il link e mandalo su WhatsApp: lo fai una volta sola.",b:`<button class="btn pri" type="button" data-act="client">${ICON.link}Crea link cliente</button>`};
+  if(sc)return{lv:"warn",t:"Prossimo passo",p:sc.label+": inizia a preparare la prossima scheda.",b:bNew};
+  if(sg.level==="warn")return{lv:"warn",t:"Da guardare",p:sg.reasons[0],b:`<button class="btn" type="button" data-tab="feedback">Guarda i feedback</button>`};
+  return{lv:"ok",t:"Tutto in ordine",p:sg.reasons[0]||"Nessuna azione richiesta.",b:""};
+}
 function viewAtleta(a){
-  const w=a.wk;let plates="";
-  if(w&&a.dur&&!w.future)plates=`<div><div class="plates" style="--n:${a.dur}" aria-label="Settimana ${w.week} di ${a.dur}">${Array.from({length:a.dur},(_,i)=>`<span class="${i+1<w.week?"done":i+1===w.week?"now":""}"></span>`).join("")}</div><div class="plates-l" style="--n:${a.dur}"><span>S1</span><span>S${a.dur}</span></div></div>`;
+  const w=a.wk,ns=nextStep(a);
+  const sub=[SEDE[a.sede],a.src==="coach"&&a.tag&&norm(a.tag)!==norm(SEDE[a.sede])?a.tag:"",a.status!=="In corso"?a.status:""].filter(Boolean).join(" · ");
+  const acts=actionsOf(a).map(x=>x.href?`<a class="btn${x.k==="open"?" pri":""}" href="${esc(x.href)}" target="_blank" rel="noopener">${x.ic}${x.l}</a>`:`<button class="btn${S.clientOpen&&x.k==="client"?" on":""}" type="button" ${x.data}>${x.ic}${x.l}</button>`).join("");
+  const tabs=[["panoramica","Panoramica"],["scheda","Scheda"],["feedback","Feedback"],["carichi","Carichi"],["test",a.src==="vf"?"Valutazione":"Test"],["note","Note"],["file","File"],["notion","Notion"]];
+  if(S.adapter.caps.ai)tabs.push(["ai","Analisi AI"]);
+  if(!tabs.some(t=>t[0]===S.tab))S.tab="panoramica";
+  return`<div class="a-head">${avatar(a)}<div style="min-width:0"><h1>${esc(a.name)}</h1><p>${esc(sub)}</p></div></div>
+    <div class="a-tools">${acts}</div>
+    <div class="a-grid">
+      <aside class="a-side">
+        <section class="next ${ns.lv}"><b>${esc(ns.t)}</b><p>${esc(ns.p)}</p>${ns.b?`<div class="ed-row">${ns.b}</div>`:""}</section>
+        ${S.clientOpen?clientPanel(a):""}
+        <div class="only-d">${sigHtml(a)}</div>
+      </aside>
+      <div class="a-main">
+        <div class="tabs" role="tablist">${tabs.map(([k,l])=>`<button class="tab" role="tab" type="button" data-tab="${k}" aria-selected="${S.tab===k}">${l}</button>`).join("")}</div>
+        <div id="tabbody">${tabBody(a)}</div>
+      </div>
+    </div>`;
+}
+function tabPanoramica(a){
+  const w=a.wk;let h="";
+  if(w&&a.dur&&!w.future){const n=Math.max(a.dur,w.week);h+=`<div class="wkbox" aria-label="Settimana ${w.week} di ${a.dur}">${Array.from({length:n},(_,i)=>i+1).map(k=>`<span class="${k>a.dur?"over":k<w.week?"done":k===w.week?"now":""}">${k}</span>`).join("")}</div>`}
   const facts=[];
   if(a.src==="coach"){facts.push(["Settimana",w?(w.future?"inizia "+fd(a.startD):w.week+(a.dur?" di "+a.dur:"")):"—"]);facts.push(["Scheda",a.startD?fd(a.startD)+" → "+(w&&w.end?fdy(w.end):"?"):"—"]);if(a.subD)facts.push(["Abbonamento dal",fdy(a.subD)])}
   else{facts.push(["Settimana protocollo",w?(w.future?"inizia "+fd(a.startD):String(w.week)):"—"]);facts.push(["Inizio programma",fdy(a.startD)]);facts.push(["Prima valutazione",fdy(a.evalD)])}
+  const ls=lastSession(a);facts.push(["Ultimo allenamento",ls?ls.text:"—"]);
+  if(S.adapter.caps.client&&a.src==="coach")facts.push(["Pagina cliente",S.clientsState!=="ok"?"…":S.clients[a.id]?(S.clients[a.id].active?"Attiva":"Disattivata"):"Da creare"]);
   const sh=shOf(a);if(sh&&sh.status==="ok"&&sh.P.meta.periodo)facts.push(["In scheda",sh.P.meta.periodo]);
-  const sUrl=a.sheetId?"https://docs.google.com/spreadsheets/d/"+a.sheetId+"/edit":null;
-  const chips=[`<span class="pill ink">${SEDE[a.sede]}</span>`,a.tag&&a.src==="coach"?`<span class="pill">${esc(a.tag)}</span>`:"",`<span class="pill ${a.status==="In corso"?"ok":isTest(a)?"ink":a.status==="Da fare"?"warn":""}">${esc(a.status)}</span>`,a.active&&w&&w.scad?`<span class="pill ${w.scad.level}">${esc(w.scad.label)}</span>`:""].join("");
-  const acts=[sUrl?`<a class="btn pri" href="${esc(sUrl)}" target="_blank" rel="noopener">${ICON.ext}Apri scheda</a>`:"",
-    `<button class="btn" type="button" data-new="${a.src==="vf"?"scheda":"scheda"}" data-aid="${a.id}">${ICON.plus}Nuova scheda</button>`,
-    `<button class="btn" type="button" data-new="${a.src==="vf"?"vf":a.sede==="stenika"?"test-presenza":"test-online"}" data-aid="${a.id}">${ICON.plus}${a.src==="vf"?"Nuova valutazione":"Nuovo test"}</button>`,
-    a.notionUrl?`<a class="btn ghost" href="${esc(a.notionUrl)}" target="_blank" rel="noopener">${ICON.ext}Notion</a>`:"",
-    !S.adapter.caps.ai?`<button class="btn ghost" type="button" data-act="copy-ai">${ICON.copy}Copia per Claude</button>`:""].join("");
-  const tabs=[["scheda","Scheda"],["test",a.src==="vf"?"Valutazione":"Test"],["carichi","Carichi"],["note","Note"],["file","File"],["notion","Notion"]];
-  if(S.adapter.caps.ai)tabs.push(["ai","Analisi AI"]);
-  if(!tabs.some(t=>t[0]===S.tab))S.tab="scheda";
-  return`<div class="a-top"><h1 class="disp a-name">${esc(a.name)}</h1><div class="chips">${chips}</div>${plates}
-    <dl class="facts">${facts.map(([k,v])=>`<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>
-    <div class="actions">${acts}</div></div>
-    ${sigHtml(a)}
-    <div class="tabs" role="tablist">${tabs.map(([k,l])=>`<button class="tab" role="tab" type="button" data-tab="${k}" aria-selected="${S.tab===k}">${l}</button>`).join("")}</div>
-    <div id="tabbody">${tabBody(a)}</div>`;
+  h+=`<dl class="facts2">${facts.map(([k,v])=>`<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>`;
+  h+=`<div class="only-m">${sigHtml(a)}</div>`;
+  const ses=fbSessions().filter(s=>s.athleteId===a.id).slice(0,3);
+  if(ses.length)h+=`<div class="lbl"><span>Ultimi feedback</span><button class="lnk" type="button" data-tab="feedback">Tutti</button></div><div class="todo">${ses.map(fbItem).join("")}</div>`;
+  return h;
+}
+function renderSheet(){
+  const el=$("#sheet");if(!el)return;const a=S.view==="atleta"&&S.menu?byId(S.sel):null;
+  if(!a){el.hidden=true;el.innerHTML="";return}
+  el.hidden=false;
+  el.innerHTML=`<div class="panel" role="dialog" aria-label="Azioni per ${esc(a.name)}"><div class="grab"></div>${actionsOf(a).map(x=>x.href?`<a class="it" href="${esc(x.href)}" target="_blank" rel="noopener" data-act="menu-close">${x.ic}${x.l}${x.sub?`<small>${esc(x.sub)}</small>`:""}</a>`:`<button class="it" type="button" ${x.data}>${x.ic}${x.l}${x.sub?`<small>${esc(x.sub)}</small>`:""}</button>`).join("")}</div>`;
 }
 function afterAtleta(a){
   if(!a)return;
   if(!a.sheetId&&!S.alt[a.id]&&(S.tab==="scheda"||S.tab==="carichi")&&!S.files[a.id])ensureFiles(a).then(fl=>{const f=fl&&fl.list&&fl.list.find(x=>x.kind==="scheda");if(f&&!S.alt[a.id]&&!a.sheetId){S.alt[a.id]={id:f.id,title:f.title,auto:true};renderSoon()}});
   if((S.tab==="scheda"||S.tab==="carichi")&&S.alt[a.id])ensureAlt(a);
-  if(S.tab==="scheda"&&!S.alt[a.id]&&a.sheetId&&!shOf(a))loadOneSheet(a,false);
+  if((S.tab==="scheda"||S.tab==="feedback"||S.tab==="panoramica")&&!S.alt[a.id]&&a.sheetId&&!shOf(a))loadOneSheet(a,false);
+  if(S.adapter.caps.client&&S.clientsState==="idle")loadClients();
+  if(S.tab==="feedback"&&S.alt[a.id])ensureAlt(a);
+  pinClient(a);
   if(S.tab==="scheda"&&a.sheetId&&!S.files[a.id])ensureFiles(a);
   if((S.tab==="scheda"||S.tab==="carichi")&&shOf(a)&&shOf(a).status==="error")missingFallback(a,shOf(a).err);
   if(S.tab==="test"&&!S.tests[a.id])ensureTests(a);
   if(S.tab==="file"&&!S.files[a.id])ensureFiles(a);
   if(S.tab==="notion"&&!S.bodies[a.id])ensurePage(a);
+}
+function clientPanel(a){
+  const c=S.clients[a.id];
+  if(S.clientsState==="loading"&&!c)return`<section class="cl-panel"><p class="loading">Cerco il link di ${esc(a.name)}…</p></section>`;
+  if(!c)return`<section class="cl-panel"><div class="cl-h"><h3>Pagina cliente</h3></div><p class="hint">${esc(a.name)} non ha ancora un link. Crealo una volta: resta uguale per sempre e mostra sempre la scheda attuale collegata in Notion.</p><div class="ed-row"><button class="btn pri" type="button" data-act="client-create" ${S.clientBusy?"disabled":""}>${S.clientBusy?"Creo il link…":"Crea il link"}</button></div></section>`;
+  const first=a.name.split(" ")[0];
+  const msg=`Ciao ${first}! Da oggi la scheda la trovi qui: ${c.url}\n\nAprila dal telefono: vedi la giornata esercizio per esercizio e mi lasci il feedback direttamente lì. Salvala sulla schermata Home (iPhone: Condividi → Aggiungi alla schermata Home · Android: menu ⋮ → Aggiungi a schermata Home) così la apri come un'app.`;
+  const sw=(k,l,on)=>`<button class="cl-sw" type="button" role="switch" aria-checked="${on}" data-clset="${k}" ${S.clientBusy?"disabled":""}><span>${l}</span><span class="tr${on?" on":""}"><i></i></span></button>`;
+  return`<section class="cl-panel"><div class="cl-h"><h3>Pagina cliente</h3>${c.active?"":`<span class="pill bad">Disattivata</span>`}</div>
+    <div class="cl-link"><span class="mono">${esc(c.url)}</span></div>
+    <div class="ed-row"><button class="btn pri" type="button" data-act="client-copy">${ICON.copy}Copia link</button><a class="btn" href="https://wa.me/?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">${ICON.chat}Manda su WhatsApp</a><a class="btn ghost" href="${esc(c.url)}" target="_blank" rel="noopener">${ICON.ext}Apri come la vede</a></div>
+    <div class="cl-sws">${sw("active","Pagina attiva",c.active)}${sw("showFuture","Mostra le settimane future",c.showFuture)}${sw("notify","Email quando chiude una giornata",c.notify)}</div>
+    <p class="hint">Il link è lo stesso per tutte le schede: quando aggiorni il link in Notion, la pagina passa da sola alla scheda nuova. <button class="lnk" type="button" data-act="client-renew">${S.renewArm?"Conferma: crea un link nuovo (il vecchio smette di funzionare)":"Crea un link nuovo"}</button></p></section>`;
 }
 function sigHtml(a){
   const s=signalOf(a),cs=coachSignal(a.id);
@@ -1282,7 +1918,8 @@ function sigHtml(a){
 }
 function tabBody(a){
   switch(S.tab){
-    case"scheda":return tabScheda(a);case"test":return tabTest(a);case"carichi":return tabCarichi(a);
+    case"panoramica":return tabPanoramica(a);
+    case"feedback":return tabFeedback(a);case"scheda":return tabScheda(a);case"test":return tabTest(a);case"carichi":return tabCarichi(a);
     case"note":return tabNote(a);case"file":return tabFile(a);case"notion":return tabNotion(a);case"ai":return tabAI(a);
   }return"";
 }
@@ -1292,6 +1929,35 @@ function curSheet(a){
   if(alt&&alt.id===a.sheetId){delete S.alt[a.id];alt=null}
   if(alt)return{where:"alt",sh:alt.sh,loading:alt.loading||!alt.sh,alt};
   return{where:"current",sh:shOf(a),loading:!shOf(a)||["loading","queued"].includes(shOf(a).status)};
+}
+function tabFeedback(a){
+  const c=curSheet(a);
+  if(!c.alt&&!a.sheetId)return`<div class="empty">Nessuna scheda collegata in Notion.</div>`;
+  if(c.loading)return`<p class="loading">Leggo la scheda…</p>`;
+  if(c.sh.status==="error")return errBox(c.sh.err,"Google Sheets","reload-sheet");
+  const P=skOf(c.sh);
+  if(!P||!P.days.length)return`<div class="empty">Questa scheda ha un formato vecchio: i feedback li trovi nella scheda <b>Scheda</b>. La pagina cliente funziona con i template "Programmazione" e "Serkistraining".</div>`;
+  const dur=a.dur||P.weeks||6,now=a.wk&&!a.wk.future?Math.min(a.wk.week,dur):1,V=S.fbView;
+  if(V.aid!==a.id){V.aid=a.id;V.week=Math.max(now,1);V.day=0}
+  const w=V.week,D=P.days[Math.min(V.day,P.days.length-1)];
+  const kg=s=>{const m=String(s).match(/([\d,]+)\s*kg(?![\s\S]*kg)/i);return m?parseFloat(m[1].replace(",",".")):null};
+  const chg=(it,n)=>{if(n<2)return"";const x=SK.doseFor(it.dose,n-1),y=SK.doseFor(it.dose,n);if(x===y)return"";const p=kg(x),q=kg(y);return p!=null&&q!=null&&p!==q?(q>p?"+":"")+String(+(q-p).toFixed(2)).replace(".",",")+" kg":"cambia"};
+  const al=SK.alerts(P,dur),flag=(it,n)=>{const f=SK.readFb(it.fb,n),r=SK.rpeOf(f);
+    if(al.some(x=>x.ex===it.name&&x.kind==="hard"&&n<=x.week&&r===10))return"bad";if(/^SALTATO/i.test(f))return"warn";if(tone(f)==="bad")return"bad";if(r===10||tone(f)==="warn")return"warn";return f?"ok":""};
+  const dates=sessionDates(a,w);
+  let h=`<div class="fb-bar"><div class="seg2">${P.days.map((d,k)=>`<button type="button" data-fbday="${k}" class="${D===d?"on":""}">${esc(d.label)}</button>`).join("")}</div>
+    <div class="seg2">${[["week","Per settimana"],["ex","Per esercizio"]].map(([k,l])=>`<button type="button" data-fbmode="${k}" class="${V.mode===k?"on":""}">${l}</button>`).join("")}</div></div>`;
+  if(V.mode==="week"){
+    h+=`<div class="fb-weeks"><button class="btn sm" type="button" data-fbweek="${Math.max(1,w-1)}" aria-label="Settimana precedente" ${w<=1?"disabled":""}>‹</button>
+      <div class="fb-wk" style="--n:${dur}">${Array.from({length:dur},(_,i)=>i+1).map(n=>`<button type="button" data-fbweek="${n}" class="${n===w?"on":""}${n===now?" now":""}">S${n}</button>`).join("")}</div>
+      <button class="btn sm" type="button" data-fbweek="${Math.min(dur,w+1)}" aria-label="Settimana successiva" ${w>=dur?"disabled":""}>›</button></div>`;
+    const n=D.items.filter(it=>SK.readFb(it.fb,w)).length;
+    h+=`<div class="fb-st"><span>${w<now?"Settimana conclusa":w===now?"Settimana in corso":"Settimana "+w+" · non ancora iniziata"}</span><span class="pill ${n===D.items.length?"ok":""}">${n}/${D.items.length} feedback${dates[D.label]?" · fatto "+fd(new Date(dates[D.label])):""}</span></div>
+      <div class="fb-list">${D.items.map(it=>{const f=SK.readFb(it.fb,w),c=chg(it,w);return`<div class="fb-row"><div class="fb-ex"><b>${esc(it.name)}${c?` <span class="tagy">${esc(c)}</span>`:""}</b><span>${esc((SK.doseFor(it.dose,w).split("\n").find(l=>l.trim())||""))}</span></div><div class="fb-tx"><i class="dot ${flag(it,w)}"></i><span class="${f?"":"muted"}">${esc(f||(w>now?"—":"Nessun feedback"))}</span></div></div>`}).join("")}</div>`;
+  }else{
+    h+=`<p class="hint">Ogni esercizio con tutte le settimane affiancate.</p><div class="fb-ex-list">${D.items.map(it=>`<div class="fb-card"><b>${esc(it.name)}</b><div class="fb-cells">${Array.from({length:dur},(_,i)=>i+1).map(n=>{const f=SK.readFb(it.fb,n),c=chg(it,n);return`<div class="fb-cell ${flag(it,n)}${n===now?" now":""}"><div class="h"><span>S${n}</span><span class="tagy">${esc(c)}</span></div><div class="d">${esc(SK.doseFor(it.dose,n).split("\n").find(l=>l.trim())||"")}</div><div class="f${f?"":" muted"}">${esc(f||"—")}</div></div>`}).join("")}</div></div>`).join("")}</div>`;
+  }
+  return h;
 }
 function tabScheda(a){
   const c=curSheet(a);let top="";
@@ -1544,7 +2210,9 @@ function viewNuovo(){
 /* ---- impostazioni ---- */
 function linkCode(){return S.cfg?"SERKIS1."+btoa(unescape(encodeURIComponent(JSON.stringify({u:S.cfg.url,k:S.cfg.key})))).replace(/=+$/,""):""}
 function viewImpostazioni(){
-  let h=`<div class="page-h"><span class="eyebrow">Serkis Coach ${VERSION}</span><h1 class="disp">Impostazioni</h1></div><div class="fgrid">`;
+  const th=store.get("theme","light");
+  let h=`<div class="page-h"><span class="eyebrow">Serkistraining Coach ${VERSION}</span><h1 class="disp">Impostazioni</h1></div><div class="fgrid">`;
+  h+=`<section class="sec"><div class="sec-h"><h3>Aspetto</h3></div><div class="themes">${[["light","Chiaro"],["dark","Scuro leggibile"],["auto","Come il telefono"]].map(([k,l])=>`<button class="chip" type="button" data-themeset="${k}" aria-pressed="${th===k}">${l}</button>`).join("")}</div><p class="hint" style="margin-top:8px">"Come il telefono" passa da solo al tema scuro quando il telefono è in modalità scura.</p></section>`;
   if(S.mode==="app"){
     let host="";try{host=new URL(S.cfg.url).host}catch(e){}
     h+=`<section class="sec"><div class="sec-h"><h3>Collegamento</h3></div><dl class="kv"><dt>Backend</dt><dd class="mono">${esc(host)} · Google Apps Script</dd><dt>Stato</dt><dd>${S.load.state==="error"?`<span class="err-t">${esc(errText(S.load.err))}</span>`:"Collegato"}</dd></dl></section>
@@ -1559,7 +2227,7 @@ function viewImpostazioni(){
   return h+`</div>`;
 }
 function viewSetup(){
-  return`<div class="setup"><svg class="logo" viewBox="118 100 276 312" aria-hidden="true">${MARK}</svg>
+  return`<div class="setup"><span class="wm" aria-label="serkistraining"><b>serk</b><span class="i"><span></span><span></span></span><b>s</b><em>training</em></span>
     <div><span class="eyebrow">Primo avvio</span><h1 class="disp" style="font-size:56px">Collega Serkis Coach</h1></div>
     <p class="hint" style="font-size:14px">Incolla la chiave che trovi nel registro di Apps Script, alla riga "CHIAVE APP". Su un altro dispositivo puoi incollare invece il codice di collegamento copiato dalle Impostazioni dell'app.</p>
     <form class="fgrid" id="setupform" autocomplete="off">
@@ -1576,8 +2244,8 @@ function route(silent){
   const h=decodeURIComponent(location.hash.slice(1));
   const prevSel=S.sel;
   if(h.startsWith("a-")){const a=S.athletes.find(x=>x.slug===h.slice(2));S.view="atleta";S.sel=a?a.id:(S.athletes.length?null:S.sel);
-    if(a&&prevSel!==a.id){S.edit=null;S.delArm=null;if(a.sheetId&&!S.sheets[a.id])loadOneSheet(a,false);if(!silent)window.scrollTo(0,0)}}
-  else if(["oggi","atleti","nuovo","impostazioni"].includes(h)){if(h!=="nuovo"&&h!=="impostazioni"&&h!=="atleta")S.prev=h;S.view=h;if(h==="atleti")S.sel=null}
+    if(a&&prevSel!==a.id){S.edit=null;S.delArm=null;S.tab=S.jumpTab||"panoramica";S.jumpTab=null;S.clientOpen=false;S.menu=false;if(a.sheetId&&!S.sheets[a.id])loadOneSheet(a,false);if(!silent)window.scrollTo(0,0)}}
+  else if(["oggi","atleti","nuovo","impostazioni","feedback"].includes(h)){if(h!=="nuovo"&&h!=="impostazioni"&&h!=="atleta")S.prev=h;if(h==="feedback"&&S.view!=="feedback")markFbSeen();S.view=h;if(h==="atleti")S.sel=null}
   else S.view="oggi";
   if(!silent)render();
 }
@@ -1586,22 +2254,39 @@ window.addEventListener("hashchange",()=>{route(false);window.scrollTo(0,0)});
 
 /* ================= eventi ================= */
 document.addEventListener("click",async ev=>{
+  if(S.menu&&ev.target.closest("#sheet")){S.menu=false;setTimeout(renderSheet,0);if(ev.target.id==="sheet")return}
   const t=ev.target.closest("button,[data-id]");if(!t)return;
   const a=byId(S.sel);
-  if(t.dataset.id){const x=byId(t.dataset.id);if(x){if(S.view!=="atleta")S.prev=S.view==="oggi"?"oggi":"atleti";go("a-"+x.slug)}return}
+  if(t.dataset.id){const x=byId(t.dataset.id);if(x){if(S.view!=="atleta")S.prev=["oggi","feedback"].includes(S.view)?S.view:"atleti";if(t.dataset.jtab){S.tab=t.dataset.jtab;S.jumpTab=t.dataset.jtab}if(S.view==="atleta"&&S.sel===x.id){render();return}go("a-"+x.slug)}return}
   if(t.dataset.go){if(t.dataset.go==="nuovo"){initNuovo("scheda",S.view==="atleta"&&a?a.id:"")}go(t.dataset.go);return}
   if(t.dataset.focus){S.filter.focus=t.dataset.focus;go("atleti");render();return}
+  if(t.dataset.fbf){S.fbf=t.dataset.fbf;render();return}
+  if(t.dataset.themeset){store.set("theme",t.dataset.themeset);applyTheme(t.dataset.themeset);render();return}
   if(t.dataset.sede){S.filter.sede=t.dataset.sede;savePrefs();render();return}
   if(t.dataset.new){initNuovo(t.dataset.new,t.dataset.aid||"");go("nuovo");return}
   if(t.dataset.nk){S.nuovo.kind=t.dataset.nk;S.nuovo.tpl="";S.nuovo.titleEdited=false;S.nuovo.notion=notionDefault(byId(S.nuovo.aid),t.dataset.nk);S.nuovo.date=iso(t.dataset.nk==="scheda"?nextMonday():today());render();return}
-  if(t.dataset.tab&&a){S.tab=t.dataset.tab;S.edit=null;savePrefs();render();return}
+  if(t.dataset.tab&&a){S.tab=t.dataset.tab;S.edit=null;savePrefs();render();anim("#tabbody","fade");return}
   if(t.dataset.sess&&a){S.sessSel[a.id]=t.dataset.sess;S.edit=null;render();return}
   if(t.dataset.edit){startEdit(+t.dataset.edit,t.dataset.sheet);return}
   if(t.dataset.slot){startEdit(+t.dataset.slot,t.dataset.sheet);return}
   if(t.dataset.alt&&a){S.alt[a.id]={id:t.dataset.alt,title:t.dataset.title};S.tab="scheda";S.edit=null;render();return}
   if(t.dataset.sig&&a){t.disabled=true;await addNote(a,{kind:"segnale",signal:t.dataset.sig,text:t.dataset.sig==="auto"?"":"Segnale impostato da te: "+LV[t.dataset.sig],week:a.wk&&!a.wk.future?a.wk.week:null});return}
   if(t.dataset.del){if(S.delArm!==t.dataset.del){S.delArm=t.dataset.del;render();return}const id=S.delArm;S.delArm=null;delNote(id);return}
+  if(t.dataset.fbday!=null){S.fbView.day=+t.dataset.fbday;render();anim(".fb-list,.fb-ex-list","fade");return}
+  if(t.dataset.fbmode){S.fbView.mode=t.dataset.fbmode;render();anim(".fb-list,.fb-ex-list","fade");return}
+  if(t.dataset.fbweek){S.fbView.week=+t.dataset.fbweek;render();anim(".fb-list","fade");return}
+  if(t.dataset.clset&&a){const c=S.clients[a.id];if(!c)return;S.clientBusy=true;render();
+    try{const n=await S.adapter.clientSet(c.token,{[t.dataset.clset]:!c[t.dataset.clset]});S.clients[a.id]=Object.assign(c,n)}catch(e){toast("Non riesco a salvare: "+errText(e))}
+    S.clientBusy=false;render();return}
   const act=t.dataset.act;if(!act)return;
+  if(act==="menu"&&a){S.menu=true;renderSheet();return}
+  if(act==="menu-close"){S.menu=false;renderSheet();return}
+  if(act==="todo-all"){S.todoAll=true;render();return}
+  if(act==="client"&&a){if(!S.clientOpen)window.scrollTo({top:0,behavior:calm()?"auto":"smooth"});S.clientOpen=!S.clientOpen;S.renewArm=false;if(S.clientOpen&&S.clientsState!=="ok")loadClients();render();if(S.clientOpen)anim(".cl-panel","drop");return}
+  if(act==="client-create"&&a){S.clientBusy=true;render();try{S.clients[a.id]=await S.adapter.clientLink(a,true);pinClient(a)}catch(e){toast("Non riesco a creare il link: "+errText(e))}S.clientBusy=false;render();return}
+  if(act==="client-copy"&&a){const c=S.clients[a.id];if(c)copyText(c.url,"Link copiato");return}
+  if(act==="client-renew"&&a){if(!S.renewArm){S.renewArm=true;render();return}S.renewArm=false;const c=S.clients[a.id];S.clientBusy=true;render();
+    try{const n=await S.adapter.clientSet(c.token,{renew:true});S.clients[a.id]=n;toast("Link nuovo creato: mandalo all'atleta")}catch(e){toast("Non riesco: "+errText(e))}S.clientBusy=false;render();return}
   if(act==="back"){if(S.nav>0){S.nav--;history.back()}else go(S.view==="atleta"?(S.prev||"atleti"):"oggi");return}
   if(act==="clear-focus"){S.filter.focus=null;render();return}
   if(act==="reload"){S.bodies={};S.files={};S.tests={};loadAll(true);return}
@@ -1623,6 +2308,7 @@ document.addEventListener("click",async ev=>{
     S.tab=c.kind==="scheda"?"scheda":"test";if(c.kind!=="scheda"){delete S.tests[x.id];S.sessSel[x.id]=c.id+"|"}
     S.prev="atleti";go("a-"+x.slug);return}
 });
+document.addEventListener("keydown",ev=>{if(ev.key==="Escape"&&S.menu){S.menu=false;renderSheet()}});
 document.addEventListener("input",ev=>{
   const t=ev.target;
   if(t.closest("#editor")&&t.dataset.col!=null&&S.edit){S.edit.vals[t.dataset.col]=t.value;return}
