@@ -942,3 +942,15 @@ function digest_() {
 }
 // Anteprima nel registro, senza mandare la mail
 function anteprimaMailMattino() { const d = digest_(); Logger.log(d.subject); Logger.log(d.text); }
+
+// Prova dall'editor: crea una scheda di prova dal template nuovo (5 settimane), mostra intestazione e feedback, poi la sposta nel cestino
+function provaTemplateNuovo() {
+  const t = templates_().templates.filter(function (x) { return x.kind === "scheda" && /template\s*b\b|giallo/i.test(x.title); })[0];
+  Logger.log("Template: " + (t ? t.title : "NON TROVATO"));
+  const r = create_({ templateId: t.id, kind: "scheda", title: "PROVA APP da cancellare", name: "Mario Prova", startDate: "2026-11-16", weeks: 5 });
+  const sh = SpreadsheetApp.openById(r.id).getSheets()[0], v = sh.getRange(1, 1, 8, 5).getDisplayValues();
+  Logger.log("Riga 2: " + v[1].join(" | "));
+  Logger.log("Feedback G1: " + JSON.stringify(v[6][4]));
+  DriveApp.getFileById(r.id).setTrashed(true);
+  Logger.log("File di prova nel cestino");
+}
