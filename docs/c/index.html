@@ -412,7 +412,7 @@ function vEx(){
   }else if(w<S.cur){
     fb=`<div class="card" style="padding:16px;display:flex;flex-direction:column;gap:6px"><div class="lbl">IL TUO FEEDBACK · SETT. ${w}</div><div class="quote">${was?"“"+esc(was)+"”":"Nessun feedback"}</div></div>`;
   }else{
-    fb=`<div class="info">${IC.eye}<span>Anteprima. Il feedback si compila quando arrivi alla settimana ${w}.</span></div>`;
+    fb=`<div class="info">${IC.eye}<span>${S.cur===0&&S.start?"Anteprima. La scheda inizia "+fd(S.start)+": da quel giorno qui trovi RPE, tecnica, fastidi e nota da compilare.":"Anteprima. Il feedback si compila quando arrivi alla settimana "+w+"."}</span></div>`;
   }
   return`<div class="top"><div class="row"><button class="back" data-a="home">${IC.back}${esc(D.label)} · Sett. ${w}</button><span class="hint" style="font-size:14px">${i+1} / ${D.items.length}</span></div>
     <div class="bar" style="height:4px"><i data-bar="ex" style="width:${(i+1)/D.items.length*100}%;${ed?"":"background:#6E6C66"}"></i></div></div>
