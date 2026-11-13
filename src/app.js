@@ -38,7 +38,7 @@ const S={
   view:"oggi",sel:null,tab:"panoramica",prev:"oggi",fbf:"tutti",todoAll:false,menu:false,fbPrevSeen:null,
   filter:{sede:"all",stato:"attivi",focus:null,q:""},sort:"urgenza",
   load:{state:"idle",err:null,at:null},edit:null,editErr:null,saving:false,
-  templates:null,tplErr:null,nuovo:null,created:null,creating:false,createErr:null,
+  templates:null,tplErr:null,nSchema:null,nSchemaErr:null,nSchemaLoading:false,nuovo:null,created:null,creating:false,createErr:null,
   drafts:{},extra:{},nav:0,delArm:null,unlinkArm:false,setupErr:null,setupBusy:false,
   clients:{},clientsState:"idle",clientOpen:false,clientBusy:false,fbLog:[],fbView:{mode:"week",week:null,day:0},pinned:{}
 };
@@ -502,7 +502,9 @@ function scriptAdapter(cfg){
     clientLink:async(a,create)=>(await call("clientLink",{athleteId:a.id,athleteName:a.name,create:!!create})).client,
     clientSet:async(token,o)=>(await call("clientSet",Object.assign({token},o))).client,
     clientPin:(a,sheetId,tab,sig)=>call("clientPin",{athleteId:a.id,sheetId,tab,sig}),
-    fbLog:async since=>(await call("fbLog",{since})).log
+    fbLog:async since=>(await call("fbLog",{since})).log,
+    notionSchema:()=>call("notionSchema",{},60000),
+    athleteNew:req=>call("athleteNew",req,90000)
   };
 }
 function claudeAdapter(mcp,sample){
@@ -593,6 +595,8 @@ function fillPlan(vals,req){
     if(u==="NOME")out.push({r:r+1,c:ci+1,value:req.name});
     if(u==="PERIODO"&&req.kind==="scheda")out.push({r:r+1,c:ci+1,value:(req.weeks||6)+" settimane - "+d});
     if(u==="DATA"&&req.kind!=="scheda")out.push({r:r+1,c:ci+1,value:d});
+    if(String(c||"").trim()==="Nome Cognome")out.push({r:r+1,c:ci,value:req.name});
+    if(/^N settimane/i.test(String(c||"").trim())&&req.kind==="scheda"){const w=+req.weeks||6;out.push({r:r+1,c:ci,value:w+" settimane   ·   "+d+" - "+fdy(addDays(pd(req.startDate),w*7-1))})}
   });
   return out;
 }
@@ -830,7 +834,7 @@ async function ensureTemplates(){
 }
 function nextMonday(){const d=today(),w=d.getDay();return w===1?d:addDays(d,(8-w)%7||7)}
 function defaultTitle(n){
-  const a=byId(n.aid);if(!a)return"";const d=fdy(pd(n.date));
+  const a=n.aid==="__new"?(n.nc&&n.nc.name.trim()?{name:n.nc.name.trim(),src:n.nc.db}:null):byId(n.aid);if(!a)return"";const d=fdy(pd(n.date));
   if(n.kind==="scheda")return a.src==="vf"?"SCHEDA VF – "+a.name:a.name+" — Scheda "+d;
   if(n.kind==="test-online")return a.name+" — Test online | Serkis";
   if(n.kind==="test-presenza")return a.name+" — Test in presenza | Serkis";
@@ -839,27 +843,107 @@ function defaultTitle(n){
 function notionDefault(a,kind){if(!a)return false;if(kind==="vf")return!a.valId;if(kind!=="scheda")return false;return!a.sheetId||!!(a.wk&&a.wk.scad&&a.wk.scad.rank<=1)}
 function initNuovo(kind,aid){
   const a=byId(aid);
-  S.nuovo={kind:kind||"scheda",aid:aid||"",tpl:"",date:iso(kind&&kind!=="scheda"?today():nextMonday()),weeks:(a&&a.dur)||6,title:"",titleEdited:false,notion:notionDefault(a,kind||"scheda")};
+  S.nuovo={nc:null,kind:kind||"scheda",aid:aid||"",tpl:"",date:iso(kind&&kind!=="scheda"?today():nextMonday()),weeks:(a&&a.dur)||6,title:"",titleEdited:false,notion:notionDefault(a,kind||"scheda")};
   S.created=null;S.createErr=null;
+  if(S.nuovo.kind==="cliente")ncStart(S.nuovo);
+}
+/* ---- nuovo cliente: riga in Notion con i campi scelti qui ---- */
+async function ensureSchema(){
+  if(S.nSchema||S.nSchemaLoading||!S.adapter||!S.adapter.notionSchema)return;S.nSchemaLoading=true;renderSoon();
+  try{S.nSchema=await S.adapter.notionSchema();S.nSchemaErr=null}catch(e){S.nSchemaErr=e}
+  S.nSchemaLoading=false;if(S.nuovo&&S.nuovo.nc)ncDefaults(S.nuovo);renderSoon();
+}
+function ncStart(n,db){n.nc={db:db||(n.kind==="vf"?"vf":"coach"),name:"",props:{},touched:{}};ncDefaults(n);ensureSchema()}
+const NC_LABEL={"Multi-select":"Tipo / sede","Status programma":"Status programma"};
+const NC_HIDE_OPT=/^(Not started|In progress|Done)$/;
+// Campi che la scheda imposta già da sola quando la collega in Notion
+function ncAuto(n){
+  if(!n.nc)return[];const coach=n.nc.db==="coach";
+  if(n.kind==="scheda")return coach?["Data inizio","Durata scheda"]:["Inizio programma","Scheda"];
+  if(n.kind==="vf"&&!coach)return["Valutazione"];
+  return[];
+}
+function ncFields(n){const L=(S.nSchema&&S.nSchema[n.nc.db])||[],auto=ncAuto(n),rk={status:0,select:1,multi_select:1,date:2,number:3,checkbox:3,url:4,email:4,phone_number:4,rich_text:5};
+  return L.filter(f=>!auto.includes(f.name)&&f.name!=="Data fine precedente").sort((x,y)=>(rk[x.type]-rk[y.type]))}
+function ncDefaults(n){
+  const nc=n.nc;if(!nc||!S.nSchema)return;const L=S.nSchema[nc.db]||[],has=(f,o)=>{const x=L.find(z=>z.name===f);return x&&(!o||x.options.includes(o))};
+  const set=(f,v)=>{if(!nc.touched[f]&&has(f,typeof v==="string"&&L.find(z=>z.name===f&&/select|status/.test(z.type))?v:null))nc.props[f]=v};
+  if(nc.db==="coach"){
+    set("Status programma",n.kind==="scheda"?"Da mandare":/^test/.test(n.kind)?"Mandare test/testare":"Da fare");
+    set("Stato",n.kind==="scheda"?"In corso":"Da fare");
+    if(has("Inizio abbonamento"))set("Inizio abbonamento",n.kind==="scheda"?n.date:iso(today()));
+    if(/^test/.test(n.kind)&&has("Data prima valutazione"))set("Data prima valutazione",n.date);
+    if(n.kind==="cliente"){if(has("Durata scheda","6 set"))set("Durata scheda","6 set")}
+  }else{
+    set("Stato","Da fare");
+    if(has("Data prima valutazione"))set("Data prima valutazione",n.kind==="vf"?n.date:iso(today()));
+  }
+}
+function ncPanel(n){
+  const nc=n.nc,isK=n.kind==="cliente";
+  let h=`<section class="ncard"><div class="nc-h"><b>${isK?"Dati del cliente in Notion":"Nuovo cliente"}</b><small>Creo la riga in Notion con questi campi${n.kind==="scheda"?" e ci collego la scheda":""}.</small></div>`;
+  h+=`<div class="fld"><span>Database</span><div class="seg">${[["coach","Coaching"],["vf","Kineva · Valutazione funzionale"]].map(([k,l])=>`<button class="chip" type="button" data-ncdb="${k}" aria-pressed="${nc.db===k}">${l}</button>`).join("")}</div></div>`;
+  h+=`<label class="fld"><span>Nome e cognome</span><input class="inp" id="nf-ncname" value="${esc(nc.name)}" placeholder="Es. Mario Rossi" autocomplete="off"></label>`;
+  if(S.nSchemaLoading||(!S.nSchema&&!S.nSchemaErr))return h+`<span class="loading">Leggo i campi da Notion…</span></section>`;
+  if(S.nSchemaErr)return h+`<span class="err-t">${/sconosciuta/i.test(String(S.nSchemaErr.message||""))?"Il backend va aggiornato per creare clienti.":esc(errText(S.nSchemaErr,"Notion"))}</span></section>`;
+  if(S.nSchema[nc.db+"Err"])return h+`<span class="err-t">${esc(S.nSchema[nc.db+"Err"])}</span></section>`;
+  ncFields(n).forEach(f=>{
+    const lab=esc(NC_LABEL[f.name]||f.name),v=nc.props[f.name],id=`data-ncp="${esc(f.name)}"`;
+    if(/select|status/.test(f.type)){
+      const opts=f.options.filter(o=>!NC_HIDE_OPT.test(o)||f.options.every(x=>NC_HIDE_OPT.test(x)));
+      const on=o=>f.type==="multi_select"?[].concat(v||[]).includes(o):v===o;
+      h+=`<div class="fld"><span>${lab}</span>${opts.length<=8?`<div class="seg">${opts.map(o=>`<button class="chip" type="button" data-ncopt="${esc(f.name)}" data-v="${esc(o)}" aria-pressed="${on(o)}">${esc(o)}</button>`).join("")}</div>`:`<select ${id}><option value="">—</option>${opts.map(o=>`<option ${on(o)?"selected":""}>${esc(o)}</option>`).join("")}</select>`}</div>`;
+    }else if(f.type==="date")h+=`<label class="fld"><span>${lab}</span><input class="inp" type="date" ${id} value="${esc(v||"")}"></label>`;
+    else if(f.type==="checkbox")h+=`<label class="check"><input type="checkbox" ${id} ${v?"checked":""}><span>${lab}</span></label>`;
+    else h+=`<label class="fld"><span>${lab}</span><input class="inp" ${id} type="${f.type==="number"?"number":"text"}" value="${esc(v==null?"":v)}" placeholder="${f.type==="url"?"Link (facoltativo)":"Facoltativo"}"></label>`;
+  });
+  const auto=ncAuto(n).filter(x=>(S.nSchema[nc.db]||[]).some(f=>f.name===x)||x==="Scheda");
+  if(auto.length)h+=`<p class="hint">${esc(auto.join(", "))}: li compila la ${n.kind==="vf"?"valutazione":"scheda"} che crei qui sotto.</p>`;
+  return h+`</section>`;
+}
+function ncPayload(n){const nc=n.nc,out={},names=new Set(ncFields(n).map(f=>f.name));
+  Object.keys(nc.props).forEach(k=>{const v=nc.props[k];if(names.has(k)&&v!=null&&v!==""&&!(Array.isArray(v)&&!v.length))out[k]=v});return out}
+async function newAthlete(n){
+  const name=n.nc.name.trim();if(!name)throw{code:"input",message:"Scrivi nome e cognome del cliente."};
+  const dup=S.athletes.find(x=>norm(x.name)===norm(name));
+  if(dup&&!n.nc.dupOk){n.nc.dupOk=true;throw{code:"input",message:name+" esiste già in Notion. Premi di nuovo per crearlo comunque."}}
+  S.creatingStep="Creo il cliente in Notion…";render();
+  const r=await S.adapter.athleteNew({db:n.nc.db,name,props:ncPayload(n)});
+  return r.athlete;
 }
 async function doCreate(){
-  const n=S.nuovo,a=byId(n.aid);if(!a||S.creating)return;
+  const n=S.nuovo;if(S.creating)return;
+  if(n.kind==="cliente"){
+    S.creating=true;S.createErr=null;render();
+    try{const x=await newAthlete(n);S.created={kind:"cliente",aid:x.id,src:x.src,title:x.name,url:x.notionUrl};loadAll(true)}
+    catch(e){S.createErr=e&&e.code==="input"?e.message:"Cliente non creato: "+errText(e,"Notion")}
+    S.creating=false;S.creatingStep=null;render();return;
+  }
+  const isNew=n.aid==="__new";let a=isNew?null:byId(n.aid);if(!a&&!isNew)return;
   const tpls=(S.templates||[]).filter(t=>t.kind===n.kind);const tpl=tpls.find(t=>t.id===n.tpl)||pickTpl(tpls);
   if(!tpl){S.createErr="Nessun template trovato per questo tipo.";render();return}
+  if(isNew&&!n.nc.name.trim()){S.createErr="Scrivi nome e cognome del cliente.";render();return}
   const title=(n.titleEdited?n.title:defaultTitle(n)).trim();if(!title){S.createErr="Scrivi un titolo.";render();return}
   S.creating=true;S.createErr=null;render();
   const kind=n.kind==="scheda"?"scheda":n.kind==="vf"?"vf":"test";
+  if(isNew){
+    try{a=await newAthlete(n);n.aid=a.id;n.nc=null}
+    catch(e){S.createErr=e&&e.code==="input"?e.message:"Cliente non creato: "+errText(e,"Notion");S.creating=false;S.creatingStep=null;render();return}
+  }
+  S.creatingStep="Creo il file…";render();
   try{
     const res=await S.adapter.create({templateId:tpl.id,kind,title,name:a.name,startDate:n.date,weeks:+n.weeks||6,
-      athleteId:a.id,src:a.src,setNotion:S.adapter.caps.notionWrite&&n.notion&&(kind==="scheda"||kind==="vf")});
-    S.created={id:res.id,url:res.url,title,kind,aid:a.id,notion:res.notion||{}};
+      athleteId:a.id,src:a.src,setNotion:S.adapter.caps.notionWrite&&(isNew||n.notion)&&(kind==="scheda"||kind==="vf")});
+    S.created={id:res.id,url:res.url,title,kind,aid:a.id,name:a.name,notion:res.notion||{},isNew};
     (S.extra[a.id]=S.extra[a.id]||[]).unshift({id:res.id,title,url:res.url,updated:new Date().toISOString(),lk:kind==="test"?"test":kind});
     delete S.files[a.id];delete S.tests[a.id];
-    if(res.notion&&res.notion.ok){loadAll(true)}
-  }catch(e){S.createErr="Non creato: "+errText(e,"Google Drive")}
-  S.creating=false;render();
+    if(isNew||(res.notion&&res.notion.ok)){loadAll(true)}
+  }catch(e){S.createErr=(isNew?a.name+" è stato creato in Notion, ma il file no: ":"Non creato: ")+errText(e,"Google Drive")+(isNew?". Riprova: il cliente ora è nell'elenco.":"")}
+  S.creating=false;S.creatingStep=null;render();
 }
-function pickTpl(tpls){return tpls.find(t=>/^Serkis Training Template$/i.test(t.title.trim()))||tpls[0]}
+// Predefinito: il template nuovo (quello della scheda di Mattia Minischetti), poi il vecchio
+function pickTpl(tpls){return tpls.find(t=>/template\s*b\b|giallo/i.test(t.title))||tpls.find(t=>/^Serkis Training Template$/i.test(t.title.trim()))||tpls[0]}
+function tplLabel(t){return /template\s*b\b|giallo/i.test(t.title)?"Template nuovo (come Mattia Minischetti)":/^Serkis Training Template$/i.test(t.title.trim())?"Template vecchio":t.title}
 
 /* ================= rendering ================= */
 function render(){
@@ -1378,29 +1462,45 @@ function tabAI(a){
 }
 
 /* ---- nuovo ---- */
-const NK=[["scheda","Scheda"],["test-online","Test online"],["test-presenza","Test in presenza"],["vf","Valutazione VF"]];
+const NK=[["scheda","Scheda"],["test-online","Test online"],["test-presenza","Test in presenza"],["vf","Valutazione VF"],["cliente","Solo cliente"]];
 function viewNuovo(){
   if(!S.nuovo)initNuovo();
   const n=S.nuovo,act=S.athletes.filter(a=>a.active).sort((x,y)=>x.name.localeCompare(y.name,"it"));
   ensureTemplates();
   let h=`<div class="page-h"><span class="eyebrow">Dai tuoi template su Drive</span><h1 class="disp">Nuovo</h1></div>`;
-  if(S.created){const c=S.created,a=byId(c.aid);
-    const nt=c.notion&&c.notion.ok?"Notion aggiornato: è la scheda attuale di "+esc(a?a.name:"")+".":c.notion&&c.notion.error?"Notion non aggiornato: "+esc(c.notion.error):"";
+  if(S.created&&S.created.kind==="cliente"){const c=S.created;
+    return h+`<div class="result" role="status"><strong>Cliente creato: ${esc(c.title)}</strong><span class="hint" style="color:var(--ink-2)">La riga è in Notion con i campi che hai scelto.</span><div class="actions"><button class="btn pri" type="button" data-act="nc-scheda">Crea la sua scheda</button>${c.url?`<a class="btn" href="${esc(c.url)}" target="_blank" rel="noopener">${ICON.ext}Apri in Notion</a>`:""}<button class="btn ghost" type="button" data-act="new-again">Crea un altro</button></div></div>`;
+  }
+  if(S.created){const c=S.created,a=byId(c.aid)||{name:c.name||""};
+    const nt=c.notion&&c.notion.ok?(c.isNew?"Cliente creato in Notion con la scheda collegata.":"Notion aggiornato: è la scheda attuale di "+esc(a?a.name:"")+"."):c.notion&&c.notion.error?"Notion non aggiornato: "+esc(c.notion.error):"";
     h+=`<div class="result" role="status"><strong>Creato: ${esc(c.title)}</strong>${nt?`<span class="hint" style="color:var(--ink-2)">${nt}</span>`:""}<div class="actions"><button class="btn pri" type="button" data-act="open-created">Compila nell'app</button><a class="btn" href="${esc(c.url)}" target="_blank" rel="noopener">${ICON.ext}Apri in Google Sheets</a><button class="btn ghost" type="button" data-act="new-again">Crea un altro</button></div></div>`;
     return h;
   }
+  const canNew=!!(S.adapter.caps.notionWrite&&S.adapter.athleteNew);
+  const kinds=NK.filter(k=>k[0]!=="cliente"||canNew);
+  if(n.kind==="cliente"){
+    if(!n.nc)ncStart(n);
+    h+=`<form class="fgrid" id="newform" autocomplete="off">
+    <div class="fld"><span>Cosa crei</span><div class="seg">${kinds.map(([k,l])=>`<button class="chip" type="button" data-nk="${k}" aria-pressed="${n.kind===k}">${l}</button>`).join("")}</div></div>
+    ${ncPanel(n)}
+    <div class="ed-row"><button class="btn red" type="submit" ${S.creating||!S.nSchema?"disabled":""}>${S.creating?"Creo il cliente…":"Crea cliente"}</button>${S.createErr?`<span class="err-t">${esc(S.createErr)}</span>`:""}</div>
+  </form>`;
+    return h;
+  }
   const tpls=(S.templates||[]).filter(t=>t.kind===n.kind),def=pickTpl(tpls);
-  const a=byId(n.aid),title=n.titleEdited?n.title:defaultTitle(n);
+  const isNew=n.aid==="__new";if(isNew&&!n.nc)ncStart(n);
+  const a=isNew?null:byId(n.aid),title=n.titleEdited?n.title:defaultTitle(n);
   const notionOk=S.adapter.caps.notionWrite&&(n.kind==="scheda"||n.kind==="vf");
   h+=`<form class="fgrid" id="newform" autocomplete="off">
-    <div class="fld"><span>Cosa crei</span><div class="seg">${NK.map(([k,l])=>`<button class="chip" type="button" data-nk="${k}" aria-pressed="${n.kind===k}">${l}</button>`).join("")}</div></div>
-    <label class="fld"><span>Atleta</span><select id="nf-aid"><option value="">Scegli l'atleta</option>${act.map(x=>`<option value="${x.id}" ${x.id===n.aid?"selected":""}>${esc(x.name)} · ${SEDE[x.sede]}</option>`).join("")}</select></label>
-    <label class="fld"><span>Template</span>${S.tplLoading?`<span class="loading">Cerco i template su Drive…</span>`:S.tplErr?`<span class="err-t">${esc(errText(S.tplErr,"Google Drive"))}</span>`:tpls.length?`<select id="nf-tpl">${tpls.map(t=>`<option value="${t.id}" ${(n.tpl?n.tpl===t.id:def&&def.id===t.id)?"selected":""}>${esc(t.title)}</option>`).join("")}</select>`:`<span class="err-t">Nessun template di questo tipo su Drive.</span>`}</label>
+    <div class="fld"><span>Cosa crei</span><div class="seg">${kinds.map(([k,l])=>`<button class="chip" type="button" data-nk="${k}" aria-pressed="${n.kind===k}">${l}</button>`).join("")}</div></div>
+    <label class="fld"><span>Atleta</span><select id="nf-aid"><option value="">Scegli l'atleta</option>${canNew?`<option value="__new" ${isNew?"selected":""}>＋ Nuovo cliente…</option>`:""}${act.map(x=>`<option value="${x.id}" ${x.id===n.aid?"selected":""}>${esc(x.name)} · ${SEDE[x.sede]}</option>`).join("")}</select></label>
+    ${isNew?ncPanel(n):""}
+    <label class="fld"><span>Template</span>${S.tplLoading?`<span class="loading">Cerco i template su Drive…</span>`:S.tplErr?`<span class="err-t">${esc(errText(S.tplErr,"Google Drive"))}</span>`:tpls.length?`<select id="nf-tpl">${tpls.map(t=>`<option value="${t.id}" ${(n.tpl?n.tpl===t.id:def&&def.id===t.id)?"selected":""}>${esc(tplLabel(t))}</option>`).join("")}</select>`:`<span class="err-t">Nessun template di questo tipo su Drive.</span>`}</label>
     <label class="fld"><span>${n.kind==="scheda"?"Inizio scheda":"Data"}</span><input class="inp" id="nf-date" type="date" value="${n.date}"></label>
     ${n.kind==="scheda"?`<label class="fld"><span>Settimane</span><select id="nf-weeks">${[4,5,6,8].map(w=>`<option ${+n.weeks===w?"selected":""}>${w}</option>`).join("")}</select></label>`:""}
     <label class="fld"><span>Nome del file</span><input class="inp" id="nf-title" value="${esc(title)}"></label>
-    ${notionOk?`<label class="check"><input type="checkbox" id="nf-notion" ${n.notion?"checked":""}><span>Imposta in Notion come ${n.kind==="vf"?"valutazione":"scheda attuale"}${a?" di "+esc(a.name):""}${n.kind==="scheda"&&a?(a.src==="coach"?": link, data inizio e durata. Il link della scheda precedente resta nel campo.":": link e inizio programma."):"."}</span></label>`:n.kind==="scheda"||n.kind==="vf"?`<p class="hint">Il collegamento in Notion lo fa l'app installata; qui il file viene solo creato.</p>`:""}
-    <div class="ed-row"><button class="btn red" type="submit" ${!a||!tpls.length||S.creating?"disabled":""}>${S.creating?"Creo il file…":"Crea"}</button>${S.createErr?`<span class="err-t">${esc(S.createErr)}</span>`:""}</div>
+    ${notionOk&&isNew?`<p class="hint">La ${n.kind==="vf"?"valutazione":"scheda"} viene collegata in Notion al nuovo cliente${n.kind==="scheda"&&n.nc.db==="coach"?", con data inizio e durata":""}.</p>`:notionOk?`<label class="check"><input type="checkbox" id="nf-notion" ${n.notion?"checked":""}><span>Imposta in Notion come ${n.kind==="vf"?"valutazione":"scheda attuale"}${a?" di "+esc(a.name):""}${n.kind==="scheda"&&a?(a.src==="coach"?": link, data inizio e durata. Il link della scheda precedente resta nel campo.":": link e inizio programma."):"."}</span></label>`:n.kind==="scheda"||n.kind==="vf"?`<p class="hint">Il collegamento in Notion lo fa l'app installata; qui il file viene solo creato.</p>`:""}
+    <div class="ed-row"><button class="btn red" type="submit" ${!(a||isNew)||!tpls.length||S.creating||(isNew&&!S.nSchema)?"disabled":""}>${S.creating?(S.creatingStep||"Creo il file…"):isNew?"Crea cliente e "+(n.kind==="scheda"?"scheda":"file"):"Crea"}</button>${S.createErr?`<span class="err-t">${esc(S.createErr)}</span>`:""}</div>
     <p class="hint">Copia il template nella stessa cartella e compila nome${n.kind==="scheda"?" e periodo":" e data"}. Poi lo compili da qui, riga per riga.</p>
   </form>`;
   return h;
@@ -1463,7 +1563,12 @@ document.addEventListener("click",async ev=>{
   if(t.dataset.themeset){store.set("theme",t.dataset.themeset);applyTheme(t.dataset.themeset);render();return}
   if(t.dataset.sede){S.filter.sede=t.dataset.sede;savePrefs();render();return}
   if(t.dataset.new){initNuovo(t.dataset.new,t.dataset.aid||"");go("nuovo");return}
-  if(t.dataset.nk){S.nuovo.kind=t.dataset.nk;S.nuovo.tpl="";S.nuovo.titleEdited=false;S.nuovo.notion=notionDefault(byId(S.nuovo.aid),t.dataset.nk);S.nuovo.date=iso(t.dataset.nk==="scheda"?nextMonday():today());render();return}
+  if(t.dataset.ncdb&&S.nuovo&&S.nuovo.nc){const nm=S.nuovo.nc.name;ncStart(S.nuovo,t.dataset.ncdb);S.nuovo.nc.name=nm;render();return}
+  if(t.dataset.ncopt&&S.nuovo&&S.nuovo.nc){const nc=S.nuovo.nc,f=t.dataset.ncopt,v=t.dataset.v,L=(S.nSchema&&S.nSchema[nc.db])||[],ty=(L.find(x=>x.name===f)||{}).type;nc.touched[f]=1;
+    if(ty==="multi_select"){const cur=[].concat(nc.props[f]||[]);nc.props[f]=cur.includes(v)?cur.filter(x=>x!==v):cur.concat(v)}else nc.props[f]=nc.props[f]===v?"":v;render();return}
+  if(t.dataset.nk){const wasNc=S.nuovo.nc;S.nuovo.kind=t.dataset.nk;S.nuovo.tpl="";S.nuovo.titleEdited=false;S.nuovo.notion=notionDefault(byId(S.nuovo.aid),t.dataset.nk);S.nuovo.date=iso(t.dataset.nk==="scheda"?nextMonday():today());
+    if(t.dataset.nk==="cliente"||S.nuovo.aid==="__new"){const nm=wasNc?wasNc.name:"",db=wasNc?wasNc.db:null;ncStart(S.nuovo,t.dataset.nk==="vf"?"vf":db);S.nuovo.nc.name=nm;if(wasNc){Object.assign(S.nuovo.nc.props,wasNc.props);S.nuovo.nc.touched=wasNc.touched}}
+    render();return}
   if(t.dataset.tab&&a){S.tab=t.dataset.tab;S.edit=null;savePrefs();render();anim("#tabbody","fade");return}
   if(t.dataset.sess&&a){S.sessSel[a.id]=t.dataset.sess;S.edit=null;render();return}
   if(t.dataset.edit){startEdit(+t.dataset.edit,t.dataset.sheet);return}
@@ -1505,6 +1610,7 @@ document.addEventListener("click",async ev=>{
   if(act==="copy-ai"&&a){copyText(aiPrompt(a),"Dati copiati: incollali in Claude");return}
   if(act==="copy-code"){copyText(linkCode(),"Codice copiato");return}
   if(act==="unlink"){if(!S.unlinkArm){S.unlinkArm=true;render();return}store.del("cfg");store.del("cache");location.hash="";location.reload();return}
+  if(act==="nc-scheda"){const c=S.created;initNuovo("scheda",c.aid);S.nuovo.notion=true;render();return}
   if(act==="new-again"){initNuovo(S.nuovo?S.nuovo.kind:"scheda",S.nuovo?S.nuovo.aid:"");render();return}
   if(act==="open-created"){const c=S.created;const x=byId(c.aid);if(!x)return;
     if(c.kind==="scheda"&&x.sheetId!==c.id)S.alt[x.id]={id:c.id,title:c.title};
@@ -1518,16 +1624,20 @@ document.addEventListener("input",ev=>{
   if(t.id==="note-text"&&S.sel){S.drafts[S.sel]=t.value;return}
   if(t.id==="q"){S.filter.q=t.value;renderSide();return}
   if(t.id==="nf-title"){S.nuovo.title=t.value;S.nuovo.titleEdited=true;return}
+  if(t.id==="nf-ncname"&&S.nuovo&&S.nuovo.nc){S.nuovo.nc.name=t.value;S.nuovo.nc.dupOk=false;const ti=$("#nf-title");if(ti&&!S.nuovo.titleEdited)ti.value=defaultTitle(S.nuovo);return}
+  if(t.dataset&&t.dataset.ncp!=null&&S.nuovo&&S.nuovo.nc&&t.type!=="checkbox"){S.nuovo.nc.props[t.dataset.ncp]=t.value;S.nuovo.nc.touched[t.dataset.ncp]=1;return}
   if(t.id==="nf-date"){S.nuovo.date=t.value;return}
 });
 document.addEventListener("change",ev=>{
   const t=ev.target;
   if(t.id==="stato"){S.filter.stato=t.value;savePrefs();render();return}
   if(t.id==="sort"){S.sort=t.value;savePrefs();render();return}
-  if(t.id==="nf-aid"){S.nuovo.aid=t.value;const a=byId(t.value);if(a&&a.dur)S.nuovo.weeks=a.dur;S.nuovo.titleEdited=false;S.nuovo.notion=notionDefault(a,S.nuovo.kind);render();return}
+  if(t.dataset&&t.dataset.ncp!=null&&S.nuovo&&S.nuovo.nc){S.nuovo.nc.props[t.dataset.ncp]=t.type==="checkbox"?t.checked:t.value;S.nuovo.nc.touched[t.dataset.ncp]=1;return}
+  if(t.id==="nf-aid"&&t.value==="__new"){S.nuovo.aid="__new";S.nuovo.titleEdited=false;if(!S.nuovo.nc)ncStart(S.nuovo);render();return}
+  if(t.id==="nf-aid"){S.nuovo.aid=t.value;S.nuovo.nc=null;const a=byId(t.value);if(a&&a.dur)S.nuovo.weeks=a.dur;S.nuovo.titleEdited=false;S.nuovo.notion=notionDefault(a,S.nuovo.kind);render();return}
   if(t.id==="nf-tpl"){S.nuovo.tpl=t.value;return}
   if(t.id==="nf-weeks"){S.nuovo.weeks=+t.value;return}
-  if(t.id==="nf-date"){S.nuovo.date=t.value;if(!S.nuovo.titleEdited)render();return}
+  if(t.id==="nf-date"){S.nuovo.date=t.value;if(S.nuovo.nc)ncDefaults(S.nuovo);if(!S.nuovo.titleEdited||S.nuovo.nc)render();return}
   if(t.id==="nf-notion"){S.nuovo.notion=t.checked;return}
 });
 document.addEventListener("focusout",()=>{setTimeout(()=>{if(pendingMain){const ae=document.activeElement;if(!(ae&&$("#main").contains(ae)&&/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)))render()}},0)});

@@ -723,3 +723,6 @@ select,.inp{font-size:13px;padding:5px 8px;border-radius:8px}
 .sig ul{font-size:13.5px;margin:4px 0 8px}
 .sig-set button{font-size:12px;padding:3px 9px}
 .pick{padding:40px 8px;color:var(--ink-2);display:flex;flex-direction:column;gap:4px}.pick p{margin:0}
+/* nuovo cliente nel modulo Nuovo */
+.ncard{display:grid;gap:14px;border:1px solid var(--line-2);border-left:3px solid var(--y,#F2C230);border-radius:var(--r);padding:14px 14px 16px;background:var(--bg-2,transparent)}
+.nc-h{display:grid;gap:2px}.nc-h b{font-size:14.5px}.nc-h small{color:var(--ink-3);font-size:12.5px}

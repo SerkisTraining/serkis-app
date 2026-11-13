@@ -25,7 +25,7 @@ const CONFIG = {
   VF_DS: "800b8a16-6f27-4a04-984f-3f9e2ce7f640",
   VF_DB: "d2f147fd8bc840c3ac5b78e509ef365f"
 };
-const VERSION = "1.5";
+const VERSION = "1.6";
 // Indirizzo della pagina cliente (il link che mandi agli atleti finisce con #t=CODICE)
 const CLIENT_PAGE = "https://serkistraining.github.io/serkis-app/c/";
 
@@ -114,7 +114,9 @@ const ACTIONS = {
   clientLink: clientLink_,
   clientSet: clientSet_,
   clientPin: clientPin_,
-  fbLog: fbLog_
+  fbLog: fbLog_,
+  notionSchema: notionSchema_,
+  athleteNew: athleteNew_
 };
 
 function out_(o) {
@@ -426,6 +428,29 @@ function itDate_(s) {
   return m[3] + "/" + m[2] + "/" + m[1];
 }
 
+function addDaysIso_(s, n) {
+  const m = String(s || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+  const d = m ? new Date(+m[1], +m[2] - 1, +m[3]) : new Date();
+  d.setDate(d.getDate() + n);
+  return Utilities.formatDate(d, "Europe/Rome", "dd/MM/yyyy");
+}
+
+// "5 settimane   ·   16/11/2026 - 20/12/2026", come nella scheda di Mattia Minischetti
+function periodo_(req) {
+  const w = Number(req.weeks) || 6;
+  return w + " settimane   ·   " + itDate_(req.startDate) + " - " + addDaysIso_(req.startDate, w * 7 - 1);
+}
+
+// Righe del feedback "S1  │  … S6  │" (o "S1: …"): tante quante le settimane della scheda
+function fbLines_(cell, weeks) {
+  const lines = String(cell || "").split("\n");
+  if (lines.length < 2 || !/^\s*S1\s*(│|:)/.test(lines[0])) return null;
+  if (!lines.every(function (l) { return /^\s*S\d+\s*(│|:)\s*$/.test(l); })) return null;
+  const pipe = /│/.test(lines[0]), out = [];
+  for (let i = 1; i <= weeks; i++) out.push(pipe ? "S" + i + "  │  " : "S" + i + ":");
+  return out.join("\n");
+}
+
 function create_(req) {
   const tpl = DriveApp.getFileById(req.templateId);
   const parents = tpl.getParents();
@@ -437,12 +462,25 @@ function create_(req) {
   if (lr > 0 && lc > 0) {
     sh.getRange(1, 1, lr, lc).getDisplayValues().forEach(function (row, r) {
       row.forEach(function (cell, c) {
-        const u = String(cell).trim().toUpperCase();
+        const t = String(cell).trim(), u = t.toUpperCase();
         if (u === "NOME") sh.getRange(r + 1, c + 2).setValue(req.name || "");
-        if (u === "PERIODO" && req.kind === "scheda") sh.getRange(r + 1, c + 2).setValue((req.weeks || 6) + " settimane - " + d);
+        if (u === "PERIODO" && req.kind === "scheda") sh.getRange(r + 1, c + 2).setValue(periodo_(req));
         if (u === "DATA" && req.kind !== "scheda") sh.getRange(r + 1, c + 2).setValue("'" + d);
+        // template nuovo: segnaposto direttamente nelle celle
+        if (t === "Nome Cognome") sh.getRange(r + 1, c + 1).setValue(req.name || "");
+        if (/^N settimane/i.test(t) && req.kind === "scheda") sh.getRange(r + 1, c + 1).setValue(periodo_(req));
       });
     });
+  }
+  if (req.kind === "scheda" && req.weeks) {
+    const LR = Math.min(sh.getLastRow(), 220), LC = Math.min(sh.getLastColumn(), 12);
+    if (LR > 0 && LC > 0) {
+      const v = sh.getRange(1, 1, LR, LC).getDisplayValues();
+      v.forEach(function (row, r) { row.forEach(function (cell, c) {
+        const n = fbLines_(cell, Number(req.weeks));
+        if (n != null && n !== cell) sh.getRange(r + 1, c + 1).setValue(n);
+      }); });
+    }
   }
   if (req.kind === "test") { try { sh.setName(d); } catch (e) {} }
   SpreadsheetApp.flush();
@@ -451,6 +489,83 @@ function create_(req) {
     try { notion = notionLink_(req, ss.getUrl()); } catch (e) { notion = { error: e.message }; }
   }
   return { id: copy.getId(), url: ss.getUrl(), notion: notion };
+}
+
+/* ---------- nuovo cliente in Notion ---------- */
+const EDITABLE_ = { select: 1, status: 1, multi_select: 1, date: 1, url: 1, rich_text: 1, number: 1, checkbox: 1, email: 1, phone_number: 1 };
+
+function dbProps_(which) {
+  const ds = which === "vf" ? CONFIG.VF_DS : CONFIG.COACH_DS, db = which === "vf" ? CONFIG.VF_DB : CONFIG.COACH_DB;
+  let r = notion_("/v1/data_sources/" + ds, "get", null, "2025-09-03");
+  if (r.code !== 200) r = notion_("/v1/databases/" + db, "get", null, "2022-06-28");
+  if (r.code !== 200) throw notionErr_(r);
+  return r.json.properties || {};
+}
+
+// Campi modificabili dei due database, con le opzioni di select e status: l'app costruisce il modulo da qui
+function notionSchema_() {
+  const out = {};
+  ["coach", "vf"].forEach(function (w) {
+    try {
+      const P = dbProps_(w), list = [];
+      Object.keys(P).forEach(function (k) {
+        const p = P[k];
+        if (p.type === "title") { out[w + "Title"] = k; return; }
+        if (!EDITABLE_[p.type]) return;
+        const o = p[p.type] || {};
+        list.push({ name: k, type: p.type, options: (o.options || []).map(function (x) { return x.name; }) });
+      });
+      out[w] = list;
+    } catch (e) { out[w + "Err"] = e.message; }
+  });
+  return out;
+}
+
+function propVal_(type, v) {
+  if (v == null || v === "" || (Array.isArray(v) && !v.length)) return null;
+  switch (type) {
+    case "select": return { select: { name: String(v) } };
+    case "status": return { status: { name: String(v) } };
+    case "multi_select": return { multi_select: [].concat(v).map(function (x) { return { name: String(x) }; }) };
+    case "date": return /^\d{4}-\d{2}-\d{2}$/.test(String(v)) ? { date: { start: String(v) } } : null;
+    case "url": return { url: String(v) };
+    case "email": return { email: String(v) };
+    case "phone_number": return { phone_number: String(v) };
+    case "number": return isNaN(Number(v)) ? null : { number: Number(v) };
+    case "checkbox": return { checkbox: !!v };
+    case "rich_text": return { rich_text: [{ type: "text", text: { content: String(v).slice(0, 1900) } }] };
+  }
+  return null;
+}
+
+// Crea la riga dell'atleta (con il modello predefinito del database, se c'è) e compila i campi scelti nell'app
+function athleteNew_(req) {
+  const w = req.db === "vf" ? "vf" : "coach", name = String(req.name || "").trim();
+  if (!name) throw new Error("Scrivi nome e cognome");
+  const P = dbProps_(w), props = {}, vals = req.props || {};
+  let title = "Nome Cognome";
+  Object.keys(P).forEach(function (k) { if (P[k].type === "title") title = k; });
+  props[title] = { title: [{ type: "text", text: { content: name } }] };
+  Object.keys(vals).forEach(function (k) {
+    if (!P[k] || !EDITABLE_[P[k].type]) return;
+    const pv = propVal_(P[k].type, vals[k]);
+    if (pv) props[k] = pv;
+  });
+  const ds = w === "vf" ? CONFIG.VF_DS : CONFIG.COACH_DS, db = w === "vf" ? CONFIG.VF_DB : CONFIG.COACH_DB;
+  let r = notion_("/v1/pages", "post", { parent: { type: "data_source_id", data_source_id: ds }, properties: props, template: { type: "default" } }, "2025-09-03");
+  let tpl = true;
+  if (r.code !== 200) { tpl = false; r = notion_("/v1/pages", "post", { parent: { type: "data_source_id", data_source_id: ds }, properties: props }, "2025-09-03"); }
+  if (r.code !== 200) r = notion_("/v1/pages", "post", { parent: { database_id: db }, properties: props }, "2022-06-28");
+  if (r.code !== 200) throw notionErr_(r);
+  const id = r.json.id;
+  // il modello si applica dopo la creazione: riscrivo i campi scelti perché restino quelli
+  if (tpl) {
+    Utilities.sleep(2500);
+    const rp = {}; Object.keys(props).forEach(function (k) { if (k !== title) rp[k] = props[k]; });
+    if (Object.keys(rp).length) notion_("/v1/pages/" + id, "patch", { properties: rp });
+  }
+  CacheService.getScriptCache().remove("athletes");
+  return { athlete: { id: id.replace(/-/g, ""), src: w, name: name, notionUrl: r.json.url }, template: tpl };
 }
 
 /* ---------- note ---------- */
