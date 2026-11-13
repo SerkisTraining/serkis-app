@@ -44,7 +44,7 @@ const S={
 };
 function applyTheme(t){document.documentElement.dataset.theme=t||"light";const m=document.querySelector('meta[name="theme-color"]');if(m)m.content="#161615"}
 applyTheme(store.get("theme","light"));
-function applyRail(){const m=!!store.get("railMini",false);document.body.classList.toggle("rail-mini",m);const b=document.querySelector(".rail-toggle");if(b){b.setAttribute("aria-label",m?"Apri la barra laterale":"Chiudi la barra laterale");b.setAttribute("aria-expanded",String(!m))}
+function applyRail(){const m=!!store.get("railMini",true);document.body.classList.toggle("rail-mini",m);const b=document.querySelector(".rail-toggle");if(b){b.setAttribute("aria-label",m?"Apri la barra laterale":"Chiudi la barra laterale");b.setAttribute("aria-expanded",String(!m))}
   document.querySelectorAll(".tb").forEach(t=>{const l=t.querySelector("span:not(.pl)");if(l)t.title=m?l.textContent:""})}
 document.addEventListener("DOMContentLoaded",applyRail);if(document.readyState!=="loading")setTimeout(applyRail,0);
 (function(){const p=store.get("prefs",{});if(p.sede)S.filter.sede=p.sede;if(p.stato)S.filter.stato=p.stato;if(p.sort)S.sort=p.sort;if(p.tab)S.tab=p.tab})();
@@ -417,9 +417,17 @@ function signalOf(a){const c=coachSignal(a.id);if(c)return{level:c.signal,reason
 const LV={ok:"Va bene",warn:"Da guardare",bad:"Attenzione",none:"Senza dati"};
 const isTest=a=>a.status==="Mandare test/testare";
 const isTodo=a=>a.status==="Da fare"||a.status==="In coda";
+// Da fare: scheda finita o all'ultima settimana, avviso rosso, test, atleta nuovo. In arrivo: penultima settimana.
+function bucket(a){
+  if(!a.active)return"finiti";const sc=a.wk&&a.wk.scad,sg=signalOf(a).level;
+  if((sc&&sc.rank<=1)||sg==="bad"||isTest(a)||isTodo(a))return"fare";
+  if(sc&&sc.rank===2)return"arrivo";
+  return"corso";
+}
+const BUCKET={fare:"Da fare",arrivo:"In arrivo · prossima settimana",corso:"In corso",finiti:"Collaborazione finita"};
 function urgency(a){
   if(!a.active)return 20;let u=9;const sc=a.wk&&a.wk.scad,sg=signalOf(a).level;
-  if(sc)u=Math.min(u,sc.rank);if(sg==="bad")u=Math.min(u,1.5);if(isTest(a))u=Math.min(u,3);if(sg==="warn")u=Math.min(u,3.5);if(isTodo(a))u=Math.min(u,4);return u;
+  if(sc)u=Math.min(u,sc.rank===2?6:sc.rank);if(sg==="bad")u=Math.min(u,1.5);if(isTest(a))u=Math.min(u,3);if(isTodo(a))u=Math.min(u,4);if(sg==="warn")u=Math.min(u,7);return u;
 }
 function visible(){
   const f=S.filter,q=norm(f.q);
@@ -905,12 +913,12 @@ function renderSide(){
   }
   const L=visible();
   const grouped=S.sort==="urgenza"&&!S.filter.focus&&!S.filter.q;
-  const grpOf=a=>!a.active?"Collaborazione finita":urgency(a)<=4?"Da sistemare":"In corso";
+  const grpOf=a=>BUCKET[bucket(a)];
   let lastG="";
   el.innerHTML=L.length?L.map(a=>{
     let gh="";if(grouped){const g=grpOf(a);if(g!==lastG){lastG=g;gh=`<div class="grp"><span>${g}</span><span>${L.filter(x=>grpOf(x)===g).length}</span></div>`}}
-    const sc=a.active&&a.wk&&a.wk.scad,sh=S.sheets[a.id];
-    const flags=[sc?`<span class="pill ${sc.level}">${esc(sc.label)}</span>`:"",statusPill(a),sh&&sh.status==="error"?`<span class="pill dim">Scheda?</span>`:""].join("");
+    const sc=a.active&&a.wk&&a.wk.scad,sh=S.sheets[a.id],sg=a.active?signalOf(a):null;
+    const flags=[sc?`<span class="pill ${sc.rank===2?"info":sc.level}">${esc(sc.rank===2?"Penultima":sc.label)}</span>`:sg&&sg.level==="bad"?`<span class="pill bad">Attenzione</span>`:sg&&sg.level==="warn"&&!sg.manual?`<span class="pill warn">Da guardare</span>`:"",statusPill(a),sh&&sh.status==="error"?`<span class="pill dim">Scheda?</span>`:""].join("");
     return gh+`<button class="row" type="button" data-id="${a.id}" aria-current="${S.sel===a.id&&S.view==="atleta"}">${avatar(a)}<span><span class="r-name">${esc(a.name)}</span><span class="r-sub">${esc(rowSub(a))}</span></span><span class="r-flags">${flags}</span></button>`;
   }).join(""):`<div class="empty">Nessun atleta con questi filtri.</div>`;
   foot.textContent=L.length+" su "+S.athletes.length+" atleti"+(S.load.state==="error"?" · ultimo aggiornamento non riuscito":"");
@@ -922,44 +930,46 @@ function renderMain(){
   if(S.view==="nuovo"){m.innerHTML=viewNuovo();return}
   if(S.view==="impostazioni"){m.innerHTML=viewImpostazioni();return}
   if(S.view==="feedback"){m.innerHTML=viewFeedback();return}
+  if(S.view==="atleti"){m.innerHTML=`<div class="pick"><p>Scegli un atleta dall'elenco.</p><p class="mut">Le cose da fare di oggi sono nella pagina <button class="lnk" type="button" data-go="oggi">Oggi</button>.</p></div>`;return}
   m.innerHTML=viewOggi();
 }
 
 /* ---- oggi ---- */
 // Cose da fare: una riga per atleta, con il bottone giusto
-function todoList(){
-  const act=S.athletes.filter(a=>a.active),out=[];
-  act.forEach(a=>{
+function testNew(a){return a.sede==="stenika"?"test-presenza":a.src==="vf"?"vf":"test-online"}
+function boardItems(){
+  const fare=[],arrivo=[],occhio=[];
+  S.athletes.filter(a=>a.active).forEach(a=>{
     const sc=a.wk&&a.wk.scad,sg=signalOf(a);
-    if(sc)out.push({a,u:sc.rank,ico:sc.rank<=1?"bad":"warn",i:"!",t:sc.label+(a.wk.end?" · fine "+fd(a.wk.end):""),btn:`<button class="btn sm${sc.rank<=1?" pri":""}" type="button" data-new="scheda" data-aid="${a.id}">Prepara</button>`});
-    else if(isTest(a))out.push({a,u:3,ico:"y",i:"T",t:"Test da fare · "+SEDE[a.sede],btn:`<button class="btn sm" type="button" data-new="${a.sede==="stenika"?"test-presenza":a.src==="vf"?"vf":"test-online"}" data-aid="${a.id}">Test</button>`});
-    else if(sg.level==="bad"||sg.level==="warn")out.push({a,u:sg.level==="bad"?1.5:3.5,ico:sg.level,i:sg.level==="bad"?"!":"?",t:sg.reasons[0],btn:`<button class="btn sm" type="button" data-id="${a.id}" data-jtab="feedback">Guarda</button>`});
-    else if(isTodo(a))out.push({a,u:4,ico:"y",i:"+",t:a.status+" · "+SEDE[a.sede],btn:`<button class="btn sm" type="button" data-id="${a.id}">Apri</button>`});
+    if(sc&&sc.rank<=1)fare.push({a,u:sc.rank,t:sc.rank===0?"Scheda finita il "+fd(a.wk.end):"Ultima settimana · finisce "+GIORNI[a.wk.end.getDay()].slice(0,3)+" "+fd(a.wk.end),btn:`<button class="mini pri" type="button" data-new="scheda" data-aid="${a.id}">Prepara</button>`});
+    else if(sg.level==="bad")fare.push({a,u:1.5,t:sg.reasons[0],btn:`<button class="mini pri" type="button" data-id="${a.id}" data-jtab="feedback">Guarda</button>`});
+    else if(isTest(a))fare.push({a,u:3,t:"Test da fare · "+SEDE[a.sede],btn:`<button class="mini pri" type="button" data-new="${testNew(a)}" data-aid="${a.id}">Test</button>`});
+    else if(isTodo(a))fare.push({a,u:4,t:a.status+" · "+SEDE[a.sede],btn:`<button class="mini" type="button" data-id="${a.id}">Apri</button>`});
+    if(sc&&sc.rank===2)arrivo.push({a,u:+a.wk.end,t:"Penultima · finisce "+GIORNI[a.wk.end.getDay()].slice(0,3)+" "+fd(a.wk.end)});
+    if(sg.level==="warn"&&!(sc&&sc.rank<=1))occhio.push({a,u:0,t:sg.reasons[0]});
   });
-  return out.sort((x,y)=>x.u-y.u||x.a.name.localeCompare(y.a.name,"it"));
+  const by=(x,y)=>x.u-y.u||x.a.name.localeCompare(y.a.name,"it");
+  return{fare:fare.sort(by),arrivo:arrivo.sort(by),occhio:occhio.sort(by)};
 }
-function todoHtml(list,max){
-  const L=max?list.slice(0,max):list;
-  return`<div class="todo">${L.map(x=>`<div><button class="who" type="button" data-id="${x.a.id}"><span class="ico ${x.ico}">${x.i}</span><span style="min-width:0"><b>${esc(x.a.name)}</b><small>${esc(x.t)}</small></span></button>${x.btn}</div>`).join("")}${max&&list.length>max?`<button class="more" type="button" data-act="todo-all">Mostra tutte (${list.length})</button>`:""}</div>`;
-}
+// per la barra e il riepilogo
+function todoList(){return boardItems().fare}
+function bItem(x){return`<div class="bi"><button class="who" type="button" data-id="${x.a.id}"><b>${esc(x.a.name)}</b><small>${esc(x.t)}</small></button>${x.btn||""}</div>`}
 function viewOggi(){
   const d=today(),act=S.athletes.filter(a=>a.active);
   const scanned=S.athletes.filter(a=>a.sheetId&&a.active).every(a=>S.sheets[a.id]&&["ok","error"].includes(S.sheets[a.id].status));
-  const list=S.athletes.length?todoList():[];
-  const head=`<div class="hello"><h1>Ciao Serkis</h1><p>${GIORNI[d.getDay()].replace(/^./,c=>c.toUpperCase())} ${d.getDate()} ${MESI[d.getMonth()]}${S.athletes.length?" · "+(list.length?list.length+(list.length===1?" cosa da fare":" cose da fare"):"niente di urgente"):""}</p></div>`;
+  const head=`<div class="o-head"><h1>${GIORNI[d.getDay()].replace(/^./,c=>c.toUpperCase())} ${d.getDate()} ${MESI[d.getMonth()]}</h1>${scanned?"":`<span class="mut">leggo le schede…</span>`}</div>`;
   if(!S.athletes.length)return head+(S.load.state==="error"?`<div class="notice err">${esc(errText(S.load.err,S.mode==="claude"?"Notion":"Il backend"))}<br><button class="btn sm" type="button" data-act="reload">Riprova</button></div>`:`<p class="loading">Leggo atleti e schede…</p>`);
-  const nb=fbNewCount(),urg=list.filter(x=>x.u<=1.5).length;
-  let h=head+`<div class="counts">
-    <button type="button" data-go="atleti"><b class="${urg?"hot":""}">${list.length}</b><span>da sistemare</span></button>
-    <button type="button" data-go="feedback"><b>${S.clientsState==="ok"?nb:"…"}</b><span>feedback nuovi</span></button>
-    <button type="button" data-go="atleti"><b>${act.length}</b><span>atleti attivi</span></button></div>`;
-  h+=`<div class="lbl"><span>Da fare</span>${scanned?"":`<span>leggo le schede…</span>`}</div>`;
-  h+=list.length?todoHtml(list,S.todoAll?0:6):`<div class="empty">Nessuna scheda in scadenza, nessun test e nessun avviso dai feedback.</div>`;
-  const ses=fbSessions().slice(0,3);
-  if(S.adapter&&S.adapter.caps.client){
-    h+=`<div class="lbl"><span>Ultimi feedback</span><button class="lnk" type="button" data-go="feedback">Tutti</button></div>`;
-    h+=ses.length?`<div class="todo">${ses.map(fbItem).join("")}</div>`:`<div class="empty">${S.clientsState==="loading"?"Carico i feedback…":"Ancora nessun feedback dalla pagina cliente."}</div>`;
-  }
+  const B=boardItems(),ses=fbSessions().filter(s=>s.at>new Date(Date.now()-2*864e5).toISOString()).slice(0,8),nb=fbNewCount();
+  const col=(cls,title,sub,body,empty)=>`<section class="bcol ${cls}"><h2>${title}<small>${sub}</small></h2>${body||`<p class="bempty">${empty}</p>`}</section>`;
+  const max=S.todoAll?99:8;
+  let h=head+`<div class="board">`+
+    col("c-fare","Da fare ora",B.fare.length,B.fare.slice(0,max).map(bItem).join("")+(B.fare.length>max?`<button class="bmore" type="button" data-act="todo-all">Mostra tutte (${B.fare.length})</button>`:""),"Niente da fare adesso.")+
+    col("c-arrivo","In arrivo","prossima settimana",B.arrivo.map(bItem).join(""),"Nessuna scheda alla penultima settimana.")+
+    col("c-occhio","Da tenere d'occhio",B.occhio.length,B.occhio.map(bItem).join(""),"Nessun avviso dai feedback.")+
+    (S.adapter&&S.adapter.caps.client?col("c-fb","Feedback recenti",nb?nb+" nuovi":"",ses.map(s=>{const a=byId(s.athleteId);return`<div class="bi"><button class="who" type="button" ${a?`data-id="${a.id}" data-jtab="feedback"`:""}><b>${esc(a?a.name:s.name)}${s.alert?` <i class="dot ${s.alert==="bad"?"bad":"warn"}"></i>`:""}</b><small>${esc((s.day||"Allenamento")+" · S"+s.week+" · "+whenOf(s.at)+(s.avg!=null?" · RPE medio "+String(s.avg).replace(".",","):""))}</small></button></div>`}).join("")+(ses.length?`<button class="bmore" type="button" data-go="feedback">Tutti i feedback</button>`:""),S.clientsState==="loading"?"Carico i feedback…":"Nessun feedback negli ultimi due giorni."):"")+
+    `</div>`;
+  const ok=act.filter(a=>bucket(a)==="corso");
+  if(ok.length)h+=`<div class="incorso"><span class="lab">In corso · ${ok.length}</span>${ok.sort((x,y)=>x.name.localeCompare(y.name,"it")).map(a=>`<button type="button" data-id="${a.id}">${esc(a.name.split(" ")[0])} ${esc((a.name.split(" ")[1]||"")[0]||"")}. <span class="mut">${a.wk&&a.wk.future?"da "+fd(a.startD):a.wk?(a.src==="vf"?"K":"S")+a.wk.week:"—"}</span></button>`).join("")}</div>`;
   return h;
 }
 
@@ -1033,36 +1043,34 @@ function nextStep(a){
 function viewAtleta(a){
   const w=a.wk,ns=nextStep(a);
   const sub=[SEDE[a.sede],a.src==="coach"&&a.tag&&norm(a.tag)!==norm(SEDE[a.sede])?a.tag:"",a.status!=="In corso"?a.status:""].filter(Boolean).join(" · ");
-  const acts=actionsOf(a).map(x=>x.href?`<a class="btn${x.k==="open"?" pri":""}" href="${esc(x.href)}" target="_blank" rel="noopener">${x.ic}${x.l}</a>`:`<button class="btn${S.clientOpen&&x.k==="client"?" on":""}" type="button" ${x.data}>${x.ic}${x.l}</button>`).join("");
+  const acts=actionsOf(a),main=acts.filter(x=>["open","new","client"].includes(x.k)),rest=acts.filter(x=>!["open","new","client"].includes(x.k));
+  const btn=x=>x.href?`<a class="btn${x.k==="open"?" pri":""}" href="${esc(x.href)}" target="_blank" rel="noopener">${x.ic}${x.l}</a>`:`<button class="btn${S.clientOpen&&x.k==="client"?" on":""}" type="button" ${x.data}>${x.ic}${x.l}</button>`;
   const tabs=[["panoramica","Panoramica"],["scheda","Scheda"],["feedback","Feedback"],["carichi","Carichi"],["test",a.src==="vf"?"Valutazione":"Test"],["note","Note"],["file","File"],["notion","Notion"]];
   if(S.adapter.caps.ai)tabs.push(["ai","Analisi AI"]);
   if(!tabs.some(t=>t[0]===S.tab))S.tab="panoramica";
-  return`<div class="a-head">${avatar(a)}<div style="min-width:0"><h1>${esc(a.name)}</h1><p>${esc(sub)}</p></div></div>
-    <div class="a-tools">${acts}</div>
-    <div class="a-grid">
-      <aside class="a-side">
-        <section class="next ${ns.lv}"><b>${esc(ns.t)}</b><p>${esc(ns.p)}</p>${ns.b?`<div class="ed-row">${ns.b}</div>`:""}</section>
-        ${S.clientOpen?clientPanel(a):""}
-        <div class="only-d">${sigHtml(a)}</div>
-      </aside>
-      <div class="a-main">
-        <div class="tabs" role="tablist">${tabs.map(([k,l])=>`<button class="tab" role="tab" type="button" data-tab="${k}" aria-selected="${S.tab===k}">${l}</button>`).join("")}</div>
-        <div id="tabbody">${tabBody(a)}</div>
-      </div>
-    </div>`;
+  const facts=[];
+  if(w&&a.dur&&!w.future){const n=Math.max(a.dur,w.week);facts.push(["Settimane",`<span class="wkb" aria-label="Settimana ${w.week} di ${a.dur}">${Array.from({length:n},(_,i)=>`<i class="${i+1>a.dur?"o":i+1<w.week?"d":i+1===w.week?"c":""}"></i>`).join("")}</span> <span class="num">${w.week}/${a.dur}</span>`])}
+  else facts.push(["Settimana",esc(w?(w.future?"inizia "+fd(a.startD):String(w.week)):"—")]);
+  facts.push(["Fine scheda",esc(w&&w.end?fdy(w.end):"—")]);
+  const ls=lastSession(a);facts.push(["Ultimo allenamento",esc(ls?ls.text:"—")]);
+  if(S.adapter.caps.client&&a.src==="coach")facts.push(["Pagina cliente",esc(S.clientsState!=="ok"?"…":S.clients[a.id]?(S.clients[a.id].active?"Attiva":"Disattivata"):"Da creare")]);
+  const sc=a.active&&w&&w.scad;
+  return`<div class="a-head">${avatar(a)}<div class="a-ttl"><h1>${esc(a.name)}</h1><p>${esc(sub)}</p></div>
+      <div class="a-acts">${main.map(btn).join("")}${rest.length?`<span class="a-more">${rest.map(btn).join("")}</span>`:""}</div></div>
+    <div class="strip">${facts.map(([k,v])=>`<div><small>${k}</small><b>${v}</b></div>`).join("")}${sc?`<div><small>Stato</small><span class="pill ${sc.rank===2?"info":sc.level}">${esc(sc.rank===2?"Penultima settimana":sc.label)}</span></div>`:""}</div>
+    ${ns.lv&&ns.lv!=="ok"?`<div class="nbar ${ns.lv}"><span><b>${esc(ns.t)}:</b> ${esc(ns.p)}</span>${ns.b?`<span class="ed-row">${ns.b}</span>`:""}</div>`:""}
+    ${S.clientOpen?clientPanel(a):""}
+    <div class="tabs" role="tablist">${tabs.map(([k,l])=>`<button class="tab" role="tab" type="button" data-tab="${k}" aria-selected="${S.tab===k}">${l}</button>`).join("")}</div>
+    <div id="tabbody">${tabBody(a)}</div>`;
 }
 function tabPanoramica(a){
-  const w=a.wk;let h="";
-  if(w&&a.dur&&!w.future){const n=Math.max(a.dur,w.week);h+=`<div class="wkbox" aria-label="Settimana ${w.week} di ${a.dur}">${Array.from({length:n},(_,i)=>i+1).map(k=>`<span class="${k>a.dur?"over":k<w.week?"done":k===w.week?"now":""}">${k}</span>`).join("")}</div>`}
-  const facts=[];
-  if(a.src==="coach"){facts.push(["Settimana",w?(w.future?"inizia "+fd(a.startD):w.week+(a.dur?" di "+a.dur:"")):"—"]);facts.push(["Scheda",a.startD?fd(a.startD)+" → "+(w&&w.end?fdy(w.end):"?"):"—"]);if(a.subD)facts.push(["Abbonamento dal",fdy(a.subD)])}
-  else{facts.push(["Settimana protocollo",w?(w.future?"inizia "+fd(a.startD):String(w.week)):"—"]);facts.push(["Inizio programma",fdy(a.startD)]);facts.push(["Prima valutazione",fdy(a.evalD)])}
-  const ls=lastSession(a);facts.push(["Ultimo allenamento",ls?ls.text:"—"]);
-  if(S.adapter.caps.client&&a.src==="coach")facts.push(["Pagina cliente",S.clientsState!=="ok"?"…":S.clients[a.id]?(S.clients[a.id].active?"Attiva":"Disattivata"):"Da creare"]);
-  const sh=shOf(a);if(sh&&sh.status==="ok"&&sh.P.meta.periodo)facts.push(["In scheda",sh.P.meta.periodo]);
-  h+=`<dl class="facts2">${facts.map(([k,v])=>`<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>`;
-  h+=`<div class="only-m">${sigHtml(a)}</div>`;
-  const ses=fbSessions().filter(s=>s.athleteId===a.id).slice(0,3);
+  let h=sigHtml(a);
+  const sh=shOf(a),extra=[];
+  if(a.src==="coach"){if(a.startD)extra.push(["Inizio scheda",fdy(a.startD)]);if(a.subD)extra.push(["Abbonamento dal",fdy(a.subD)])}
+  else{extra.push(["Inizio programma",fdy(a.startD)]);extra.push(["Prima valutazione",fdy(a.evalD)])}
+  if(sh&&sh.status==="ok"&&sh.P.meta.periodo)extra.push(["In scheda",sh.P.meta.periodo]);
+  if(extra.length)h+=`<dl class="facts2">${extra.map(([k,v])=>`<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>`;
+  const ses=fbSessions().filter(s=>s.athleteId===a.id).slice(0,4);
   if(ses.length)h+=`<div class="lbl"><span>Ultimi feedback</span><button class="lnk" type="button" data-tab="feedback">Tutti</button></div><div class="todo">${ses.map(fbItem).join("")}</div>`;
   return h;
 }
@@ -1473,7 +1481,7 @@ document.addEventListener("click",async ev=>{
     try{const n=await S.adapter.clientSet(c.token,{[t.dataset.clset]:!c[t.dataset.clset]});S.clients[a.id]=Object.assign(c,n)}catch(e){toast("Non riesco a salvare: "+errText(e))}
     S.clientBusy=false;render();return}
   const act=t.dataset.act;if(!act)return;
-  if(act==="rail"){store.set("railMini",!store.get("railMini",false));applyRail();return}
+  if(act==="rail"){store.set("railMini",!store.get("railMini",true));applyRail();return}
   if(act==="menu"&&a){S.menu=true;renderSheet();return}
   if(act==="menu-close"){S.menu=false;renderSheet();return}
   if(act==="todo-all"){S.todoAll=true;render();return}
