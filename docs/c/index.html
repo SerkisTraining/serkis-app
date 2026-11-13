@@ -153,12 +153,12 @@ label.f{font-size:16px;font-weight:600}
    Template supportati: "Programmazione" (GIORNO A/B/C, PROTOCOLLO, FEEDBACK con righe "Sett. N:")
    e "Serkistraining" (G1/G2/G3, SCHEMA E REST, FEEDBACK con righe "SN  │"). */
 const SK=(()=>{
-  const MARK=/\((?:sett\.?|settimane?|s)\s*(\d+)(?:\s*[-\/]\s*(\d+))?\)\s*/i;
+  const MARK=/\((?:sett[.,]?|settimane?|s)\s*(\d+)(?:\s*[-\/]\s*(\d+))?\)\s*/i;
   const DAY=/^(GIORNO|G|DAY|SEDUTA)\s*([A-Z0-9]{1,3})$/i;
   const clean=v=>String(v==null?"":v).replace(/\r/g,"").trim();
 
   // Settimana a inizio riga: "sett. 1  4×2", "Sett. 2-3: …", "sett. 1 — 2 giri", oppure "sett. 1" da solo come titolo di un blocco
-  const LEAD=/^\s*(?:settimane?|settimana|sett\.?|s(?=\s*\d))\s*(\d{1,2})(?:\s*[-–\/]\s*(\d{1,2}))?(?=\s|$|[:—–\-).])[\s:—–\-).]*/i;
+  const LEAD=/^\s*(?:settimane?|settimana|sett[.,]?|s(?=\s*\d))\s*(\d{1,2})(?:\s*[-–\/]\s*(\d{1,2}))?(?=\s|$|[:—–\-).])[\s:—–\-).]*/i;
   const TRAIL=/^\s*(rest|recupero|riposo|rec\.)\b/i;
   // Dose della settimana w. Due modi di scrivere le settimane:
   // 1) "(sett. X)" dentro la riga: le righe senza marcatore valgono sempre; il testo prima del marcatore ("Emom:") passa alle righe sorelle.
@@ -336,7 +336,7 @@ if(typeof module!=="undefined")module.exports=SK;
 </script>
 <script>
 const BACKEND="https://script.google.com/macros/s/AKfycbw3n7F9-MfjAbRasuj6DICyN_plOyC8MxJOcryWQ8uayT1CxiTFtDRiDg9gV7OdsUMv/exec";
-const BUILD="d27725480c";
+const BUILD="f210ffae3b";
 // Il telefono tiene in memoria la pagina per qualche minuto: se online c'è una versione nuova, ricarica una volta sola
 (async()=>{try{const r=await fetch(location.pathname+"?b="+Date.now(),{cache:"no-store"});const m=(await r.text()).match(/const BUILD="([0-9a-f]{10})"/);
   if(m&&m[1]!==BUILD){const k="st_reload_"+m[1];if(!sessionStorage.getItem(k)){sessionStorage.setItem(k,"1");location.reload()}}}catch(e){}})();
