@@ -820,8 +820,30 @@ const SK=(()=>{
   // 1) "(sett. X)" dentro la riga: le righe senza marcatore valgono sempre; il testo prima del marcatore ("Emom:") passa alle righe sorelle.
   // 2) "sett. X" a inizio riga: la riga (e quelle subito sotto, fino a una riga vuota) vale solo per quelle settimane;
   //    le righe dopo una riga vuota, e "Rest …" in coda, valgono per tutte.
+  // 3) "(Sett. 1/2)" da solo in fondo a un blocco (es. onde): vale per il blocco sopra, lungo quanto i blocchi che seguono.
+  const ONLY=new RegExp("^\\s*"+MARK.source.replace(/\\s\*$/,"")+"\\s*$","i");
+  function closeBlocks(lines,w){
+    if(!lines.some(l=>ONLY.test(l)))return lines;
+    const paras=[];let cur=[];
+    lines.forEach(l=>{if(!l.trim()){if(cur.length)paras.push(cur);cur=[];paras.push(null)}else cur.push(l)});if(cur.length)paras.push(cur);
+    const P=paras.filter(Boolean),ends=[];
+    P.forEach((p,i)=>{if(ONLY.test(p[p.length-1]))ends.push(i)});
+    const size=ends.length>1?ends[1]-ends[0]:1,wk={};
+    ends.forEach((e,k)=>{const m=P[e][P[e].length-1].match(MARK),a=+m[1],b=m[2]?+m[2]:a;const from=k?ends[k-1]+1:Math.max(0,e-size+1);for(let i=from;i<=e;i++)wk[i]={a,b}});
+    const out=[];let pi=0;
+    paras.forEach(p=>{if(!p){out.push("");return}const r=wk[pi++];
+      if(!r){out.push(...p);return}
+      if(w>=r.a&&w<=r.b)out.push(...p.filter(l=>!ONLY.test(l)))});
+    return out;
+  }
   function doseFor(text,w){
-    let lines=String(text||"").replace(/\r/g,"").split("\n");
+    // più settimane sulla stessa riga separate da "//": una riga per settimana
+    let lines=[];
+    String(text||"").replace(/\r/g,"").split("\n").forEach(l=>{
+      if((l.match(new RegExp(MARK.source,"gi"))||[]).length>1)l.split("//").map(x=>x.trim()).filter(Boolean).forEach(x=>lines.push(x));
+      else lines.push(l.replace(/\s*\/\/\s*$/,""));
+    });
+    lines=closeBlocks(lines,w);
     if(lines.some(l=>LEAD.test(l))){
       const keep=[];let blk=null;
       for(const raw of lines){
@@ -923,11 +945,13 @@ const SK=(()=>{
       }
       if(dm&&row.filter(c=>c).length<=3+12){pendingDay=dayName(dm);cur=null;continue}
       if(!cur)continue;
-      const name=row[cur.cols.name]||"";
+      let name=row[cur.cols.name]||"",dose=cur.cols.dose>=0?row[cur.cols.dose]||"":"";
       if(!name)continue;
+      // "ESERCIZIO - SET x REPS": nome e schema nella stessa cella → nome = primo paragrafo, schema = il resto
+      if(cur.cols.dose===cur.cols.name){const k=name.search(/\n\s*\n/);if(k>0){dose=name.slice(k).trim();name=name.slice(0,k).trim()}else{const L=name.split("\n");name=L[0];dose=L.slice(1).join("\n").trim()}}
       cur.items.push({
         name:name.replace(/\n\s*(?:SS|\+)\s*\n/gi," + ").replace(/\n+/g," "),
-        dose:cur.cols.dose>=0?row[cur.cols.dose]||"":"",
+        dose:dose,
         note:cur.cols.note>=0?row[cur.cols.note]||"":"",
         fb:row[cur.cols.fb]||"",row:r+1,col:cur.cols.fb+1
       });
