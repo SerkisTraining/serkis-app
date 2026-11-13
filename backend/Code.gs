@@ -1106,3 +1106,32 @@ function provaTemplateNuovo() {
   DriveApp.getFileById(r.id).setTrashed(true);
   Logger.log("File di prova nel cestino");
 }
+
+// Prova dall'editor: test online finto assegnato a un cliente finto, compilato come dal telefono; poi cancella tutto (nessuna mail)
+function provaTestCliente() {
+  const t = templates_().templates.filter(function (x) { return x.kind === "test-online"; })[0];
+  const f = create_({ templateId: t.id, kind: "test", title: "PROVA APP test da cancellare", name: "Mario Prova", startDate: "2026-11-16" });
+  const ss = SpreadsheetApp.openById(f.id), sh = ss.getSheets()[0];
+  const T0 = testParse_(sh.getRange(1, 1, 40, 6).getDisplayValues());
+  Logger.log("Sezioni vuote trovate: " + T0.groups.length);
+  const v = sh.getRange(1, 1, 40, 6).getDisplayValues();
+  let h = []; v.forEach(function (r, i) { if (r[0] === "ESERCIZIO") h.push(i + 1); });
+  sh.getRange(h[0] + 1, 1, 2, 2).setValues([["Planche lean", "Tenuta tecnica: registrare i secondi."], ["Pistol squat", "Ripetizioni per gamba; SX e DX."]]);
+  sh.getRange(h[1] + 1, 1, 1, 2).setValues([["Pull-up", "Ripetizioni massime."]]);
+  SpreadsheetApp.flush();
+  const id = "prova" + Date.now();
+  const c = clientTest_({ athleteId: id, athleteName: "Mario Prova", sheetId: f.id, tab: f.tab }).client;
+  const cl = tab_("Clienti", CL_COLS); cl.getRange(c.row, 6).setValue("no");
+  const L = clientTestData_(clientByToken_(c.token));
+  Logger.log("Test letto dal cliente: " + L.groups.map(function (g) { return g.title + " (" + g.items.length + ")"; }).join(", ") + " · tab " + L.tab);
+  const all = []; L.groups.forEach(function (g) { g.items.forEach(function (x) { all.push(x); }); });
+  const texts = ["22″ · RPE 8 · tecnica pulita", "SX 5 rep · DX 7 rep · RPE 7", "NON FATTO · fastidio spalla"];
+  let last;
+  all.forEach(function (x, k) { last = CLIENT_ACTIONS.c_test_save({ token: c.token, sheetId: f.id, tab: L.tab, row: x.row, col: x.col, text: texts[k], meta: { group: x.g } }); Logger.log(x.name + " → " + last.cell + (last.done ? " · TEST COMPLETATO" : "")); });
+  const after = clientByToken_(c.token);
+  Logger.log("Segnato completato: " + (after.testDone ? "sì" : "no"));
+  Logger.log("Nella colonna RISULTATO: " + sh.getRange(h[0] + 1, 3, 2, 1).getDisplayValues().join(" | "));
+  cl.deleteRow(after.row);
+  DriveApp.getFileById(f.id).setTrashed(true);
+  Logger.log("Pulito: riga cliente cancellata, file nel cestino");
+}
