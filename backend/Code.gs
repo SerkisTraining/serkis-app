@@ -122,11 +122,19 @@ function out_(o) {
 }
 
 /* ---------- Notion ---------- */
+// Il token resta salvato nelle proprietà dello script: incollando una versione nuova del codice non va rimesso.
+function notionToken_() {
+  const p = PropertiesService.getScriptProperties();
+  const t = CONFIG.NOTION_TOKEN;
+  if (t && !/^INCOLLA/.test(t)) { if (p.getProperty("NOTION_TOKEN") !== t) p.setProperty("NOTION_TOKEN", t); return t; }
+  return p.getProperty("NOTION_TOKEN") || t;
+}
+
 function notion_(path, method, body, version) {
   const opt = {
     method: method || "get",
     muteHttpExceptions: true,
-    headers: { Authorization: "Bearer " + CONFIG.NOTION_TOKEN, "Notion-Version": version || "2022-06-28" }
+    headers: { Authorization: "Bearer " + notionToken_(), "Notion-Version": version || "2022-06-28" }
   };
   if (body) { opt.contentType = "application/json"; opt.payload = JSON.stringify(body); }
   const r = UrlFetchApp.fetch("https://api.notion.com" + path, opt);
