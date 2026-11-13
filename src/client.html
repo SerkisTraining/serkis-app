@@ -292,7 +292,7 @@ function tDay(){
   const nx=S.TI.findIndex(x=>!String(x.res||"").trim());
   return`<div class="scroll">${WM}${tabsBar()}
     <div><h1>${all?"Test completato":"I tuoi test"}</h1><p class="sub">${S.TI.length} prove · ${T.groups.length>1?T.groups.length+" giornate":"una giornata"}${all?" · inviati a "+COACH:""}</p></div>
-    <div class="box" style="display:flex;flex-direction:column;gap:8px;font-size:14px;line-height:1.5;color:var(--ink2)"><b style="color:var(--ink)">Prima di iniziare</b>${T.info?`<span>${esc(T.info)}</span>`:""}<span>Per ogni prova scrivi il risultato e come ti sei ${S.g==="f"?"sentita":"sentito"}. Puoi fare una giornata alla volta.</span><span style="display:flex;gap:10px;align-items:flex-start">${IC.vid}<span><b style="color:var(--ink)">Registra un video per ogni prova</b> e mandameli su WhatsApp.</span></span></div>
+    <div class="box" style="display:flex;flex-direction:column;gap:10px;font-size:14px;line-height:1.5;color:var(--ink2)"><div style="display:flex;align-items:center;gap:12px"><img class="av" src="serkis.jpg" alt="${COACH}" width="40" height="40"><span style="display:flex;flex-direction:column;gap:1px"><b style="font-size:15px;color:var(--ink)">Prima di iniziare</b><span style="font-size:12px;color:var(--mut)">Da ${COACH}, il tuo coach</span></span></div>${T.info?`<span>${esc(T.info)}</span>`:""}<span>Per ogni prova scrivi il risultato e come ti sei ${S.g==="f"?"sentita":"sentito"}. Puoi fare una giornata alla volta.</span><span style="display:flex;gap:10px;align-items:flex-start">${IC.vid}<span><b style="color:var(--ink)">Registra un video per ogni prova</b> e mandameli su WhatsApp.</span></span></div>
     <div class="prog"><div class="bar"><i data-bar="test" style="width:${n/S.TI.length*100}%"></i></div><span class="hint">${n} / ${S.TI.length}</span></div>
     ${T.groups.map((g,gi)=>{const its=S.TI.map((x,i)=>[x,i]).filter(([x])=>x.gi===gi),dn=its.filter(([x])=>String(x.res||"").trim()).length;
       return`<div class="list"><div class="lbl" style="display:flex;justify-content:space-between"><span>${esc(g.title.toUpperCase())}</span><span>${dn===its.length?"FATTO":dn+" / "+its.length}</span></div>${its.map(([x,i])=>{const r=String(x.res||"").trim(),sk=/^NON FATTO/i.test(r);
@@ -323,7 +323,6 @@ function tEx(){
     <div class="sep"></div>`}
     <button class="sw" data-a="tskip" role="switch" aria-checked="${f.skip}"><span style="font-size:15px">Non sono ${S.g==="f"?"riuscita":"riuscito"} a farla</span><span class="tr ${f.skip?"on":""}"><i></i></span></button>
     ${f.skip?`<div class="q box"><label class="f" for="twhy">Cosa è successo? <span style="font-weight:400;color:var(--y);font-size:14px">(obbligatorio)</span></label><textarea id="twhy" class="req" rows="3" data-tin="why" placeholder="Es. fastidio alla spalla, non avevo l'attrezzo">${esc(f.why)}</textarea></div>`:""}
-    <div class="prev" id="tprev">Nel foglio del coach arriva:<br><b>${esc(tText(i))}</b></div>
     ${S.err?`<div class="err">${esc(S.err)}</div>`:""}
   </div><div class="foot" id="foot">${tFoot()}</div>`;
 }
