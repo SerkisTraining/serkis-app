@@ -25,7 +25,7 @@ const CONFIG = {
   VF_DS: "800b8a16-6f27-4a04-984f-3f9e2ce7f640",
   VF_DB: "d2f147fd8bc840c3ac5b78e509ef365f"
 };
-const VERSION = "1.6";
+const VERSION = "1.7";
 // Indirizzo della pagina cliente (il link che mandi agli atleti finisce con #t=CODICE)
 const CLIENT_PAGE = "https://serkistraining.github.io/serkis-app/c/";
 
@@ -116,7 +116,8 @@ const ACTIONS = {
   clientPin: clientPin_,
   fbLog: fbLog_,
   notionSchema: notionSchema_,
-  athleteNew: athleteNew_
+  athleteNew: athleteNew_,
+  clientTest: clientTest_
 };
 
 function out_(o) {
@@ -488,7 +489,7 @@ function create_(req) {
   if (req.setNotion && req.athleteId) {
     try { notion = notionLink_(req, ss.getUrl()); } catch (e) { notion = { error: e.message }; }
   }
-  return { id: copy.getId(), url: ss.getUrl(), notion: notion };
+  return { id: copy.getId(), url: ss.getUrl(), tab: sh.getName(), notion: notion };
 }
 
 /* ---------- nuovo cliente in Notion ---------- */
@@ -629,7 +630,8 @@ function noteDel_(req) {
 /* ---------- pagina cliente ---------- */
 // Foglio "Clienti" nel file note: un codice per atleta, con le impostazioni della sua pagina.
 // Foglio "Feedback": registro di ogni invio (data, giornata, settimana, RPE…), per date sessioni e avvisi.
-const CL_COLS = ["token", "athleteId", "athleteName", "active", "showFuture", "notify", "pinSheet", "pinTab", "pinSig", "createdAt", "gender"];
+const CL_COLS = ["token", "athleteId", "athleteName", "active", "showFuture", "notify", "pinSheet", "pinTab", "pinSig", "createdAt", "gender", "testSheet", "testTab", "testPrev", "testDone"];
+const TL_COLS = ["at", "athleteId", "athleteName", "sheetId", "tab", "group", "exercise", "result", "rpe", "tec", "skip", "why"];
 const FB_COLS = ["at", "athleteId", "athleteName", "sheetId", "tab", "day", "week", "exercise", "rpe", "tec", "pain", "skip", "why", "nota"];
 
 function tab_(name, cols) {
@@ -748,10 +750,53 @@ const CLIENT_ACTIONS = {
   c_load: function (req) {
     const c = clientByToken_(req.token);
     if (!c || !c.active) return { error: "Link non valido o disattivato. Chiedi al tuo coach un link nuovo.", code: "token" };
-    const r = clientSheet_(c);
-    if (!r.sheet) return { error: "La tua scheda non è ancora pronta. Il coach te la manda a breve.", code: "nosheet" };
-    return { name: r.a.name, start: r.a.start, dur: r.a.dur, showFuture: c.showFuture, g: c.gender || "",
-      sheet: { id: r.sheet.id, tab: r.sheet.tab, title: r.sheet.title, values: r.sheet.values } };
+    let r = null, err = null, test = null;
+    try { r = clientSheet_(c); } catch (e) { err = e; }
+    try { test = clientTestData_(c); } catch (e) { test = null; }
+    if ((!r || !r.sheet) && !test) {
+      if (err) throw err;
+      return { error: "La tua scheda non è ancora pronta. Il coach te la manda a breve.", code: "nosheet" };
+    }
+    const a = r ? r.a : athleteOne_(c.athleteId);
+    return { name: a.name, start: a.start, dur: a.dur, showFuture: c.showFuture, g: c.gender || "",
+      sheet: r && r.sheet ? { id: r.sheet.id, tab: r.sheet.tab, title: r.sheet.title, values: r.sheet.values } : null, test: test };
+  },
+  // Test dal link cliente: scrive il risultato nella colonna RISULTATO della prova
+  c_test_save: function (req) {
+    const c = clientByToken_(req.token);
+    if (!c || !c.active) return { error: "Link non valido o disattivato.", code: "token" };
+    if (!c.testSheet || c.testSheet !== req.sheetId) return { error: "Il test è cambiato: ricarica la pagina.", code: "changed" };
+    const lock = LockService.getScriptLock(); lock.waitLock(20000);
+    let done = false, cell;
+    try {
+      const ss = SpreadsheetApp.openById(c.testSheet);
+      const sh = (c.testTab && ss.getSheetByName(c.testTab)) || ss.getSheets()[0];
+      if (req.tab && sh.getName() !== req.tab) return { error: "Il test è cambiato: ricarica la pagina.", code: "changed" };
+      const lr = Math.min(sh.getLastRow(), 120), lc = Math.min(sh.getLastColumn(), 8);
+      const v = sh.getRange(1, 1, lr, lc).getDisplayValues();
+      const T = testParse_(v), row = Number(req.row), col = Number(req.col);
+      let it = null;
+      T.groups.forEach(function (g) { g.items.forEach(function (x) { if (x.row === row && x.col === col) it = x; }); });
+      if (!it) throw new Error("Prova non trovata nel test");
+      cell = String(req.text || "").replace(/[\r\n]+/g, " ").replace(/^[=+\-@]+/, "").trim().slice(0, 600);
+      sh.getRange(row, col).setValue(safe_(cell));
+      it.res = cell;
+      SpreadsheetApp.flush();
+      const m = req.meta || {};
+      const log = [new Date().toISOString(), c.athleteId, c.athleteName, c.testSheet, sh.getName(), m.group || "", it.name, cell,
+        m.rpe == null ? "" : String(m.rpe), m.tec || "", m.skip ? "si" : "", m.why || ""];
+      const lg = tab_("TestLog", TL_COLS);
+      lg.getRange(lg.getLastRow() + 1, 1, 1, log.length).setNumberFormat("@").setValues([log.map(function (x) { return String(x).slice(0, 600); })]);
+      done = T.groups.every(function (g) { return g.items.every(function (x) { return !!String(x.res).trim(); }); });
+      if (done && !c.testDone) {
+        const cl = tab_("Clienti", CL_COLS);
+        clHdr_(cl);
+        cl.getRange(c.row, 15).setNumberFormat("@").setValue(new Date().toISOString());
+        testCompleted_(c, ss, sh, T);
+      }
+    } finally { lock.releaseLock(); }
+    CacheService.getScriptCache().removeAll(["sh:" + c.testSheet + "::", "sh:" + c.testSheet + ":" + (c.testTab || "") + ":"]);
+    return { ok: true, cell: cell, done: done };
   },
   // Scrive la riga della settimana nella cella FEEDBACK dell'esercizio, senza toccare le altre righe
   c_save: function (req) {
@@ -790,6 +835,113 @@ const CLIENT_ACTIONS = {
     return { ok: true, cell: cell };
   }
 };
+
+/* ---------- test dal link cliente ---------- */
+function clHdr_(sh) {
+  const h = sh.getRange(1, 12, 1, 4).getValues()[0];
+  if (h[0] !== "testSheet") sh.getRange(1, 12, 1, 4).setValues([["testSheet", "testTab", "testPrev", "testDone"]]);
+}
+const normT_ = function (s) { return String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim(); };
+
+// Sezioni del test: titolo (TEST 1, TEST 2…), prove con ESERCIZIO, PROTOCOLLO e cella RISULTATO; istruzioni dalle osservazioni generali
+function testParse_(v) {
+  const out = { groups: [], info: "" };
+  const up = function (r) { return (v[r] || []).map(function (x) { return String(x == null ? "" : x).trim().toUpperCase(); }); };
+  const isHdr = function (r) { const u = up(r); return u.indexOf("ESERCIZIO") >= 0 && u.some(function (x) { return /^RISULTATO/.test(x); }); };
+  for (let r = 0; r < v.length; r++) {
+    const u = up(r);
+    if (/OSSERVAZIONI GENERALI/.test(u.join(" "))) {
+      for (let k = r + 1; k < Math.min(v.length, r + 3); k++) { const f = (v[k] || []).map(String).filter(function (x) { return x.trim(); })[0]; if (f) { out.info = f.trim(); break; } }
+      continue;
+    }
+    if (!isHdr(r)) continue;
+    const ei = u.indexOf("ESERCIZIO"), ri = u.findIndex(function (x) { return /^RISULTATO/.test(x); });
+    const pi = u.findIndex(function (x) { return /^(PROTOCOLLO|SCHEMA)/.test(x); });
+    let title = "";
+    for (let j = r - 1; j >= 0 && j >= r - 2; j--) { const f = (v[j] || []).map(String).filter(function (x) { return x.trim(); })[0]; if (f) { title = f.trim(); break; } }
+    const g = { title: title && title.length <= 40 ? title : "Test " + (out.groups.length + 1), items: [] };
+    let k = r + 1;
+    for (; k < v.length; k++) {
+      if (isHdr(k) || isHdr(k + 1) || /OSSERVAZIONI GENERALI/.test(up(k).join(" "))) break;
+      const rr = (v[k] || []).map(function (x) { return String(x == null ? "" : x).trim(); });
+      if (!rr[ei]) continue;
+      g.items.push({ row: k + 1, col: ri + 1, name: rr[ei], prot: pi >= 0 ? (rr[pi] || "") : "", res: rr[ri] || "" });
+    }
+    if (g.items.length) out.groups.push(g);
+    r = k - 1;
+  }
+  return out;
+}
+
+function testRead_(id, tab) {
+  const ss = SpreadsheetApp.openById(id);
+  const sh = (tab && ss.getSheetByName(tab)) || ss.getSheets()[0];
+  const lr = Math.min(sh.getLastRow(), 120), lc = Math.min(sh.getLastColumn(), 8);
+  const v = (lr > 0 && lc > 0) ? sh.getRange(1, 1, lr, lc).getDisplayValues() : [];
+  return { ss: ss, sh: sh, T: testParse_(v) };
+}
+
+// Test assegnato all'atleta, più i risultati del test precedente (stesso esercizio) per il confronto
+function clientTestData_(c) {
+  if (!c.testSheet) return null;
+  const t = testRead_(c.testSheet, c.testTab || null);
+  if (!t.T.groups.length) return null;
+  const prev = {};
+  const take = function (T, when) { T.groups.forEach(function (g) { g.items.forEach(function (x) { const k = normT_(x.name); if (x.res && !prev[k]) prev[k] = { res: x.res, when: when }; }); }); };
+  try {
+    if (c.testPrev) { const p = c.testPrev.split("|"); const o = testRead_(p[0], p[1] || null); take(o.T, o.sh.getName()); }
+    else t.ss.getSheets().forEach(function (s) { if (s.getSheetId() !== t.sh.getSheetId()) { const o = testRead_(c.testSheet, s.getName()); take(o.T, s.getName()); } });
+  } catch (e) {}
+  return { id: c.testSheet, tab: t.sh.getName(), title: t.ss.getName(), groups: t.T.groups, info: t.T.info, done: c.testDone || "", prev: prev };
+}
+
+// L'app del coach assegna un test al link dell'atleta (o lo toglie con off)
+function clientTest_(req) {
+  if (!req.athleteId) throw new Error("Atleta mancante");
+  clientLink_({ athleteId: req.athleteId, athleteName: req.athleteName, create: true });
+  const lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    const sh = tab_("Clienti", CL_COLS), all = rows_(sh, CL_COLS.length);
+    clHdr_(sh);
+    for (let i = 0; i < all.length; i++) if (all[i][1] === req.athleteId) {
+      const c = clientRow_(all[i], i);
+      let vals;
+      if (req.off) vals = ["", "", c.testPrev || "", ""];
+      else {
+        const same = c.testSheet === req.sheetId && (c.testTab || "") === (req.tab || "");
+        const prev = c.testSheet && !same ? c.testSheet + "|" + (c.testTab || "") : (c.testPrev || "");
+        vals = [req.sheetId || "", req.tab || "", prev, same ? (c.testDone || "") : ""];
+      }
+      sh.getRange(c.row, 12, 1, 4).setNumberFormat("@").setValues([vals]);
+      const n = clientRow_(rows_(sh, CL_COLS.length)[i], i); n.url = clientUrl_(n.token);
+      return { client: n };
+    }
+    throw new Error("Link non trovato");
+  } finally { lock.releaseLock(); }
+}
+
+// Test finito: mail al coach e status in Notion da "Mandare test/testare" a "Da fare"
+function testCompleted_(c, ss, sh, T) {
+  const lines = [];
+  T.groups.forEach(function (g) { lines.push("", g.title.toUpperCase()); g.items.forEach(function (x) { lines.push("- " + x.name + ": " + x.res); }); });
+  let notion = "";
+  try {
+    const pg = notion_("/v1/pages/" + c.athleteId, "get");
+    const P = (pg.json && pg.json.properties) || {};
+    if (P["Status programma"] && pt_(P["Status programma"]) === "Mandare test/testare") {
+      const r = notion_("/v1/pages/" + c.athleteId, "patch", { properties: { "Status programma": { status: { name: "Da fare" } } } });
+      notion = r.code === 200 ? "In Notion lo status è passato a \"Da fare\"." : "";
+      CacheService.getScriptCache().remove("athletes");
+    }
+  } catch (e) {}
+  if (c.notify) {
+    try {
+      MailApp.sendEmail(Session.getEffectiveUser().getEmail(), c.athleteName + " ha completato il test",
+        c.athleteName + " ha compilato tutte le prove del test.\n" + lines.join("\n") + "\n\n" + (notion ? notion + "\n\n" : "") +
+        "Test: https://docs.google.com/spreadsheets/d/" + ss.getId() + "/edit#gid=" + sh.getSheetId());
+    } catch (e) {}
+  }
+}
 
 // Righe "Sett. 2: …" (template Programmazione) oppure "S2  │  …" (template Serkistraining)
 function fbWrite_(cell, w, text) {

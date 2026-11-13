@@ -504,7 +504,8 @@ function scriptAdapter(cfg){
     clientPin:(a,sheetId,tab,sig)=>call("clientPin",{athleteId:a.id,sheetId,tab,sig}),
     fbLog:async since=>(await call("fbLog",{since})).log,
     notionSchema:()=>call("notionSchema",{},60000),
-    athleteNew:req=>call("athleteNew",req,90000)
+    athleteNew:req=>call("athleteNew",req,90000),
+    clientTest:async(a,sheetId,tab,off)=>(await call("clientTest",{athleteId:a.id,athleteName:a.name,sheetId,tab,off:!!off})).client
   };
 }
 function claudeAdapter(mcp,sample){
@@ -1020,6 +1021,10 @@ function renderMain(){
 
 /* ---- oggi ---- */
 // Cose da fare: una riga per atleta, con il bottone giusto
+// Test compilato dal link cliente, non ancora seguito da una scheda nuova
+function testDoneOf(a){const c=S.clients[a.id];if(!c||!c.testDone)return null;const d=new Date(c.testDone);if(isNaN(d)||Date.now()-d>30*864e5)return null;
+  const d0=new Date(d.getFullYear(),d.getMonth(),d.getDate());if(a.startD&&a.startD>=d0)return null;return d}
+function testSentOf(a){const c=S.clients[a.id];return!!(c&&c.testSheet&&!c.testDone)}
 function testNew(a){return a.sede==="stenika"?"test-presenza":a.src==="vf"?"vf":"test-online"}
 function boardItems(){
   const fare=[],arrivo=[],occhio=[];
@@ -1027,6 +1032,8 @@ function boardItems(){
     const sc=a.wk&&a.wk.scad,sg=signalOf(a);
     if(sc&&sc.rank<=1)fare.push({a,u:sc.rank,t:sc.rank===0?"Scheda finita il "+fd(a.wk.end):"Ultima settimana · finisce "+GIORNI[a.wk.end.getDay()].slice(0,3)+" "+fd(a.wk.end),btn:`<button class="mini pri" type="button" data-new="scheda" data-aid="${a.id}">Prepara</button>`});
     else if(sg.level==="bad")fare.push({a,u:1.5,t:sg.reasons[0],btn:`<button class="mini pri" type="button" data-id="${a.id}" data-jtab="feedback">Guarda</button>`});
+    else if(testDoneOf(a))fare.push({a,u:2.5,t:"Test compilato il "+fd(testDoneOf(a))+" · prepara la scheda",btn:`<button class="mini pri" type="button" data-id="${a.id}" data-jtab="test">Risultati</button>`});
+    else if(isTest(a)&&testSentOf(a))occhio.push({a,u:0,t:"Test mandato: aspetto i risultati"});
     else if(isTest(a))fare.push({a,u:3,t:"Test da fare · "+SEDE[a.sede],btn:`<button class="mini pri" type="button" data-new="${testNew(a)}" data-aid="${a.id}">Test</button>`});
     else if(isTodo(a))fare.push({a,u:4,t:a.status+" · "+SEDE[a.sede],btn:`<button class="mini" type="button" data-id="${a.id}">Apri</button>`});
     if(sc&&sc.rank===2)arrivo.push({a,u:+a.wk.end,t:"Penultima · finisce "+GIORNI[a.wk.end.getDay()].slice(0,3)+" "+fd(a.wk.end)});
@@ -1117,6 +1124,8 @@ function nextStep(a){
   const bCl=`<button class="btn" type="button" data-act="client">${ICON.link}${S.clients[a.id]?"Link cliente":"Crea link cliente"}</button>`;
   if(!a.active)return{lv:"",t:"Collaborazione finita",p:"Nessuna scheda da preparare.",b:""};
   if(sc&&sc.rank<=1)return{lv:"bad",t:"Prossimo passo",p:(sc.rank===0?"La scheda è finita il "+fd(a.wk.end):"È l'ultima settimana della scheda")+". Prepara la nuova"+(cl?" e crea il suo link cliente.":"."),b:bNew+(S.adapter.caps.client&&a.src==="coach"?bCl:"")};
+  if(testDoneOf(a))return{lv:"warn",t:"Prossimo passo",p:"Ha compilato il test il "+fd(testDoneOf(a))+". Guarda i risultati e prepara la scheda.",b:`<button class="btn pri" type="button" data-tab="test">Vedi i risultati</button>`+bNew};
+  if(isTest(a)&&testSentOf(a))return{lv:"warn",t:"Test mandato",p:"Aspetto che compili i test dal suo link.",b:`<button class="btn" type="button" data-tab="test">Vedi il test</button>`};
   if(isTest(a))return{lv:"warn",t:"Prossimo passo",p:"Test da fare. Crea il file del test dal template.",b:`<button class="btn pri" type="button" data-new="${a.sede==="stenika"?"test-presenza":a.src==="vf"?"vf":"test-online"}" data-aid="${a.id}">${ICON.plus}${a.src==="vf"?"Nuova valutazione":"Nuovo test"}</button>`};
   if(sg.level==="bad")return{lv:"bad",t:"Da guardare",p:sg.reasons[0],b:`<button class="btn pri" type="button" data-tab="feedback">Guarda i feedback</button>`};
   if(cl&&a.sheetId)return{lv:"warn",t:"Prossimo passo",p:"Non ha ancora la pagina cliente. Crea il link e mandalo su WhatsApp: lo fai una volta sola.",b:`<button class="btn pri" type="button" data-act="client">${ICON.link}Crea link cliente</button>`};
@@ -1313,6 +1322,24 @@ function startEdit(r,sheetId){
   setTimeout(()=>{const t=document.querySelector("#editor textarea");if(t)t.focus()},30);
 }
 function curSession(a){const t=S.tests[a.id];if(!t||!t.sessions||!t.sessions.length)return null;const sk=S.sessSel[a.id]||"";return t.sessions.find(s=>s.key===sk)||(sk.endsWith("|")&&t.sessions.find(s=>s.key.startsWith(sk)))||t.sessions[0]}
+// Mandare il test al link del cliente: lo compila dal telefono, i risultati vanno nella colonna RISULTATO
+function testClientCard(a,ses){
+  if(!S.adapter.caps.client||!S.adapter.clientTest)return"";
+  const secs=ses.P.sections.filter(x=>x.cols.some(c=>c.key==="ris"));if(!secs.length)return"";
+  let tot=0,n=0;secs.forEach(sec=>sec.items.forEach(it=>{if(it.empty)return;tot++;if(cellOf(sec,it,"ris"))n++}));
+  const c=S.clients[a.id],on=!!(c&&c.testSheet===ses.fileId&&(c.testTab||"")===(ses.tab||""));
+  if(S.clientsState!=="ok"&&!c)return`<section class="cl-panel"><p class="loading">Controllo il link cliente…</p></section>`;
+  if(!on)return`<section class="cl-panel"><div class="cl-h"><h3>Test dal link cliente</h3></div><p class="hint">${tot?`${esc(a.name.split(" ")[0])} lo compila dal telefono: risultato, fatica, tecnica e sensazioni di ogni prova finiscono nella colonna RISULTATO. Gli ricordo anche di mandarti i video.`:"Scrivi prima le prove (ESERCIZIO e PROTOCOLLO), poi lo mandi al cliente."}</p>
+    <div class="ed-row"><button class="btn pri" type="button" data-act="test-send" ${!tot||S.clientBusy?"disabled":""}>${ICON.link}${S.clientBusy?"Preparo il link…":"Manda al cliente"}</button>${c&&c.testSheet?`<span class="hint">Ora sul suo link c'è un altro test: lo sostituisco con questo.</span>`:""}</div></section>`;
+  const first=a.name.split(" ")[0],url=c.url+"&v=test";
+  const msg=`Ciao ${first}! Ecco i test da fare: ${url}
+
+Per ogni prova scrivi il risultato e come ti sei sentit${SK.genderOf(a.name,c.gender)==="f"?"a":"o"}. Puoi farli in più giorni, i risultati restano salvati. Registra il video di ogni prova e mandamelo qui su WhatsApp.`;
+  const done=c.testDone?new Date(c.testDone):null;
+  return`<section class="cl-panel"><div class="cl-h"><h3>Test dal link cliente</h3><span class="pill ${done?"ok":n?"warn":""}">${done&&!isNaN(done)?"Completato il "+fd(done):n+" / "+tot+" compilati"}</span></div>
+    <div class="ed-row"><a class="btn pri" href="https://wa.me/?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">${ICON.chat}Manda su WhatsApp</a><button class="btn" type="button" data-act="test-copy">${ICON.copy}Copia link</button><a class="btn ghost" href="${esc(url)}" target="_blank" rel="noopener">${ICON.ext}Apri come lo vede</a></div>
+    <p class="hint">Quando finisce tutte le giornate di test ti arriva una mail e in Notion lo status passa da "Mandare test/testare" a "Da fare". <button class="lnk" type="button" data-act="test-off">Togli il test dal link</button></p></section>`;
+}
 function tabTest(a){
   const t=S.tests[a.id];
   const actions=`<div class="actions" style="margin-bottom:14px"><button class="btn" type="button" data-new="${a.src==="vf"?"vf":a.sede==="stenika"?"test-presenza":"test-online"}" data-aid="${a.id}">${ICON.plus}${a.src==="vf"?"Nuova valutazione":"Nuovo test"}</button><button class="btn ghost" type="button" data-tab="file">Collega un file</button></div>`;
@@ -1323,6 +1350,7 @@ function tabTest(a){
   let h=actions;
   if(t.sessions.length>1)h+=`<div class="seg" style="margin-bottom:14px">${t.sessions.slice(0,8).map(s=>`<button class="chip" type="button" data-sess="${esc(s.key)}" aria-pressed="${s===cur}">${esc(s.dlabel)}</button>`).join("")}</div>`;
   h+=`<div class="srcbar"><span><b>${esc(cur.title)}</b>${parseIt(cur.tab)?"":" · "+esc(cur.tab)}${cur.date?" · "+fdy(cur.date):""}</span><a href="${esc(cur.url)}" target="_blank" rel="noopener">Apri in Google Sheets ↗</a></div>`;
+  h+=testClientCard(a,cur);
   h+=sectionsHtml(cur.P,{where:"test",aid:a.id,sheetId:cur.fileId,tab:cur.tab});
   const ts=t.sessions.filter(s=>s.P.sections.some(x=>x.kind==="test")).slice(0,4);
   if(ts.length>1){
@@ -1473,7 +1501,7 @@ function viewNuovo(){
   }
   if(S.created){const c=S.created,a=byId(c.aid)||{name:c.name||""};
     const nt=c.notion&&c.notion.ok?(c.isNew?"Cliente creato in Notion con la scheda collegata.":"Notion aggiornato: è la scheda attuale di "+esc(a?a.name:"")+"."):c.notion&&c.notion.error?"Notion non aggiornato: "+esc(c.notion.error):"";
-    h+=`<div class="result" role="status"><strong>Creato: ${esc(c.title)}</strong>${nt?`<span class="hint" style="color:var(--ink-2)">${nt}</span>`:""}<div class="actions"><button class="btn pri" type="button" data-act="open-created">Compila nell'app</button><a class="btn" href="${esc(c.url)}" target="_blank" rel="noopener">${ICON.ext}Apri in Google Sheets</a><button class="btn ghost" type="button" data-act="new-again">Crea un altro</button></div></div>`;
+    h+=`<div class="result" role="status"><strong>Creato: ${esc(c.title)}</strong>${nt?`<span class="hint" style="color:var(--ink-2)">${nt}</span>`:""}<div class="actions"><button class="btn pri" type="button" data-act="open-created">Compila nell'app</button><a class="btn" href="${esc(c.url)}" target="_blank" rel="noopener">${ICON.ext}Apri in Google Sheets</a><button class="btn ghost" type="button" data-act="new-again">Crea un altro</button></div>${c.kind==="test"&&S.adapter.caps.client&&S.adapter.clientTest?`<span class="hint">Quando hai scritto le prove, dalla tab Test dell'atleta premi "Manda al cliente": lo compila dal suo link.</span>`:""}</div>`;
     return h;
   }
   const canNew=!!(S.adapter.caps.notionWrite&&S.adapter.athleteNew);
@@ -1592,6 +1620,10 @@ document.addEventListener("click",async ev=>{
   if(act==="todo-all"){S.todoAll=true;render();return}
   if(act==="client"&&a){if(!S.clientOpen)window.scrollTo({top:0,behavior:calm()?"auto":"smooth"});S.clientOpen=!S.clientOpen;S.renewArm=false;if(S.clientOpen&&S.clientsState!=="ok")loadClients();render();if(S.clientOpen)anim(".cl-panel","drop");return}
   if(act==="client-create"&&a){S.clientBusy=true;render();try{S.clients[a.id]=await S.adapter.clientLink(a,true);pinClient(a)}catch(e){toast("Non riesco a creare il link: "+errText(e))}S.clientBusy=false;render();return}
+  if((act==="test-send"||act==="test-off")&&a){const ses=curSession(a);if(!ses)return;S.clientBusy=true;render();
+    try{S.clients[a.id]=await S.adapter.clientTest(a,ses.fileId,ses.tab,act==="test-off");toast(act==="test-off"?"Test tolto dal link":"Test pronto: mandalo su WhatsApp")}catch(e){toast("Non riesco: "+errText(e))}
+    S.clientBusy=false;render();return}
+  if(act==="test-copy"&&a){const c=S.clients[a.id];if(c)copyText(c.url+"&v=test","Link del test copiato");return}
   if(act==="client-copy"&&a){const c=S.clients[a.id];if(c)copyText(c.url,"Link copiato");return}
   if(act==="client-renew"&&a){if(!S.renewArm){S.renewArm=true;render();return}S.renewArm=false;const c=S.clients[a.id];S.clientBusy=true;render();
     try{const n=await S.adapter.clientSet(c.token,{renew:true});S.clients[a.id]=n;toast("Link nuovo creato: mandalo all'atleta")}catch(e){toast("Non riesco: "+errText(e))}S.clientBusy=false;render();return}

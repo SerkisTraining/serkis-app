@@ -111,6 +111,20 @@ label.f{font-size:16px;font-weight:600}
 .err{padding:12px 14px;border-radius:14px;background:rgba(255,159,90,.1);border:1px solid rgba(255,159,90,.35);font-size:14px}
 .spin{width:28px;height:28px;margin:0 auto;border-radius:50%;border:3px solid var(--s3);border-top-color:var(--y);animation:sp 1s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
+.tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:4px;border-radius:16px;background:var(--s2)}
+.tabs button{height:42px;border:0;border-radius:12px;background:none;font-weight:600;font-size:15px;color:var(--mut);display:flex;align-items:center;justify-content:center;gap:7px}
+.tabs button.on{background:var(--ink);color:var(--on-y)}
+.tabs .dt{width:7px;height:7px;border-radius:50%;background:var(--y)}
+.nums{display:grid;gap:8px}
+.num{display:flex;align-items:center;gap:10px;padding:4px 16px;border-radius:16px;background:var(--s2);border:1px solid var(--line);transition:border-color .18s}
+.num:focus-within{border-color:var(--y)}
+.num .cap{width:30px;flex:none;font-size:13px;color:var(--mut);font-weight:600}
+.num input{flex:1 1 0;width:0;min-width:0;height:54px;border:0;background:none;outline:none;font-family:"Space Grotesk",sans-serif;font-size:26px;font-weight:600;color:var(--ink)}
+.num input::placeholder{font-family:Inter,sans-serif;font-size:16px;font-weight:500;color:var(--mut2)}
+.num .u{flex:none;font-size:14px;color:var(--mut)}
+.prev{padding:12px 14px;border-radius:14px;border:1px dashed var(--line2);font-size:13px;color:var(--mut);line-height:1.45}
+.prev b{color:var(--ink2);font-weight:600}
+.it .ds.res{color:var(--y)}
 @keyframes in-r{from{opacity:0;transform:translateX(18px)}to{opacity:1;transform:none}}
 @keyframes in-l{from{opacity:0;transform:translateX(-18px)}to{opacity:1;transform:none}}
 @keyframes in-u{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
@@ -294,7 +308,7 @@ const IC={
   check:'<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#141414" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'
 };
 const WM='<div class="wm"><span class="sr">serkistraining</span><b aria-hidden="true">serk</b><span class="i" aria-hidden="true"><span></span><span></span></span><b aria-hidden="true">s</b><em aria-hidden="true">training</em></div>';
-const S={screen:"load",week:1,cur:1,day:0,idx:0,forms:{},nbOpen:true,note:false,gloss:null,pain:{},saving:false,err:null};
+const S={tf:{},tidx:0,mode:"scheda",screen:"load",week:1,cur:1,day:0,idx:0,forms:{},nbOpen:true,note:false,gloss:null,pain:{},saving:false,err:null};
 
 /* ---------- dati ---------- */
 function token(){
@@ -314,16 +328,24 @@ async function load(){
   S.token=token();
   if(!S.token){S.screen="msg";S.msg="Apri il link che ti ha mandato il tuo coach: ogni atleta ha il suo.";return render()}
   try{
-    const d=await call("c_load");S.d=d;S.P=SK.parse(d.sheet.values);
-    if(!S.P.days.length){S.screen="msg";S.msg="Non riesco a leggere questa scheda dal telefono. Aprila dal foglio Google o chiedi al tuo coach.";return render()}
-    S.dur=d.dur||S.P.weeks||6;
-    S.start=isoDate(d.start)||S.P.start;
-    const days=S.start?Math.floor((day0(new Date())-S.start)/864e5):0;
-    S.cur=S.start?(days<0?0:Math.min(Math.floor(days/7)+1,S.dur)):1;
-    S.ended=S.start&&days>=S.dur*7;
-    S.week=Math.max(1,S.cur);
+    const d=await call("c_load");S.d=d;S.T=d.test||null;S.P=null;
     S.first=(d.name||"").split(" ")[0];S.g=SK.genderOf(d.name,d.g);
-    S.screen="day";
+    if(S.T){S.TI=[];S.T.groups.forEach((g,gi)=>g.items.forEach(x=>{x.g=g.title;x.gi=gi;S.TI.push(x)}))}
+    if(d.sheet){
+      const P=SK.parse(d.sheet.values);
+      if(P.days.length){
+        S.P=P;S.dur=d.dur||P.weeks||6;
+        S.start=isoDate(d.start)||P.start;
+        const days=S.start?Math.floor((day0(new Date())-S.start)/864e5):0;
+        S.cur=S.start?(days<0?0:Math.min(Math.floor(days/7)+1,S.dur)):1;
+        S.ended=S.start&&days>=S.dur*7;
+        S.week=Math.max(1,S.cur);
+      }
+    }
+    if(!S.P&&!S.T){S.screen="msg";S.msg="Non riesco a leggere questa scheda dal telefono. Aprila dal foglio Google o chiedi al tuo coach.";return render()}
+    const want=/[&#]v=test/.test(location.hash);
+    S.mode=S.T&&(want||!S.P||!testAllDone())?"test":"scheda";
+    S.screen=S.mode==="test"?"tday":"day";
   }catch(e){S.screen="msg";S.msg=e&&e.error?e.error:"Connessione non riuscita. Controlla la rete e riprova.";S.retry=true}
   render();
 }
@@ -362,15 +384,122 @@ function slideBars(){document.querySelectorAll("[data-bar]").forEach(el=>{const 
 function tapped(b){if(!b||calm())return;const sel="[data-a=\""+b.dataset.a+"\"]"+(b.dataset.v!=null?"[data-v=\""+b.dataset.v+"\"]":"")+(b.dataset.w!=null?"[data-w=\""+b.dataset.w+"\"]":"")+(b.dataset.d!=null?"[data-d=\""+b.dataset.d+"\"]":"");const n=document.querySelector(sel);if(n)anim(n,"tap")}
 
 /* ---------- viste ---------- */
+let lastKey="";
 function render(){
-  const a=$("#app");
+  const a=$("#app"),key=S.screen+":"+S.idx+":"+S.tidx+":"+S.day+":"+S.week,y=window.scrollY,same=key===lastKey;lastKey=key;
   if(S.screen==="load")a.innerHTML=`<div class="center"><div class="spin"></div>Carico la tua scheda…</div>`;
   else if(S.screen==="msg")a.innerHTML=`<div class="center">${WM.replace('class="wm"','class="wm" style="justify-content:center"')}<p>${esc(S.msg)}</p>${S.retry?`<button class="btn pri" style="flex:none" data-a="retry">Riprova</button>`:""}</div>`;
   else if(S.screen==="day")a.innerHTML=vDay();
   else if(S.screen==="ex")a.innerHTML=vEx();
   else if(S.screen==="done")a.innerHTML=vDone();
+  else if(S.screen==="tday")a.innerHTML=tDay();
+  else if(S.screen==="tex")a.innerHTML=tEx();
+  else if(S.screen==="tdone")a.innerHTML=tDone();
+  if(same)window.scrollTo(0,y);
   slideBars();
 }
+function tabsBar(){
+  if(!S.T||!S.P)return"";
+  return`<div class="tabs" role="tablist"><button role="tab" class="${S.mode==="test"?"on":""}" data-a="mode" data-v="test" aria-selected="${S.mode==="test"}">Test${testAllDone()?"":`<span class="dt" aria-label="da compilare"></span>`}</button><button role="tab" class="${S.mode==="scheda"?"on":""}" data-a="mode" data-v="scheda" aria-selected="${S.mode==="scheda"}">Scheda</button></div>`;
+}
+
+/* ---------- test ---------- */
+const normT=s=>String(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g," ").trim();
+function testAllDone(){return!!S.T&&S.TI.every(x=>String(x.res||"").trim())}
+// la casella giusta, letta dal protocollo: secondi, SX/DX, una per serie, kg + rep
+function tKind(x){
+  const p=x.prot+" "+x.name,side=/\b(sx|dx|per gamba|per braccio|per lato|lato)\b/i.test(p),sec=/second|tenuta|\biso\b|hold|\bisometric/i.test(p);
+  const m=p.match(/(\d+)\s*[×x]\s*\d/),kg=/\bkg\b|\d\s*RM\b/i.test(p);
+  if(kg)return{type:"kg"};
+  if(m&&+m[1]>1&&+m[1]<=6)return{type:"sets",n:+m[1],unit:sec?"″":"rep"};
+  if(side)return{type:"side",unit:sec?"″":"rep"};
+  return{type:"one",unit:sec?"″":"rep"};
+}
+function tFields(x){const k=tKind(x);if(k.type==="kg")return[["kg","kg"],["rep","rep"]];if(k.type==="sets")return Array.from({length:k.n},(_,i)=>["S"+(i+1),k.unit]);if(k.type==="side")return[["SX",k.unit],["DX",k.unit]];return[["",k.unit]]}
+function tf(i){return S.tf[i]||(S.tf[i]={v:{},rpe:null,tec:null,nota:"",skip:false,why:""})}
+function tText(i){
+  const x=S.TI[i],f=tf(i);if(f.skip)return"NON FATTO · "+(f.why.trim()||"…");
+  const k=tKind(x),fs=tFields(x),v=fs.map(([c])=>String(f.v[c]||"").trim()||"…"),u=fs[0][1]==="rep"?" rep":"″";let r;
+  if(k.type==="kg")r=v[0]+" kg × "+v[1]+" rep";
+  else if(k.type==="sets")r=v.map(n=>n+u).join(" · ");
+  else if(k.type==="side")r="SX "+v[0]+u+" · DX "+v[1]+u;
+  else r=v[0]+u;
+  const ex=[f.rpe?"RPE "+f.rpe:"",f.tec?"tecnica "+f.tec.toLowerCase():"",f.nota.trim()].filter(Boolean);
+  return r+(ex.length?" · "+ex.join(" · "):"");
+}
+function tCan(i){const f=tf(i);if(f.skip)return!!f.why.trim();return tFields(S.TI[i]).every(([c])=>String(f.v[c]||"").trim())&&!!f.rpe}
+function tDay(){
+  const T=S.T,n=S.TI.filter(x=>String(x.res||"").trim()).length,all=n===S.TI.length;
+  const nx=S.TI.findIndex(x=>!String(x.res||"").trim());
+  return`<div class="scroll">${WM}${tabsBar()}
+    <div><h1>${all?"Test completato":"I tuoi test"}</h1><p class="sub">${S.TI.length} prove · ${T.groups.length>1?T.groups.length+" giornate":"una giornata"}${all?" · inviati a "+COACH:""}</p></div>
+    <div class="box" style="display:flex;flex-direction:column;gap:8px;font-size:14px;line-height:1.5;color:var(--ink2)"><b style="color:var(--ink)">Prima di iniziare</b>${T.info?`<span>${esc(T.info)}</span>`:""}<span>Per ogni prova scrivi il risultato e come ti sei ${S.g==="f"?"sentita":"sentito"}. Puoi fare una giornata alla volta.</span><span style="display:flex;gap:10px;align-items:flex-start">${IC.vid}<span><b style="color:var(--ink)">Registra un video per ogni prova</b> e mandameli su WhatsApp.</span></span></div>
+    <div class="prog"><div class="bar"><i data-bar="test" style="width:${n/S.TI.length*100}%"></i></div><span class="hint">${n} / ${S.TI.length}</span></div>
+    ${T.groups.map((g,gi)=>{const its=S.TI.map((x,i)=>[x,i]).filter(([x])=>x.gi===gi),dn=its.filter(([x])=>String(x.res||"").trim()).length;
+      return`<div class="list"><div class="lbl" style="display:flex;justify-content:space-between"><span>${esc(g.title.toUpperCase())}</span><span>${dn===its.length?"FATTO":dn+" / "+its.length}</span></div>${its.map(([x,i])=>{const r=String(x.res||"").trim(),sk=/^NON FATTO/i.test(r);
+        return`<button class="it" data-a="topen" data-i="${i}"><span class="n ${r?(sk?"skip":"done"):""}">${r?(sk?"–":"✓"):i+1}</span><span class="tx"><span class="nm">${esc(x.name)}</span><span class="ds ${r?"res":""}">${esc(r||x.prot||"")}</span></span>${IC.next}</button>`}).join("")}</div>`}).join("")}
+  </div><div class="foot"><button class="btn pri" data-a="topen" data-i="${nx<0?0:nx}">${all?"Rivedi i risultati":n?"Continua":"Inizia il test"}</button></div>`;
+}
+function tEx(){
+  const i=S.tidx,x=S.TI[i],f=tf(i),fs=tFields(x),k=tKind(x),r=String(x.res||"").trim(),pv=S.T.prev&&S.T.prev[normT(x.name)];
+  const its=S.TI.filter(y=>y.gi===x.gi),pos=its.indexOf(x);
+  const G=[["Facile","1–4","ne avevi ancora tante",[1,2,3,4]],["Medio","5–7","impegnativo, ma con margine",[5,6,7]],["Duro","8–10","al limite o quasi",[8,9,10]]];
+  const lab=k.type==="side"?"una casella per lato":k.type==="sets"?"una casella per serie":k.type==="kg"?"carico e ripetizioni":fs[0][1]==="″"?"in secondi":"ripetizioni";
+  return`<div class="top"><div class="row"><button class="back" data-a="thome">${IC.back}${esc(x.g)}</button><span class="hint" style="font-size:14px">${pos+1} / ${its.length}</span></div>
+    <div class="bar" style="height:4px"><i data-bar="tex" style="width:${(pos+1)/its.length*100}%"></i></div></div>
+  <div class="scroll" style="padding-top:20px">
+    <h1 class="ex-h1">${esc(x.name)}</h1>
+    <div class="dose"><div class="lbl">PROTOCOLLO</div><div class="t">${esc(x.prot||"Segui le indicazioni del coach.")}</div></div>
+    ${pv?`<div style="display:flex;flex-direction:column;gap:6px;padding:0 4px"><div class="lbl">L'ULTIMA VOLTA${/\d/.test(pv.when)?" · "+esc(pv.when):""}</div><div class="quote">“${esc(pv.res)}”</div></div>`:""}
+    <div class="video">${IC.vid}<div style="display:flex;flex-direction:column;gap:2px"><div class="lbl" style="color:var(--y)">MANDA VIDEO</div><div style="font-size:14px;line-height:1.4">Registra questa prova e mandami il video su WhatsApp.</div></div></div>
+    ${r?`<div class="was">Hai già inviato: “${esc(r)}”. Se invii di nuovo, lo sostituisci.</div>`:""}
+    <div class="sep"></div>
+    ${f.skip?"":`<div class="q"><div class="q-h">Risultato<span style="color:var(--mut)">${lab}</span></div><div class="nums">
+      ${fs.map(([c,u])=>`<label class="num">${c?`<span class="cap">${c}</span>`:""}<input inputmode="decimal" enterkeyhint="next" autocomplete="off" data-tin="${c||"_"}" value="${esc(f.v[c]||"")}" placeholder="Scrivi qui" aria-label="${c?c+" ":""}${u==="″"?"secondi":u}"><span class="u">${u==="″"?"sec":u}</span></label>`).join("")}</div>
+      ${fs[0][0]===""?"":`<div class="hint">Se non è un numero (es. "2/3 rep"), scrivilo pure così.</div>`}</div>
+    <div class="q"><div class="q-h">Quanto è stato faticoso?<span>${f.rpe?"RPE "+f.rpe:""}</span></div>
+      ${G.map(g=>`<div class="grp ${f.rpe&&g[3].includes(f.rpe)?"on":""}"><div class="gt"><span><b>${g[0]}</b> <small>${g[1]}</small></span><small>${g[2]}</small></div><div class="gb">${g[3].map(n=>`<button class="opt ${f.rpe===n?"on":""}" data-a="trpe" data-v="${n}" aria-label="RPE ${n}">${n}</button>`).join("")}</div></div>`).join("")}</div>
+    <div class="q"><div class="q-h">Come ti sei ${S.g==="f"?"sentita":"sentito"} tecnicamente?</div><div class="g3">${["Pulita","Così così","Da rivedere"].map(t=>`<button class="opt ${f.tec===t?"on":""}" data-a="ttec" data-v="${t}">${t}</button>`).join("")}</div></div>
+    <div class="q"><label class="f" for="tnota">Sensazioni <span style="font-weight:400;color:var(--mut);font-size:14px">(facoltative)</span></label><textarea id="tnota" rows="3" data-tin="nota" placeholder="Es. ultime rep lente, presa che cedeva, spalla un po' rigida">${esc(f.nota)}</textarea></div>
+    <div class="sep"></div>`}
+    <button class="sw" data-a="tskip" role="switch" aria-checked="${f.skip}"><span style="font-size:15px">Non sono ${S.g==="f"?"riuscita":"riuscito"} a farla</span><span class="tr ${f.skip?"on":""}"><i></i></span></button>
+    ${f.skip?`<div class="q box"><label class="f" for="twhy">Cosa è successo? <span style="font-weight:400;color:var(--y);font-size:14px">(obbligatorio)</span></label><textarea id="twhy" class="req" rows="3" data-tin="why" placeholder="Es. fastidio alla spalla, non avevo l'attrezzo">${esc(f.why)}</textarea></div>`:""}
+    <div class="prev" id="tprev">Nel foglio del coach arriva:<br><b>${esc(tText(i))}</b></div>
+    ${S.err?`<div class="err">${esc(S.err)}</div>`:""}
+  </div><div class="foot" id="foot">${tFoot()}</div>`;
+}
+function tFoot(){
+  const i=S.tidx,ok=tCan(i),f=tf(i);
+  const lbl=S.saving?"Salvo…":ok?"Salva e vai avanti":f.skip?"Scrivi cosa è successo":"Scrivi il risultato e la fatica";
+  return`<button class="btn sq" data-a="tprev" aria-label="Prova precedente">${IC.back}</button><button class="btn ${ok?"pri":"off"}" data-a="tsave" ${ok&&!S.saving?"":"aria-disabled=\"true\""}>${lbl}</button>`;
+}
+function tDone(){
+  const all=testAllDone(),g=S.T.groups[S.tdoneG]||S.T.groups[0];
+  const L=all?S.TI:S.TI.filter(x=>x.gi===S.tdoneG);
+  return`<div class="scroll" style="padding-top:calc(env(safe-area-inset-top,0px) + 56px)">
+    <div class="ok-ic">${IC.check}</div>
+    <div><h1>${all?"Test completato":esc(g.title)+" completato"}</h1><p class="sub">${all?"Bel lavoro"+(S.g==="f"?", brava":"")+". Con questi risultati preparo la tua scheda.":"Le altre prove le fai quando vuoi: i risultati restano salvati."}</p></div>
+    <div class="video">${IC.vid}<div style="font-size:14px;line-height:1.4">Ricordati di <b>mandarmi i video</b> delle prove su WhatsApp, se non l'hai ancora fatto.</div></div>
+    <div style="display:flex;flex-direction:column;gap:8px"><div class="lbl">COSA HAI INVIATO</div>
+      ${L.map(x=>`<div class="sum"><b>${esc(x.name)}</b><span>${esc(x.res||"—")}</span></div>`).join("")}</div>
+  </div><div class="foot"><button class="btn" data-a="thome">Torna ai test</button></div>`;
+}
+function tGo(i,back){S.tidx=i;S.err=null;S.screen="tex";render();window.scrollTo(0,0);anim(".scroll",back?"in-l":"in-r")}
+async function tSave(){
+  const i=S.tidx,x=S.TI[i],f=tf(i);if(!tCan(i)||S.saving)return;
+  S.saving=true;S.err=null;$("#foot").innerHTML=tFoot();
+  const text=tText(i);
+  try{
+    const r=await call("c_test_save",{sheetId:S.T.id,tab:S.T.tab,row:x.row,col:x.col,text,meta:{group:x.g,rpe:f.skip?null:f.rpe,tec:f.skip?"":f.tec||"",skip:f.skip,why:f.skip?f.why:""}});
+    x.res=r.cell;S.saving=false;delete S.tf[i];
+    const gDone=S.TI.filter(y=>y.gi===x.gi).every(y=>String(y.res||"").trim());
+    const nx=S.TI.findIndex((y,k)=>k>i&&y.gi===x.gi&&!String(y.res||"").trim());
+    if(nx>=0)tGo(nx);
+    else if(gDone){S.tdoneG=x.gi;S.screen="tdone";render();window.scrollTo(0,0);anim(".scroll","in-u")}
+    else{const any=S.TI.findIndex((y,k)=>y.gi===x.gi&&!String(y.res||"").trim());tGo(any>=0?any:i)}
+  }catch(e){S.saving=false;S.err=e&&e.error?e.error:"Non sono riuscito a salvare. Controlla la connessione e riprova.";render()}
+}
+function tPrevUpd(){const p=$("#tprev");if(p)p.innerHTML="Nel foglio del coach arriva:<br><b>"+esc(tText(S.tidx))+"</b>";const ft=$("#foot");if(ft)ft.innerHTML=tFoot()}
 function vDay(){
   const D=days()[S.day],w=S.week;
   const weeks=Array.from({length:S.dur},(_,k)=>k+1).filter(n=>S.d.showFuture||n<=Math.max(1,S.cur));
@@ -381,7 +510,7 @@ function vDay(){
   if(ed){const first=D.items.findIndex((_,i)=>!sent(S.day,i,w));btn=`<button class="btn pri" data-a="start" data-i="${first<0?0:first}">${done===0?"Inizia allenamento":done===D.items.length?"Rivedi la giornata":"Continua"}</button>`}
   else btn=`<button class="btn" data-a="start" data-i="0">${w<S.cur?"Rivedi i tuoi feedback":"Sfoglia la settimana "+w}</button>`;
   return`<div class="scroll">
-    ${WM}
+    ${WM}${tabsBar()}
     <div><h1>Ciao ${esc(S.first||"")}</h1><p class="sub">${esc(S.d.sheet.tab)} · ${S.dur} settimane</p></div>
     ${nb}
     <div style="display:flex;flex-direction:column;gap:10px">
@@ -498,9 +627,19 @@ document.addEventListener("click",e=>{
     case"pain":{const k=fkey(S.day,S.idx,S.week);const open=S.pain[k]!=null?S.pain[k]:(f().pain!=null)||/fastidi|dolor/i.test(item(S.day,S.idx).note);S.pain[k]=!open;if(open)f().pain=null;render();if(!open)anim(".g6","fd");break}
     case"painv":{const n=+b.dataset.v;f().pain=f().pain===n?null:n;render();tapped(b);break}
     case"save":save();break;
+    case"mode":S.mode=b.dataset.v;S.screen=S.mode==="test"?"tday":"day";render();window.scrollTo(0,0);anim(".list","fd");break;
+    case"topen":tGo(+b.dataset.i);break;
+    case"thome":S.screen="tday";S.err=null;render();window.scrollTo(0,0);anim(".scroll","in-l");break;
+    case"tprev":{const x=S.TI[S.tidx],its=S.TI.map((y,k)=>[y,k]).filter(([y])=>y.gi===x.gi),p=its.findIndex(([,k])=>k===S.tidx);if(p>0)tGo(its[p-1][1],true);else{S.screen="tday";render();anim(".scroll","in-l")}break}
+    case"trpe":{const v=+b.dataset.v,f=tf(S.tidx);f.rpe=f.rpe===v?null:v;render();tapped(b);break}
+    case"ttec":{const f=tf(S.tidx);f.tec=f.tec===b.dataset.v?null:b.dataset.v;render();tapped(b);break}
+    case"tskip":{const f=tf(S.tidx);f.skip=!f.skip;render();if(f.skip){anim(".box","fd");const t=$("#twhy");if(t)t.focus({preventScroll:true})}break}
+    case"tsave":tSave();break;
   }
 });
-document.addEventListener("input",e=>{const k=e.target.dataset&&e.target.dataset.in;if(!k)return;form(S.day,S.idx,S.week)[k]=e.target.value;const ft=$("#foot");if(ft)ft.innerHTML=foot()});
+document.addEventListener("input",e=>{const tk=e.target.dataset&&e.target.dataset.tin;
+  if(tk){const f=tf(S.tidx);if(tk==="nota"||tk==="why")f[tk]=e.target.value;else f.v[tk==="_"?"":tk]=e.target.value;tPrevUpd();return}
+  const k=e.target.dataset&&e.target.dataset.in;if(!k)return;form(S.day,S.idx,S.week)[k]=e.target.value;const ft=$("#foot");if(ft)ft.innerHTML=foot()});
 window.addEventListener("hashchange",()=>{S.screen="load";render();load()});
 load();
 </script>
