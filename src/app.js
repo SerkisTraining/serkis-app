@@ -624,7 +624,10 @@ function setSheet(aid,r){const P=parseSheet(r.values);const old=S.sheets[aid];S.
 // File con più schede su fogli diversi: la scheda attuale è il foglio più recente (data nel foglio, stimata se manca)
 const resolving={};let resolveQ=Promise.resolve();
 function resolveTab(a){
-  const sh=S.sheets[a.id];if(!sh||sh.status!=="ok"||resolving[a.id+sh.id])return;resolving[a.id+sh.id]=1;
+  const sh=S.sheets[a.id];if(!sh||sh.status!=="ok"||resolving[a.id+sh.id])return;
+  // Il link in Notion indica un foglio preciso (gid): vale quello, senza indovinare dalle date
+  if(a.sheetGid&&sh.id===a.sheetId&&!sh.picked)return;
+  resolving[a.id+sh.id]=1;
   resolveQ=resolveQ.then(async()=>{
     try{
       let tabs=sh.tabs;if(!tabs&&S.adapter.tabs){try{tabs=(await S.adapter.tabs(sh.id)).map(t=>t.name)}catch(e){}}
