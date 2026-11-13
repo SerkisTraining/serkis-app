@@ -153,6 +153,10 @@ label.f{font-size:16px;font-weight:600}
 </script>
 <script>
 const BACKEND="%%BACKEND%%";
+const BUILD="%%BUILD%%";
+// Il telefono tiene in memoria la pagina per qualche minuto: se online c'è una versione nuova, ricarica una volta sola
+(async()=>{try{const r=await fetch(location.pathname+"?b="+Date.now(),{cache:"no-store"});const m=(await r.text()).match(/const BUILD="([0-9a-f]{10})"/);
+  if(m&&m[1]!==BUILD){const k="st_reload_"+m[1];if(!sessionStorage.getItem(k)){sessionStorage.setItem(k,"1");location.reload()}}}catch(e){}})();
 const COACH="Serkis";
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));

@@ -73,7 +73,9 @@ open(os.path.join(OUT, "sw.js"), "w").write(sw)
 
 # pagina cliente: sempre in docs/c/
 BACKEND = re.search(r'const DEFAULT_BACKEND="([^"]+)"', js).group(1)
+import hashlib
 client = rd("src/client.html").replace("%%SCHEDA%%", rd("src/scheda.js")).replace("%%BACKEND%%", BACKEND)
+client = client.replace("%%BUILD%%", hashlib.sha1(client.encode()).hexdigest()[:10])
 os.makedirs(os.path.join(ROOT, "docs/c"), exist_ok=True)
 open(os.path.join(ROOT, "docs/c/index.html"), "w", encoding="utf-8").write(client)
 if BETA:
