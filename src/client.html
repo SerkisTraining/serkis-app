@@ -74,6 +74,11 @@ h1{margin:0;font-family:"Space Grotesk",sans-serif;font-size:30px;font-weight:60
 .gl{display:flex;align-items:center;gap:6px;height:32px;padding:0 12px;border:1px solid var(--line2);border-radius:99px;background:none;font-size:13px;color:var(--ink2)}
 .gl.on{border-color:var(--y);color:var(--y)}
 .gloss{padding:12px 14px;border-radius:14px;background:var(--s3);font-size:14px;line-height:1.5;color:var(--ink2)}
+.watch{display:flex;align-items:center;gap:12px;min-height:54px;padding:10px 18px;border-radius:16px;background:var(--y);color:var(--on-y);font-size:16px;font-weight:600;text-decoration:none;line-height:1.3;transition:transform .12s ease}
+.watch:active{transform:scale(.97)}
+.watch span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.vi{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;flex:none;border-radius:50%;background:rgba(242,194,48,.16)}
+a.lk{color:var(--y);text-decoration:underline;text-underline-offset:2px;word-break:break-all}
 .video{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:18px;background:rgba(242,194,48,.12);border:1px solid rgba(242,194,48,.35)}
 .fold{border-radius:18px;border:1px solid var(--line);overflow:hidden}
 .fold>button{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:56px;padding:0 16px;border:0;background:none;font-size:15px;font-weight:500}
@@ -160,7 +165,13 @@ const BUILD="%%BUILD%%";
 const COACH="Serkis";
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+// Link del foglio: sul nome dell'esercizio (video dell'esecuzione) e indirizzi scritti per intero in dose e note
+function linksOf(it){const L=S.d&&S.d.sheet&&S.d.sheet.links;return L&&it&&it.ncol?(L[it.row+","+it.ncol]||[]):[]}
+function watch(list){return list&&list.length?`<div style="display:flex;flex-direction:column;gap:8px">${list.map(l=>`<a class="watch" href="${esc(l.u)}" target="_blank" rel="noopener">${IC.play}<span>${list.length>1&&l.t?"Guarda: "+esc(l.t):"Guarda l'esecuzione"}</span></a>`).join("")}</div>`:""}
+function linkify(t){return esc(t).replace(/https?:\/\/[^\s<]+[^\s<.,;:!?)\]]/g,u=>`<a class="lk" href="${u}" target="_blank" rel="noopener">${u}</a>`)}
 const IC={
+  play:'<svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" style="flex:none"><circle cx="12" cy="12" r="11" fill="#141414"/><path d="M10 8.2v7.6l6-3.8z" fill="#F2C230"/></svg>',
+  playS:'<svg width="10" height="10" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12.5-7.5z" fill="#F2C230"/></svg>',
   back:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>',
   next:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6E6C66" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>',
   rest:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/></svg>',
@@ -300,7 +311,7 @@ function tDay(){
     <div class="prog"><div class="bar"><i data-bar="test" style="width:${n/S.TI.length*100}%"></i></div><span class="hint">${n} / ${S.TI.length}</span></div>
     ${T.groups.map((g,gi)=>{const its=S.TI.map((x,i)=>[x,i]).filter(([x])=>x.gi===gi),dn=its.filter(([x])=>String(x.res||"").trim()).length;
       return`<div class="list"><div class="lbl" style="display:flex;justify-content:space-between"><span>${esc(g.title.toUpperCase())}</span><span>${dn===its.length?"FATTO":dn+" / "+its.length}</span></div>${its.map(([x,i])=>{const r=String(x.res||"").trim(),sk=/^NON FATTO/i.test(r);
-        return`<button class="it" data-a="topen" data-i="${i}"><span class="n ${r?(sk?"skip":"done"):""}">${r?(sk?"–":"✓"):i+1}</span><span class="tx"><span class="nm">${esc(x.name)}</span><span class="ds ${r?"res":""}">${esc(r||x.prot||"")}</span></span>${IC.next}</button>`}).join("")}</div>`}).join("")}
+        return`<button class="it" data-a="topen" data-i="${i}"><span class="n ${r?(sk?"skip":"done"):""}">${r?(sk?"–":"✓"):i+1}</span><span class="tx"><span class="nm">${esc(x.name)}${x.links&&x.links.length?`<span class="vi" title="Video">${IC.playS}</span>`:""}</span><span class="ds ${r?"res":""}">${esc(r||x.prot||"")}</span></span>${IC.next}</button>`}).join("")}</div>`}).join("")}
   </div><div class="foot"><button class="btn pri" data-a="topen" data-i="${nx<0?0:nx}">${all?"Rivedi i risultati":n?"Continua":"Inizia il test"}</button></div>`;
 }
 function tEx(){
@@ -312,7 +323,8 @@ function tEx(){
     <div class="bar" style="height:4px"><i data-bar="tex" style="width:${(pos+1)/its.length*100}%"></i></div></div>
   <div class="scroll" style="padding-top:20px">
     <h1 class="ex-h1">${esc(x.name)}</h1>
-    <div class="dose"><div class="lbl">PROTOCOLLO</div><div class="t">${esc(x.prot||"Segui le indicazioni del coach.")}</div></div>
+    ${watch(x.links)}
+    <div class="dose"><div class="lbl">PROTOCOLLO</div><div class="t">${x.prot?linkify(x.prot):"Segui le indicazioni del coach."}</div></div>
     ${pv?`<div style="display:flex;flex-direction:column;gap:6px;padding:0 4px"><div class="lbl">L'ULTIMA VOLTA${/\d/.test(pv.when)?" · "+esc(pv.when):""}</div><div class="quote">“${esc(pv.res)}”</div></div>`:""}
     <div class="video">${IC.vid}<div style="display:flex;flex-direction:column;gap:2px"><div class="lbl" style="color:var(--y)">MANDA VIDEO</div><div style="font-size:14px;line-height:1.4">Registra questa prova e mandami il video su WhatsApp.</div></div></div>
     ${r?`<div class="was">Hai già inviato: “${esc(r)}”. Se invii di nuovo, lo sostituisci.</div>`:""}
@@ -384,7 +396,7 @@ function vDay(){
     <div class="list">${D.items.map((it,i)=>{
       const s=sent(S.day,i,w),sk=/^SALTATO/i.test(s),c=change(it,w);
       const sub=sk?s.replace(/^SALTATO\s*·?\s*/i,"Saltato · "):SK.doseFor(it.dose,w).split("\n").find(l=>l.trim())||"";
-      return`<button class="it" data-a="open" data-i="${i}"><span class="n ${s?(sk?"skip":"done"):""}">${s?(sk?"–":"✓"):i+1}</span><span class="tx"><span class="nm">${esc(it.name)}${c?`<span class="tag">${esc(c)}</span>`:""}</span><span class="ds">${esc(sub)}</span></span>${IC.next}</button>`}).join("")}</div>
+      return`<button class="it" data-a="open" data-i="${i}"><span class="n ${s?(sk?"skip":"done"):""}">${s?(sk?"–":"✓"):i+1}</span><span class="tx"><span class="nm">${esc(it.name)}${linksOf(it).length?`<span class="vi" title="Video">${IC.playS}</span>`:""}${c?`<span class="tag">${esc(c)}</span>`:""}</span><span class="ds">${esc(sub)}</span></span>${IC.next}</button>`}).join("")}</div>
   </div><div class="foot">${btn}</div>`;
 }
 function vEx(){
@@ -422,11 +434,12 @@ function vEx(){
     <div class="bar" style="height:4px"><i data-bar="ex" style="width:${(i+1)/D.items.length*100}%;${ed?"":"background:#6E6C66"}"></i></div></div>
   <div class="scroll" style="padding-top:20px">
     <div style="display:flex;flex-direction:column;gap:8px">${c?`<span class="tag" style="align-self:flex-start;padding:4px 10px;font-size:12px">${esc(c)} rispetto alla sett. ${w-1}</span>`:""}<h1 class="ex-h1">${esc(it.name)}</h1></div>
-    <div class="dose"><div class="t">${esc(dose.body||"—")}</div>
+    ${watch(linksOf(it))}
+    <div class="dose"><div class="t">${dose.body?linkify(dose.body):"—"}</div>
       ${dose.rest.length||meth.length?`<div class="pills">${dose.rest.map(r=>`<span class="pill">${IC.rest}${esc(r)}</span>`).join("")}${meth.map(m=>`<button class="gl ${S.gloss===m?"on":""}" data-a="gloss" data-v="${esc(m)}">${IC.q}${esc(m[0]+m.slice(1).toLowerCase())}</button>`).join("")}</div>`:""}
       ${S.gloss&&S.P.methods[S.gloss]?`<div class="gloss">${esc(S.P.methods[S.gloss])}</div>`:""}</div>
     ${v&&v.weeks.includes(w)?`<div class="video">${IC.vid}<div style="display:flex;flex-direction:column;gap:2px"><div class="lbl" style="color:var(--y)">MANDA VIDEO</div><div style="font-size:14px;line-height:1.4">${esc(v.text)}</div></div></div>`:""}
-    ${it.note?`<div class="fold"><button data-a="note"><span style="display:flex;align-items:center;gap:10px"><img class="av" src="serkis.jpg" alt="" width="32" height="32">Note del coach</span><span style="transform:rotate(${S.note?180:0}deg);display:flex">${IC.chev}</span></button>${S.note?`<div>${esc(it.note)}</div>`:""}</div>`:""}
+    ${it.note?`<div class="fold"><button data-a="note"><span style="display:flex;align-items:center;gap:10px"><img class="av" src="serkis.jpg" alt="" width="32" height="32">Note del coach</span><span style="transform:rotate(${S.note?180:0}deg);display:flex">${IC.chev}</span></button>${S.note?`<div>${linkify(it.note)}</div>`:""}</div>`:""}
     ${fb}
   </div>
   <div class="foot" id="foot">${foot()}</div>`;

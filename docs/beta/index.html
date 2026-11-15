@@ -953,7 +953,7 @@ const SK=(()=>{
         name:name.replace(/\n\s*(?:SS|\+)\s*\n/gi," + ").replace(/\n+/g," "),
         dose:dose,
         note:cur.cols.note>=0?row[cur.cols.note]||"":"",
-        fb:row[cur.cols.fb]||"",row:r+1,col:cur.cols.fb+1
+        fb:row[cur.cols.fb]||"",row:r+1,col:cur.cols.fb+1,ncol:cur.cols.name+1
       });
     }
     out.days=out.days.filter(d=>d.items.length);

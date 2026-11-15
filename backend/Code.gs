@@ -25,7 +25,7 @@ const CONFIG = {
   VF_DS: "800b8a16-6f27-4a04-984f-3f9e2ce7f640",
   VF_DB: "d2f147fd8bc840c3ac5b78e509ef365f"
 };
-const VERSION = "1.7";
+const VERSION = "1.8";
 // Indirizzo della pagina cliente (il link che mandi agli atleti finisce con #t=CODICE)
 const CLIENT_PAGE = "https://serkistraining.github.io/serkis-app/c/";
 
@@ -317,15 +317,48 @@ function trim_(v) {
   return v.map(function (r) { let n = r.length; while (n > 0 && r[n - 1] === "") n--; return r.slice(0, n); });
 }
 
-function readSheet_(id, tab, maxRows, maxCols, gid) {
+// Link nelle celle: inseriti sul testo (anche solo su una parte) o con =HYPERLINK("indirizzo"; "testo").
+// Risultato: { "riga,colonna": [{ t: testo, u: indirizzo }] }, righe e colonne contate da 1.
+function cellLinks_(rg) {
+  const out = {};
+  let rich = [], form = [];
+  try { rich = rg.getRichTextValues(); } catch (e) {}
+  try { form = rg.getFormulas(); } catch (e) {}
+  const ok = function (u) { return /^https?:\/\//i.test(String(u || "")); };
+  for (let r = 0; r < rg.getNumRows(); r++) for (let c = 0; c < rg.getNumColumns(); c++) {
+    const list = [];
+    const f = form[r] && form[r][c];
+    const fm = f && String(f).match(/HYPERLINK\(\s*"([^"]+)"\s*(?:[;,]\s*"([^"]*)")?/i);
+    const rt = rich[r] && rich[r][c];
+    if (fm && ok(fm[1])) list.push({ t: (fm[2] || (rt ? rt.getText() : "")).trim(), u: fm[1] });
+    else if (rt && rt.getText()) {
+      const whole = rt.getLinkUrl();
+      if (ok(whole)) list.push({ t: rt.getText().trim(), u: whole });
+      else rt.getRuns().forEach(function (run) {
+        const u = run.getLinkUrl(), t = run.getText();
+        if (!ok(u)) return;
+        const last = list[list.length - 1];
+        if (last && last.u === u) last.t += t; else list.push({ t: t, u: u });
+      });
+    }
+    list.forEach(function (x) { x.t = x.t.replace(/\s+/g, " ").trim(); });
+    if (list.length) out[(r + 1) + "," + (c + 1)] = list;
+  }
+  return out;
+}
+
+function readSheet_(id, tab, maxRows, maxCols, gid, withLinks) {
   const ss = SpreadsheetApp.openById(id);
   const all = ss.getSheets();
   const byGid = gid != null && gid !== "" ? all.filter(function (s) { return String(s.getSheetId()) === String(gid); })[0] : null;
   const sh = (tab && ss.getSheetByName(tab)) || byGid || all[0];
   const lr = Math.min(sh.getLastRow(), maxRows || 220), lc = Math.min(sh.getLastColumn(), maxCols || 12);
-  const values = (lr > 0 && lc > 0) ? trim_(sh.getRange(1, 1, lr, lc).getDisplayValues()) : [];
-  return { id: id, title: ss.getName(), tab: sh.getName(), tabs: all.map(function (s) { return s.getName(); }),
+  const rg = (lr > 0 && lc > 0) ? sh.getRange(1, 1, lr, lc) : null;
+  const values = rg ? trim_(rg.getDisplayValues()) : [];
+  const out = { id: id, title: ss.getName(), tab: sh.getName(), tabs: all.map(function (s) { return s.getName(); }),
     gids: all.map(function (s) { return String(s.getSheetId()); }), values: values, url: ss.getUrl() };
+  if (withLinks) out.links = rg ? cellLinks_(rg) : {};
+  return out;
 }
 
 function sheets_(req) {
@@ -737,11 +770,11 @@ function clientSheet_(c) {
   else { const cur = pickCurrent_(a.links); if (cur) { sheetId = cur.id; gid = cur.gid; } }
   if (!sheetId && !c.pinSheet) return { a: a, sheet: null };
   let s;
-  try { s = readSheet_(sheetId || c.pinSheet, sheetId ? tab : c.pinTab, 220, 12, gid); }
+  try { s = readSheet_(sheetId || c.pinSheet, sheetId ? tab : c.pinTab, 220, 12, gid, true); }
   catch (e) {
     // link Notion a un file eliminato: usa la scheda che l'app del coach ha riconosciuto
     if (!c.pinSheet || c.pinSheet === sheetId) throw e;
-    s = readSheet_(c.pinSheet, c.pinTab || null, 220, 12, null);
+    s = readSheet_(c.pinSheet, c.pinTab || null, 220, 12, null, true);
   }
   return { a: a, sheet: s };
 }
@@ -759,7 +792,7 @@ const CLIENT_ACTIONS = {
     }
     const a = r ? r.a : athleteOne_(c.athleteId);
     return { name: a.name, start: a.start, dur: a.dur, showFuture: c.showFuture, g: c.gender || "",
-      sheet: r && r.sheet ? { id: r.sheet.id, tab: r.sheet.tab, title: r.sheet.title, values: r.sheet.values } : null, test: test };
+      sheet: r && r.sheet ? { id: r.sheet.id, tab: r.sheet.tab, title: r.sheet.title, values: r.sheet.values, links: r.sheet.links || {} } : null, test: test };
   },
   // Test dal link cliente: scrive il risultato nella colonna RISULTATO della prova
   c_test_save: function (req) {
@@ -865,7 +898,7 @@ function testParse_(v) {
       if (isHdr(k) || isHdr(k + 1) || /OSSERVAZIONI GENERALI/.test(up(k).join(" "))) break;
       const rr = (v[k] || []).map(function (x) { return String(x == null ? "" : x).trim(); });
       if (!rr[ei]) continue;
-      g.items.push({ row: k + 1, col: ri + 1, name: rr[ei], prot: pi >= 0 ? (rr[pi] || "") : "", res: rr[ri] || "" });
+      g.items.push({ row: k + 1, col: ri + 1, ncol: ei + 1, name: rr[ei], prot: pi >= 0 ? (rr[pi] || "") : "", res: rr[ri] || "" });
     }
     if (g.items.length) out.groups.push(g);
     r = k - 1;
@@ -873,18 +906,24 @@ function testParse_(v) {
   return out;
 }
 
-function testRead_(id, tab) {
+function testRead_(id, tab, withLinks) {
   const ss = SpreadsheetApp.openById(id);
   const sh = (tab && ss.getSheetByName(tab)) || ss.getSheets()[0];
   const lr = Math.min(sh.getLastRow(), 120), lc = Math.min(sh.getLastColumn(), 8);
-  const v = (lr > 0 && lc > 0) ? sh.getRange(1, 1, lr, lc).getDisplayValues() : [];
-  return { ss: ss, sh: sh, T: testParse_(v) };
+  const rg = (lr > 0 && lc > 0) ? sh.getRange(1, 1, lr, lc) : null;
+  const T = testParse_(rg ? rg.getDisplayValues() : []);
+  // link sul nome della prova (es. video dell'esecuzione)
+  if (withLinks && rg) {
+    const L = cellLinks_(rg);
+    T.groups.forEach(function (g) { g.items.forEach(function (x) { const l = L[x.row + "," + x.ncol]; if (l) x.links = l; }); });
+  }
+  return { ss: ss, sh: sh, T: T };
 }
 
 // Test assegnato all'atleta, più i risultati del test precedente (stesso esercizio) per il confronto
 function clientTestData_(c) {
   if (!c.testSheet) return null;
-  const t = testRead_(c.testSheet, c.testTab || null);
+  const t = testRead_(c.testSheet, c.testTab || null, true);
   if (!t.T.groups.length) return null;
   const prev = {};
   const take = function (T, when) { T.groups.forEach(function (g) { g.items.forEach(function (x) { const k = normT_(x.name); if (x.res && !prev[k]) prev[k] = { res: x.res, when: when }; }); }); };
