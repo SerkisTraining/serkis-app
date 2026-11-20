@@ -1,6 +1,6 @@
 (function(){
 "use strict";
-const VERSION="3.0";
+const VERSION="3.1";
 const NOTES_ID="1jzW0uELNty_8Dx0AWhwJXzg7YObm6Nr_fYbNlP0Z3mo";
 const NOTES_URL="https://docs.google.com/spreadsheets/d/"+NOTES_ID+"/edit";
 const DS_COACH="collection://264112d7-0f3d-80c1-9340-000bfe370a29";
@@ -35,7 +35,7 @@ const S={
   mode:IN_CLAUDE?"claude":"app",adapter:null,cfg:null,
   athletes:[],sheets:{},notes:[],notesState:"idle",notesErr:null,
   files:{},tests:{},bodies:{},hist:{},ai:{},alt:{},sessSel:{},pickTab:{},
-  view:"oggi",sel:null,tab:"panoramica",prev:"oggi",fbf:"tutti",todoAll:false,menu:false,fbPrevSeen:null,
+  view:"oggi",sel:null,tab:"panoramica",prev:"oggi",fbf:"tutti",todoAll:false,oggiTab:store.get("oggiTab","s"),oggiFbf:"tutto",menu:false,fbPrevSeen:null,
   filter:{sede:"all",stato:"attivi",focus:null,q:""},sort:"urgenza",
   load:{state:"idle",err:null,at:null},edit:null,editErr:null,saving:false,
   templates:null,tplErr:null,nSchema:null,nSchemaErr:null,nSchemaLoading:false,nuovo:null,created:null,creating:false,createErr:null,
@@ -1026,39 +1026,65 @@ function testDoneOf(a){const c=S.clients[a.id];if(!c||!c.testDone)return null;co
   const d0=new Date(d.getFullYear(),d.getMonth(),d.getDate());if(a.startD&&a.startD>=d0)return null;return d}
 function testSentOf(a){const c=S.clients[a.id];return!!(c&&c.testSheet&&!c.testDone)}
 function testNew(a){return a.sede==="stenika"?"test-presenza":a.src==="vf"?"vf":"test-online"}
+// Oggi diviso in due: Schede (cosa preparare) e Feedback (cosa guardare)
 function boardItems(){
-  const fare=[],arrivo=[],occhio=[];
+  const fare=[],arrivo=[],attesa=[],guarda=[];
   S.athletes.filter(a=>a.active).forEach(a=>{
     const sc=a.wk&&a.wk.scad,sg=signalOf(a);
-    if(sc&&sc.rank<=1)fare.push({a,u:sc.rank,t:sc.rank===0?"Scheda finita il "+fd(a.wk.end):"Ultima settimana · finisce "+GIORNI[a.wk.end.getDay()].slice(0,3)+" "+fd(a.wk.end),btn:`<button class="mini pri" type="button" data-new="scheda" data-aid="${a.id}">Prepara</button>`});
-    else if(sg.level==="bad")fare.push({a,u:1.5,t:sg.reasons[0],btn:`<button class="mini pri" type="button" data-id="${a.id}" data-jtab="feedback">Guarda</button>`});
-    else if(testDoneOf(a))fare.push({a,u:2.5,t:"Test compilato il "+fd(testDoneOf(a))+" · prepara la scheda",btn:`<button class="mini pri" type="button" data-id="${a.id}" data-jtab="test">Risultati</button>`});
-    else if(isTest(a)&&testSentOf(a))occhio.push({a,u:0,t:"Test mandato: aspetto i risultati"});
-    else if(isTest(a))fare.push({a,u:3,t:"Test da fare · "+SEDE[a.sede],btn:`<button class="mini pri" type="button" data-new="${testNew(a)}" data-aid="${a.id}">Test</button>`});
-    else if(isTodo(a))fare.push({a,u:4,t:a.status+" · "+SEDE[a.sede],btn:`<button class="mini" type="button" data-id="${a.id}">Apri</button>`});
-    if(sc&&sc.rank===2)arrivo.push({a,u:+a.wk.end,t:"Penultima · finisce "+GIORNI[a.wk.end.getDay()].slice(0,3)+" "+fd(a.wk.end)});
-    if(sg.level==="warn"&&!(sc&&sc.rank<=1))occhio.push({a,u:0,t:sg.reasons[0]});
+    if(sc&&sc.rank<=1)fare.push({a,u:sc.rank,ty:"scheda",lv:"bad",t:sc.rank===0?"Scheda finita il "+fd(a.wk.end):"Ultima settimana · finisce "+GIORNI[a.wk.end.getDay()].slice(0,3)+" "+fd(a.wk.end),btn:`<button class="mini pri" type="button" data-new="scheda" data-aid="${a.id}">Prepara</button>`});
+    else if(testDoneOf(a))fare.push({a,u:2.5,ty:"test",lv:"warn",t:"Test compilato il "+fd(testDoneOf(a))+" · prepara la scheda",btn:`<button class="mini pri" type="button" data-id="${a.id}" data-jtab="test">Risultati</button>`});
+    else if(isTest(a)&&testSentOf(a))attesa.push({a,u:0,ty:"wait",lv:"",t:"Test mandato · aspetto i risultati"});
+    else if(isTest(a))fare.push({a,u:3,ty:"test",lv:"warn",t:"Test da fare · "+SEDE[a.sede],btn:`<button class="mini pri" type="button" data-new="${testNew(a)}" data-aid="${a.id}">Test</button>`});
+    else if(isTodo(a))fare.push({a,u:4,ty:"scheda",lv:"",t:a.status+" · "+SEDE[a.sede],btn:`<button class="mini" type="button" data-id="${a.id}">Apri</button>`});
+    if(sc&&sc.rank===2)arrivo.push({a,u:+a.wk.end,ty:"cal",lv:"info",t:"Penultima · finisce "+GIORNI[a.wk.end.getDay()].slice(0,3)+" "+fd(a.wk.end)});
+    if(sg.level==="bad"||sg.level==="warn")guarda.push({a,u:sg.level==="bad"?0:1,ty:"alert",lv:sg.level,t:sg.reasons[0],btn:`<button class="mini" type="button" data-id="${a.id}" data-jtab="feedback">Guarda</button>`});
   });
   const by=(x,y)=>x.u-y.u||x.a.name.localeCompare(y.a.name,"it");
-  return{fare:fare.sort(by),arrivo:arrivo.sort(by),occhio:occhio.sort(by)};
+  return{fare:fare.sort(by),arrivo:arrivo.sort(by),attesa:attesa.sort(by),guarda:guarda.sort(by)};
 }
 // per la barra e il riepilogo
 function todoList(){return boardItems().fare}
-function bItem(x){return`<div class="bi"><button class="who" type="button" data-id="${x.a.id}"><b>${esc(x.a.name)}</b><small>${esc(x.t)}</small></button>${x.btn||""}</div>`}
+const OI={
+  scheda:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>',
+  test:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-9V3"/></svg>',
+  cal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+  wait:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  alert:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 8v5M12 16.5v.5"/><circle cx="12" cy="12" r="9"/></svg>',
+  fb:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/></svg>'
+};
+function bItem(x){return`<div class="bi"><span class="oi ${x.lv||""}" aria-hidden="true">${OI[x.ty]||""}</span><button class="who" type="button" data-id="${x.a.id}"${x.jtab?` data-jtab="${x.jtab}"`:""}><b>${esc(x.a.name)}${x.isNew?`<i class="onew" aria-label="nuovo"></i>`:""}</b><small>${esc(x.t)}</small></button>${x.btn||""}</div>`}
+function oSub(label,n){return`<div class="osub"><span>${label}</span><span>${n}</span></div>`}
+function oList(items,empty){return items.length?`<div class="olist">${items.map(bItem).join("")}</div>`:`<p class="oempty">${empty}</p>`}
 function viewOggi(){
   const d=today(),act=S.athletes.filter(a=>a.active);
   const scanned=S.athletes.filter(a=>a.sheetId&&a.active).every(a=>S.sheets[a.id]&&["ok","error"].includes(S.sheets[a.id].status));
   const head=`<div class="o-head"><h1>${GIORNI[d.getDay()].replace(/^./,c=>c.toUpperCase())} ${d.getDate()} ${MESI[d.getMonth()]}</h1>${scanned?"":`<span class="mut">leggo le schede…</span>`}</div>`;
   if(!S.athletes.length)return head+(S.load.state==="error"?`<div class="notice err">${esc(errText(S.load.err,S.mode==="claude"?"Notion":"Il backend"))}<br><button class="btn sm" type="button" data-act="reload">Riprova</button></div>`:`<p class="loading">Leggo atleti e schede…</p>`);
-  const B=boardItems(),ses=fbSessions().filter(s=>s.at>new Date(Date.now()-2*864e5).toISOString()).slice(0,8),nb=fbNewCount();
-  const col=(cls,title,sub,body,empty)=>`<section class="bcol ${cls}"><h2>${title}<small>${sub}</small></h2>${body||`<p class="bempty">${empty}</p>`}</section>`;
-  const max=S.todoAll?99:8;
-  let h=head+`<div class="board">`+
-    col("c-fare","Da fare ora",B.fare.length,B.fare.slice(0,max).map(bItem).join("")+(B.fare.length>max?`<button class="bmore" type="button" data-act="todo-all">Mostra tutte (${B.fare.length})</button>`:""),"Niente da fare adesso.")+
-    col("c-arrivo","In arrivo","prossima settimana",B.arrivo.map(bItem).join(""),"Nessuna scheda alla penultima settimana.")+
-    col("c-occhio","Da tenere d'occhio",B.occhio.length,B.occhio.map(bItem).join(""),"Nessun avviso dai feedback.")+
-    (S.adapter&&S.adapter.caps.client?col("c-fb","Feedback recenti",nb?nb+" nuovi":"",ses.map(s=>{const a=byId(s.athleteId);return`<div class="bi"><button class="who" type="button" ${a?`data-id="${a.id}" data-jtab="feedback"`:""}><b>${esc(a?a.name:s.name)}${s.alert?` <i class="dot ${s.alert==="bad"?"bad":"warn"}"></i>`:""}</b><small>${esc((s.day||"Allenamento")+" · S"+s.week+" · "+whenOf(s.at)+(s.avg!=null?" · RPE medio "+String(s.avg).replace(".",","):""))}</small></button></div>`}).join("")+(ses.length?`<button class="bmore" type="button" data-go="feedback">Tutti i feedback</button>`:""),S.clientsState==="loading"?"Carico i feedback…":"Nessun feedback negli ultimi due giorni."):"")+
-    `</div>`;
+  const B=boardItems(),hasFb=!!(S.adapter&&S.adapter.caps.client),cut=fbCut(fbSeen());
+  const ses=hasFb?fbSessions().filter(s=>s.at>new Date(Date.now()-2*864e5).toISOString()).slice(0,8):[];
+  const rec=ses.map(s=>{const a=byId(s.athleteId)||{id:"",name:s.name};return{a,ty:"fb",lv:s.alert||"ok",isNew:s.at>cut,jtab:"feedback",t:(s.day||"Allenamento")+" · S"+s.week+" · "+whenOf(s.at)+(s.avg!=null?" · RPE medio "+String(s.avg).replace(".",","):"")}});
+  const nNew=rec.filter(x=>x.isNew).length,bad=B.guarda.some(x=>x.lv==="bad");
+  const max=S.todoAll?99:8,tab=S.oggiTab==="f"?"f":"s",ff=S.oggiFbf||"tutto";
+  const ic=k=>`<span class="oh-ic" aria-hidden="true">${OI[k]}</span>`;
+  let h=head;
+  h+=`<div class="oseg" role="tablist" aria-label="Sezione">
+    <button class="os-s" type="button" role="tab" data-otab="s" aria-selected="${tab==="s"}"><b>Schede</b><small>${B.fare.length} da fare · ${B.arrivo.length} in arrivo</small></button>
+    <button class="os-f" type="button" role="tab" data-otab="f" aria-selected="${tab==="f"}"><b>Feedback</b><small>${B.guarda.length} da guardare${hasFb?" · "+nNew+" nuov"+(nNew===1?"o":"i"):""}</small>${bad?`<i class="odot" aria-label="c'è un avviso rosso"></i>`:""}</button>
+  </div>`;
+  h+=`<div class="oggi2" data-tab="${tab}">`;
+  // Schede
+  h+=`<section class="obox o-sch" aria-label="Schede"><div class="oh">${ic("scheda")}<h2>Schede</h2><span class="ocnt">${B.fare.length} da fare</span></div><div class="ocols"><div>`+
+    oSub("Da fare ora",B.fare.length)+oList(B.fare.slice(0,max),"Niente da preparare adesso.")+(B.fare.length>max?`<button class="omore" type="button" data-act="todo-all">Mostra tutte (${B.fare.length})</button>`:"")+
+    `</div><div>`+oSub("In arrivo · prossima settimana",B.arrivo.length)+oList(B.arrivo,"Nessuna scheda alla penultima settimana.")+
+    (B.attesa.length?oSub("In attesa",B.attesa.length)+oList(B.attesa,""):"")+`</div></div></section>`;
+  // Feedback
+  const showG=ff!=="nuovi",showR=ff!=="guarda",recL=ff==="nuovi"?rec.filter(x=>x.isNew):rec;
+  h+=`<section class="obox o-fb" aria-label="Feedback"><div class="oh">${ic("fb")}<h2>Feedback</h2>${hasFb&&nNew?`<span class="ocnt">${nNew} nuov${nNew===1?"o":"i"}</span>`:""}</div>`+
+    `<div class="ofil">${[["tutto","Tutto"],["guarda","Da guardare · "+B.guarda.length]].concat(hasFb?[["nuovi","Nuovi · "+nNew]]:[]).map(([k,l])=>`<button type="button" data-ofbf="${k}" aria-pressed="${ff===k}">${l}</button>`).join("")}</div>`+
+    (showG?oSub("Da guardare",B.guarda.length)+oList(B.guarda,"Nessun avviso dai feedback."):"")+
+    (hasFb&&showR?oSub("Arrivati di recente","ultimi 2 giorni")+oList(recL,S.clientsState==="loading"?"Carico i feedback…":ff==="nuovi"?"Nessun feedback nuovo.":"Nessun feedback negli ultimi due giorni."):"")+
+    (hasFb?`<button class="omore" type="button" data-go="feedback">Tutti i feedback</button>`:"")+`</section>`;
+  h+=`</div>`;
   const ok=act.filter(a=>bucket(a)==="corso");
   if(ok.length)h+=`<div class="incorso"><span class="lab">In corso · ${ok.length}</span>${ok.sort((x,y)=>x.name.localeCompare(y.name,"it")).map(a=>`<button type="button" data-id="${a.id}">${esc(a.name.split(" ")[0])} ${esc((a.name.split(" ")[1]||"")[0]||"")}. <span class="mut">${a.wk&&a.wk.future?"da "+fd(a.startD):a.wk?(a.src==="vf"?"K":"S")+a.wk.week:"—"}</span></button>`).join("")}</div>`;
   return h;
@@ -1588,6 +1614,8 @@ document.addEventListener("click",async ev=>{
   if(t.dataset.go){if(t.dataset.go==="nuovo"){initNuovo("scheda",S.view==="atleta"&&a?a.id:"")}go(t.dataset.go);return}
   if(t.dataset.focus){S.filter.focus=t.dataset.focus;go("atleti");render();return}
   if(t.dataset.fbf){S.fbf=t.dataset.fbf;render();return}
+  if(t.dataset.otab){S.oggiTab=t.dataset.otab;store.set("oggiTab",S.oggiTab);render();anim(".oggi2","fade");return}
+  if(t.dataset.ofbf){S.oggiFbf=t.dataset.ofbf;render();return}
   if(t.dataset.themeset){store.set("theme",t.dataset.themeset);applyTheme(t.dataset.themeset);render();return}
   if(t.dataset.sede){S.filter.sede=t.dataset.sede;savePrefs();render();return}
   if(t.dataset.new){initNuovo(t.dataset.new,t.dataset.aid||"");go("nuovo");return}
