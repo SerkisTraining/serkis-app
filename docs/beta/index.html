@@ -4,7 +4,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Serkistraining Coach (prova)</title>
 <meta name="description" content="Atleti, schede, test e feedback di Serkistraining">
-<meta name="theme-color" content="#0F0F10">
+<meta name="theme-color" content="#131B2C">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -12,9 +12,9 @@
 <meta name="robots" content="noindex">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="icons/favicon-64.png" sizes="64x64" type="image/png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Saira+Condensed:wght@500;600;700;800&display=swap">
 <style>html{-webkit-text-size-adjust:100%}:root{padding-top:env(safe-area-inset-top,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}
 /* Layout: app a due colonne. Elenco atleti fisso a sinistra, schermata attiva a destra; su telefono una schermata alla volta con barra in basso.
    Identità Serkistraining: nero freddo, osso, rosso solo per marchio e priorità. Tema unico scuro, scelto. */
@@ -797,16 +797,135 @@ select,.inp{font-size:13px;padding:5px 8px;border-radius:8px}
   .olist .bi{padding:10px 12px}
   .olist .mini{min-height:34px;padding:4px 11px;font-size:12.5px}
 }
+
+/* ===== 5.0 · Marchio "Avanzamento" =====
+   Colori del brand come token centrali. Tema chiaro su bianco; i colori servono da accento
+   (intestazioni, pulsanti principali, etichette dei giorni, elementi attivi).
+   Il giallo si usa poco e mai per testo su fondo bianco. Saira Condensed solo per titoli ed etichette brevi. */
+:root{
+  --notte:#131B2C; --cemento:#B8B3A9; --cemento-chiaro:#DCD8D0; --giallo:#F2C200; --grafite:#4B4945; --bianco:#F5F3EF;
+  --bg:#FFFFFF; --bg-2:#FFFFFF; --surface:#FFFFFF; --raised:var(--bianco); --hover:#EEEBE5;
+  --line:#E6E3DD; --line-2:var(--cemento-chiaro);
+  --ink:var(--notte); --ink-2:var(--grafite); --ink-3:#6B6862; --on-ink:#FFFFFF;
+  --red:var(--giallo); --red-soft:var(--bianco);
+  --y:var(--giallo); --y-ink:var(--notte); --y-text:var(--notte); --y-soft:var(--bianco);
+  --pri:var(--notte); --pri-ink:#FFFFFF; --pri-hover:#1E2940;
+  --barbg:var(--notte); --rail-line:rgba(245,243,239,.10);
+  --f-d:"Saira Condensed","Arial Narrow",system-ui,sans-serif;
+  --bar-h:56px;
+}
+:root[data-theme="dark"]{
+  --bg:#0D1320; --bg-2:#111827; --surface:#162033; --raised:#1D2940; --hover:#233050;
+  --line:#2E3850; --line-2:#3B4763;
+  --ink:var(--bianco); --ink-2:var(--cemento-chiaro); --ink-3:var(--cemento); --on-ink:var(--notte);
+  --red-soft:rgba(242,194,0,.14);
+  --y-text:var(--giallo); --y-soft:rgba(242,194,0,.14);
+  --pri:var(--giallo); --pri-ink:var(--notte); --pri-hover:#FFD21F;
+  --barbg:#0A0F1A;
+}
+@media (prefers-color-scheme:dark){:root[data-theme="auto"]{
+  --bg:#0D1320; --bg-2:#111827; --surface:#162033; --raised:#1D2940; --hover:#233050;
+  --line:#2E3850; --line-2:#3B4763;
+  --ink:var(--bianco); --ink-2:var(--cemento-chiaro); --ink-3:var(--cemento); --on-ink:var(--notte);
+  --red-soft:rgba(242,194,0,.14);
+  --y-text:var(--giallo); --y-soft:rgba(242,194,0,.14);
+  --pri:var(--giallo); --pri-ink:var(--notte); --pri-hover:#FFD21F;
+  --barbg:#0A0F1A;
+}}
+
+/* titoli ed etichette brevi in Saira Condensed */
+.disp,.hello h1,.o-head h1,.a-head h1,.page-h .disp,.sec-h h3,.block-h h2,.bcol h2,.cl-h h3,.counts b,.tile .n{font-family:var(--f-d);letter-spacing:.01em}
+.hello h1,.o-head h1,.a-head h1{font-weight:700;font-size:26px;line-height:1.05}
+.page-h .disp{font-weight:700;letter-spacing:.01em}
+.sec-h h3{font-weight:700;font-size:21px;text-transform:uppercase}
+.bcol h2{font-weight:700;font-size:16px;text-transform:uppercase;letter-spacing:.03em}
+.cl-h h3{font-weight:700;font-size:20px}
+.counts b{font-weight:700;font-size:32px}
+.grp,.incorso .lab,.eyebrow{font-family:var(--f-d);font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.grp{font-size:13px}.eyebrow{font-size:14px}.incorso .lab{font-size:13px}
+@media (max-width:959px){.o-head h1{font-size:24px}}
+
+/* pulsanti principali ed elementi attivi */
+.btn.pri,.btn.red{background:var(--pri);border-color:var(--pri);color:var(--pri-ink)}
+.btn.pri:hover,.btn.red:hover{background:var(--pri-hover);border-color:var(--pri-hover)}
+.btn.on{border-color:var(--ink);color:var(--ink)}
+.mini.pri{background:var(--pri);border-color:var(--pri);color:var(--pri-ink)}
+.chip[aria-pressed="true"]{background:var(--notte);border-color:var(--notte);color:#FFFFFF}
+:root[data-theme="dark"] .chip[aria-pressed="true"]{background:var(--bianco);border-color:var(--bianco);color:var(--notte)}
+.tr.on{background:var(--pri)}.tr.on i{background:var(--pri-ink)}
+.lnk,.tagy,.pill.ink{color:var(--y-text)}
+.pill.ink,.tagy{background:var(--y-soft);border:1px solid var(--line-2)}
+.row[aria-current="true"]{background:var(--bianco);box-shadow:inset 3px 0 0 var(--giallo)}
+.wkbox span.now,.fb-wk button.on{background:var(--notte);border-color:var(--notte);color:#FFFFFF}
+:root[data-theme="dark"] .wkbox span.now,:root[data-theme="dark"] .fb-wk button.on{background:var(--bianco);border-color:var(--bianco);color:var(--notte)}
+.wkb i.c{background:var(--notte)}
+.tab[aria-selected="true"]{border-bottom-color:var(--giallo)}
+.ico.y{background:var(--bianco);color:var(--notte)}
+.fbi .new{background:var(--giallo);box-shadow:0 0 0 2px var(--bianco)}
+.check input{accent-color:var(--notte)}
+.toast{background:var(--notte);color:#FFFFFF}
+
+/* etichette dei giorni (G1, G2… / GIORNO A) nella scheda */
+.sec-h h3.dl{display:inline-flex;align-items:center;min-height:28px;padding:1px 11px 0;border-radius:7px;background:var(--notte);color:#FFFFFF;font-size:19px;letter-spacing:.04em}
+:root[data-theme="dark"] .sec-h h3.dl{background:var(--bianco);color:var(--notte)}
+
+/* barra in alto: Notte, logo ufficiale per sfondi scuri.
+   Spazio libero intorno al logo ≥ altezza di una lettera (≈ metà dell'altezza del logo). */
+.bar{background:var(--barbg)}
+.bar-in{height:var(--bar-h)}
+.brand{align-items:center;gap:14px;padding:0}
+.brand .lg-h{display:block;height:28px;width:auto;flex:none}
+.brand-s{color:var(--cemento);border-color:rgba(184,179,169,.45);font-weight:600}
+body::before{background:var(--barbg)}
+
+/* navigazione: barra in basso (telefono) e barra laterale Notte (computer) */
+.tb[aria-current="page"]::before{background:var(--giallo)}
+.tb.plus span.pl{background:var(--giallo);color:var(--notte)}
+.rail-icon{display:none}
+.lg-i{display:block;width:36px;height:36px}
+@media (min-width:960px){
+  .tabbar{background:var(--barbg);border-right-color:var(--rail-line);--ink:#F5F3EF;--ink-3:rgba(245,243,239,.66)}
+  .rail-brand{margin:0 0 22px 14px;padding-top:6px}
+  .rail-brand .lg-h{display:block;width:130px;height:auto}
+  .tb[aria-current="page"]{background:rgba(245,243,239,.10);box-shadow:inset 3px 0 0 var(--giallo)}
+  .tb.plus{background:var(--giallo);color:var(--notte)}
+  .tb.plus:hover{background:#FFD21F}
+  body.rail-mini .rail-icon{display:flex;justify-content:center;margin:0 0 14px}
+}
+/* primo avvio */
+.setup-logo{display:block;padding:18px 0 8px}
+.setup-logo .lg-v{display:block;width:200px;height:auto}
+.setup .disp{font-size:44px!important;text-transform:uppercase}
+
+/* Oggi: sezione Schede su Notte (prima era gialla), Feedback resta blu per distinguersi */
+:root{--sch-h:var(--notte);--sch-ink:#FFFFFF;--sch-t:var(--bianco);--sch-l:var(--cemento-chiaro);--sch-x:var(--grafite)}
+:root[data-theme="dark"]{--sch-h:#22304B;--sch-ink:var(--bianco);--sch-t:rgba(245,243,239,.04);--sch-l:#3B4763;--sch-x:var(--cemento-chiaro)}
+@media (prefers-color-scheme:dark){:root[data-theme="auto"]{--sch-h:#22304B;--sch-ink:var(--bianco);--sch-t:rgba(245,243,239,.04);--sch-l:#3B4763;--sch-x:var(--cemento-chiaro)}}
+.oseg b,.oh h2{font-family:var(--f-d);font-weight:700;font-size:20px;letter-spacing:.02em;text-transform:uppercase}
+.osub{font-family:var(--f-d);font-size:13px;letter-spacing:.08em}
+.o-sch .ocnt{background:var(--giallo);color:var(--notte)}
+
+/* logo piccolo (icona): nella barra delle pagine interne sul telefono e come firma in fondo a Oggi e Altro */
+.bar-ic{display:none}
+.bar-ic .lg-i{width:26px;height:26px}
+@media (max-width:959px){
+  body[data-view="atleta"] .bar-ic,body[data-view="nuovo"] .bar-ic,body[data-view="impostazioni"] .bar-ic{display:flex;flex:none;margin-left:auto;padding:0 4px}
+  body[data-view="atleta"] .bar-act,body[data-view="nuovo"] .bar-act,body[data-view="impostazioni"] .bar-act{margin-left:10px}
+}
+body[data-view="oggi"] .main::after,body[data-view="impostazioni"] .main::after{content:"";display:block;width:30px;height:30px;margin:36px auto 4px;opacity:.9;
+  background:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 200.00 200.00%22 width=%22200%22 height=%22200%22%3E%3Cg transform=%22translate%28100 100%29 scale%280.9%29 translate%28-100 -100%29%22%3E%3Ccircle cx=%22100%22 cy=%22100%22 r=%2278%22 fill=%22none%22 stroke=%22%23B8B3A9%22 stroke-width=%2212%22/%3E%3Ccircle cx=%22100%22 cy=%22100%22 r=%2278%22 fill=%22none%22 stroke=%22%23131B2C%22 stroke-width=%2212%22 stroke-dasharray=%22333.3 490.1%22 transform=%22rotate%28-90 100 100%29%22/%3E%3Ccircle cx=%2229.42%22 cy=%22133.21%22 r=%2215%22 fill=%22%23131B2C%22/%3E%3Cpath transform=%22translate%2874.07 139.90%29 scale%280.11600 -0.11600%29%22 d=%22M39 10V136Q130 129 178 129Q211 129 227.0 131.5Q243 134 250 143Q257 150 259.0 162.0Q261 174 261 197Q261 230 257.5 244.0Q254 258 242.0 264.5Q230 271 201 276L114 292Q64 300 45.0 348.5Q26 397 26 485Q26 573 52.0 619.0Q78 665 122.0 680.5Q166 696 234 696Q310 696 396 678V552Q345 559 274 559Q240 559 224.0 557.0Q208 555 200 548Q192 542 189.0 529.0Q186 516 186 491Q186 464 188.5 452.0Q191 440 199.5 434.5Q208 429 228 425L310 410Q344 403 367.5 388.5Q391 374 405 337Q421 295 421 220Q421 121 396.5 71.5Q372 22 331.0 7.0Q290 -8 223 -8Q176 -8 126.0 -3.0Q76 2 39 10Z%22 fill=%22%23131B2C%22/%3E%3C/g%3E%3C/svg%3E") center/contain no-repeat}
+:root[data-theme="dark"] .main::after{background-image:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 200.00 200.00%22 width=%22200%22 height=%22200%22%3E%3Cg transform=%22translate%28100 100%29 scale%280.9%29 translate%28-100 -100%29%22%3E%3Ccircle cx=%22100%22 cy=%22100%22 r=%2278%22 fill=%22none%22 stroke=%22%232E3850%22 stroke-width=%2212%22/%3E%3Ccircle cx=%22100%22 cy=%22100%22 r=%2278%22 fill=%22none%22 stroke=%22%23F2C200%22 stroke-width=%2212%22 stroke-dasharray=%22333.3 490.1%22 transform=%22rotate%28-90 100 100%29%22/%3E%3Ccircle cx=%2229.42%22 cy=%22133.21%22 r=%2215%22 fill=%22%23F2C200%22/%3E%3Cpath transform=%22translate%2874.07 139.90%29 scale%280.11600 -0.11600%29%22 d=%22M39 10V136Q130 129 178 129Q211 129 227.0 131.5Q243 134 250 143Q257 150 259.0 162.0Q261 174 261 197Q261 230 257.5 244.0Q254 258 242.0 264.5Q230 271 201 276L114 292Q64 300 45.0 348.5Q26 397 26 485Q26 573 52.0 619.0Q78 665 122.0 680.5Q166 696 234 696Q310 696 396 678V552Q345 559 274 559Q240 559 224.0 557.0Q208 555 200 548Q192 542 189.0 529.0Q186 516 186 491Q186 464 188.5 452.0Q191 440 199.5 434.5Q208 429 228 425L310 410Q344 403 367.5 388.5Q391 374 405 337Q421 295 421 220Q421 121 396.5 71.5Q372 22 331.0 7.0Q290 -8 223 -8Q176 -8 126.0 -3.0Q76 2 39 10Z%22 fill=%22%23F5F3EF%22/%3E%3C/g%3E%3C/svg%3E")}
+@media (prefers-color-scheme:dark){:root[data-theme="auto"] .main::after{background-image:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 200.00 200.00%22 width=%22200%22 height=%22200%22%3E%3Cg transform=%22translate%28100 100%29 scale%280.9%29 translate%28-100 -100%29%22%3E%3Ccircle cx=%22100%22 cy=%22100%22 r=%2278%22 fill=%22none%22 stroke=%22%232E3850%22 stroke-width=%2212%22/%3E%3Ccircle cx=%22100%22 cy=%22100%22 r=%2278%22 fill=%22none%22 stroke=%22%23F2C200%22 stroke-width=%2212%22 stroke-dasharray=%22333.3 490.1%22 transform=%22rotate%28-90 100 100%29%22/%3E%3Ccircle cx=%2229.42%22 cy=%22133.21%22 r=%2215%22 fill=%22%23F2C200%22/%3E%3Cpath transform=%22translate%2874.07 139.90%29 scale%280.11600 -0.11600%29%22 d=%22M39 10V136Q130 129 178 129Q211 129 227.0 131.5Q243 134 250 143Q257 150 259.0 162.0Q261 174 261 197Q261 230 257.5 244.0Q254 258 242.0 264.5Q230 271 201 276L114 292Q64 300 45.0 348.5Q26 397 26 485Q26 573 52.0 619.0Q78 665 122.0 680.5Q166 696 234 696Q310 696 396 678V552Q345 559 274 559Q240 559 224.0 557.0Q208 555 200 548Q192 542 189.0 529.0Q186 516 186 491Q186 464 188.5 452.0Q191 440 199.5 434.5Q208 429 228 425L310 410Q344 403 367.5 388.5Q391 374 405 337Q421 295 421 220Q421 121 396.5 71.5Q372 22 331.0 7.0Q290 -8 223 -8Q176 -8 126.0 -3.0Q76 2 39 10Z%22 fill=%22%23F5F3EF%22/%3E%3C/g%3E%3C/svg%3E")}}
 </style>
 </head><body>
 <header class="bar gut">
   <div class="bar-in">
     <button class="back" type="button" data-act="back" aria-label="Indietro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg><span id="backlbl">Atleti</span></button>
     <button class="brand" type="button" data-go="oggi" aria-label="Serkis, vai a Oggi">
-      <svg viewBox="118 100 276 312" aria-hidden="true" hidden><polygon fill="#eef0f2" points="148.0,104.0 334.0,104.0 364.0,134.0 364.0,156.0 200.0,156.0 200.0,214.0 148.0,214.0"/><polygon fill="#e3262b" points="126.0,230.0 386.0,230.0 386.0,282.0 126.0,282.0"/><polygon fill="#eef0f2" points="312.0,298.0 364.0,298.0 364.0,408.0 178.0,408.0 148.0,378.0 148.0,356.0 312.0,356.0"/></svg>
-      <span class="wm"><b>serk</b><span class="i"><span></span><span></span></span><b>s</b><em>training</em></span><span class="brand-s">coach</span>
+      <svg class="lg-h" role="img" aria-label="Serkistraining" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1244.60 271.60"><g transform="translate(-5.20 0)"><path transform="translate(24.00 161.60) scale(0.20000 -0.20000)" d="M39 10V136Q130 129 178 129Q211 129 227.0 131.5Q243 134 250 143Q257 150 259.0 162.0Q261 174 261 197Q261 230 257.5 244.0Q254 258 242.0 264.5Q230 271 201 276L114 292Q64 300 45.0 348.5Q26 397 26 485Q26 573 52.0 619.0Q78 665 122.0 680.5Q166 696 234 696Q310 696 396 678V552Q345 559 274 559Q240 559 224.0 557.0Q208 555 200 548Q192 542 189.0 529.0Q186 516 186 491Q186 464 188.5 452.0Q191 440 199.5 434.5Q208 429 228 425L310 410Q344 403 367.5 388.5Q391 374 405 337Q421 295 421 220Q421 121 396.5 71.5Q372 22 331.0 7.0Q290 -8 223 -8Q176 -8 126.0 -3.0Q76 2 39 10Z" fill="#F5F3EF"/><path transform="translate(115.20 161.60) scale(0.20000 -0.20000)" d="M46 0V688H389V551H206V416H364V279H206V137H389V0Z" fill="#F5F3EF"/><path transform="translate(202.00 161.60) scale(0.20000 -0.20000)" d="M318 0 257 232H206V0H46V688H288Q363 688 402.0 663.0Q441 638 454.0 590.0Q467 542 467 460Q467 384 454.5 335.5Q442 287 404 262L483 0ZM307 459Q307 505 303.5 523.0Q300 541 288.5 546.5Q277 552 248 552H206V365H248Q277 365 288.0 370.5Q299 376 303.0 394.5Q307 413 307 459Z" fill="#F5F3EF"/><path transform="translate(303.80 161.60) scale(0.20000 -0.20000)" d="M325 0 230 279H206V0H46V688H206V419H230L328 688H494L356 359L496 0Z" fill="#F5F3EF"/><path transform="translate(405.80 161.60) scale(0.20000 -0.20000)" d="M46 0V688H206V0Z" fill="#F5F3EF"/><path transform="translate(458.00 161.60) scale(0.20000 -0.20000)" d="M39 10V136Q130 129 178 129Q211 129 227.0 131.5Q243 134 250 143Q257 150 259.0 162.0Q261 174 261 197Q261 230 257.5 244.0Q254 258 242.0 264.5Q230 271 201 276L114 292Q64 300 45.0 348.5Q26 397 26 485Q26 573 52.0 619.0Q78 665 122.0 680.5Q166 696 234 696Q310 696 396 678V552Q345 559 274 559Q240 559 224.0 557.0Q208 555 200 548Q192 542 189.0 529.0Q186 516 186 491Q186 464 188.5 452.0Q191 440 199.5 434.5Q208 429 228 425L310 410Q344 403 367.5 388.5Q391 374 405 337Q421 295 421 220Q421 121 396.5 71.5Q372 22 331.0 7.0Q290 -8 223 -8Q176 -8 126.0 -3.0Q76 2 39 10Z" fill="#F5F3EF"/><path transform="translate(549.20 161.60) scale(0.20000 -0.20000)" d="M177 0V634H19V688H394V634H236V0Z" fill="#B8B3A9"/><path transform="translate(633.80 161.60) scale(0.20000 -0.20000)" d="M386 0 296 284H277H133V0H74V688H282Q351 688 385.0 662.0Q419 636 428.5 594.0Q438 552 438 486Q438 409 422.5 361.5Q407 314 354 295L449 0ZM379 486Q379 542 372.5 572.0Q366 602 343.0 618.5Q320 635 270 635H133V336H268Q318 336 341.5 353.0Q365 370 372.0 400.5Q379 431 379 486Z" fill="#B8B3A9"/><path transform="translate(734.60 161.60) scale(0.20000 -0.20000)" d="M411 0 357 203H134L81 0H21L210 688H283L472 0ZM248 608H243L149 255H342Z" fill="#B8B3A9"/><path transform="translate(835.20 161.60) scale(0.20000 -0.20000)" d="M78 0V688H136V0Z" fill="#B8B3A9"/><path transform="translate(880.00 161.60) scale(0.20000 -0.20000)" d="M395 0 135 559H131V0H75V688H138L395 134H399V688H456V0Z" fill="#B8B3A9"/><path transform="translate(988.00 161.60) scale(0.20000 -0.20000)" d="M78 0V688H136V0Z" fill="#B8B3A9"/><path transform="translate(1032.80 161.60) scale(0.20000 -0.20000)" d="M395 0 135 559H131V0H75V688H138L395 134H399V688H456V0Z" fill="#B8B3A9"/><path transform="translate(1140.80 161.60) scale(0.20000 -0.20000)" d="M253 307V359H425V10Q389 2 345.5 -3.0Q302 -8 267 -8Q177 -8 134.0 18.0Q91 44 74.0 116.5Q57 189 57 344Q57 497 73.5 569.5Q90 642 133.5 669.0Q177 696 268 696Q307 696 350.5 690.5Q394 685 423 677V628Q393 634 356.0 638.5Q319 643 295 643Q211 643 177.0 627.5Q143 612 129.5 552.0Q116 492 116 344Q116 208 126.0 148.0Q136 88 166.5 66.0Q197 44 267 44Q292 44 320.5 47.0Q349 50 367 54V307Z" fill="#B8B3A9"/><rect x="29.20" y="215.60" width="1196.60" height="16.00" fill="#2E3850"/><rect x="29.20" y="215.60" width="813.69" height="16.00" fill="#F2C200"/><circle cx="842.89" cy="223.60" r="24.00" fill="#F2C200"/></g></svg><span class="brand-s">coach</span>
     </button>
     <span class="crumb" id="crumb"></span>
+    <span class="bar-ic" aria-hidden="true"><svg class="lg-i" role="img" aria-label="Serkistraining" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200.00 200.00"><g transform="translate(100 100) scale(0.9) translate(-100 -100)"><circle cx="100" cy="100" r="78" fill="none" stroke="#2E3850" stroke-width="12"/><circle cx="100" cy="100" r="78" fill="none" stroke="#F2C200" stroke-width="12" stroke-dasharray="333.3 490.1" transform="rotate(-90 100 100)"/><circle cx="29.42" cy="133.21" r="15" fill="#F2C200"/><path transform="translate(74.07 139.90) scale(0.11600 -0.11600)" d="M39 10V136Q130 129 178 129Q211 129 227.0 131.5Q243 134 250 143Q257 150 259.0 162.0Q261 174 261 197Q261 230 257.5 244.0Q254 258 242.0 264.5Q230 271 201 276L114 292Q64 300 45.0 348.5Q26 397 26 485Q26 573 52.0 619.0Q78 665 122.0 680.5Q166 696 234 696Q310 696 396 678V552Q345 559 274 559Q240 559 224.0 557.0Q208 555 200 548Q192 542 189.0 529.0Q186 516 186 491Q186 464 188.5 452.0Q191 440 199.5 434.5Q208 429 228 425L310 410Q344 403 367.5 388.5Q391 374 405 337Q421 295 421 220Q421 121 396.5 71.5Q372 22 331.0 7.0Q290 -8 223 -8Q176 -8 126.0 -3.0Q76 2 39 10Z" fill="#F5F3EF"/></g></svg></span>
     <div class="bar-act">
       <span class="sync" id="sync"></span>
       <button class="btn sm pri desk-only" type="button" data-go="nuovo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>Nuovo</button>
@@ -846,7 +965,7 @@ select,.inp{font-size:13px;padding:5px 8px;border-radius:8px}
 <nav class="tabbar" aria-label="Sezioni">
   <div class="tabbar-in">
     <button class="rail-toggle" type="button" data-act="rail" aria-label="Chiudi la barra laterale" title="Chiudi o apri la barra"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/><path class="chev" d="m15.5 9.5-2.5 2.5 2.5 2.5"/></svg></button>
-    <span class="rail-brand"><span class="wm" aria-label="serkistraining"><b>serk</b><span class="i"><span></span><span></span></span><b>s</b><em>training</em></span></span>
+    <span class="rail-brand"><svg class="lg-h" role="img" aria-label="Serkistraining" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1244.60 271.60"><g transform="translate(-5.20 0)"><path transform="translate(24.00 161.60) scale(0.20000 -0.20000)" d="M39 10V136Q130 129 178 129Q211 129 227.0 131.5Q243 134 250 143Q257 150 259.0 162.0Q261 174 261 197Q261 230 257.5 244.0Q254 258 242.0 264.5Q230 271 201 276L114 292Q64 300 45.0 348.5Q26 397 26 485Q26 573 52.0 619.0Q78 665 122.0 680.5Q166 696 234 696Q310 696 396 678V552Q345 559 274 559Q240 559 224.0 557.0Q208 555 200 548Q192 542 189.0 529.0Q186 516 186 491Q186 464 188.5 452.0Q191 440 199.5 434.5Q208 429 228 425L310 410Q344 403 367.5 388.5Q391 374 405 337Q421 295 421 220Q421 121 396.5 71.5Q372 22 331.0 7.0Q290 -8 223 -8Q176 -8 126.0 -3.0Q76 2 39 10Z" fill="#F5F3EF"/><path transform="translate(115.20 161.60) scale(0.20000 -0.20000)" d="M46 0V688H389V551H206V416H364V279H206V137H389V0Z" fill="#F5F3EF"/><path transform="translate(202.00 161.60) scale(0.20000 -0.20000)" d="M318 0 257 232H206V0H46V688H288Q363 688 402.0 663.0Q441 638 454.0 590.0Q467 542 467 460Q467 384 454.5 335.5Q442 287 404 262L483 0ZM307 459Q307 505 303.5 523.0Q300 541 288.5 546.5Q277 552 248 552H206V365H248Q277 365 288.0 370.5Q299 376 303.0 394.5Q307 413 307 459Z" fill="#F5F3EF"/><path transform="translate(303.80 161.60) scale(0.20000 -0.20000)" d="M325 0 230 279H206V0H46V688H206V419H230L328 688H494L356 359L496 0Z" fill="#F5F3EF"/><path transform="translate(405.80 161.60) scale(0.20000 -0.20000)" d="M46 0V688H206V0Z" fill="#F5F3EF"/><path transform="translate(458.00 161.60) scale(0.20000 -0.20000)" d="M39 10V136Q130 129 178 129Q211 129 227.0 131.5Q243 134 250 143Q257 150 259.0 162.0Q261 174 261 197Q261 230 257.5 244.0Q254 258 242.0 264.5Q230 271 201 276L114 292Q64 300 45.0 348.5Q26 397 26 485Q26 573 52.0 619.0Q78 665 122.0 680.5Q166 696 234 696Q310 696 396 678V552Q345 559 274 559Q240 559 224.0 557.0Q208 555 200 548Q192 542 189.0 529.0Q186 516 186 491Q186 464 188.5 452.0Q191 440 199.5 434.5Q208 429 228 425L310 410Q344 403 367.5 388.5Q391 374 405 337Q421 295 421 220Q421 121 396.5 71.5Q372 22 331.0 7.0Q290 -8 223 -8Q176 -8 126.0 -3.0Q76 2 39 10Z" fill="#F5F3EF"/><path transform="translate(549.20 161.60) scale(0.20000 -0.20000)" d="M177 0V634H19V688H394V634H236V0Z" fill="#B8B3A9"/><path transform="translate(633.80 161.60) scale(0.20000 -0.20000)" d="M386 0 296 284H277H133V0H74V688H282Q351 688 385.0 662.0Q419 636 428.5 594.0Q438 552 438 486Q438 409 422.5 361.5Q407 314 354 295L449 0ZM379 486Q379 542 372.5 572.0Q366 602 343.0 618.5Q320 635 270 635H133V336H268Q318 336 341.5 353.0Q365 370 372.0 400.5Q379 431 379 486Z" fill="#B8B3A9"/><path transform="translate(734.60 161.60) scale(0.20000 -0.20000)" d="M411 0 357 203H134L81 0H21L210 688H283L472 0ZM248 608H243L149 255H342Z" fill="#B8B3A9"/><path transform="translate(835.20 161.60) scale(0.20000 -0.20000)" d="M78 0V688H136V0Z" fill="#B8B3A9"/><path transform="translate(880.00 161.60) scale(0.20000 -0.20000)" d="M395 0 135 559H131V0H75V688H138L395 134H399V688H456V0Z" fill="#B8B3A9"/><path transform="translate(988.00 161.60) scale(0.20000 -0.20000)" d="M78 0V688H136V0Z" fill="#B8B3A9"/><path transform="translate(1032.80 161.60) scale(0.20000 -0.20000)" d="M395 0 135 559H131V0H75V688H138L395 134H399V688H456V0Z" fill="#B8B3A9"/><path transform="translate(1140.80 161.60) scale(0.20000 -0.20000)" d="M253 307V359H425V10Q389 2 345.5 -3.0Q302 -8 267 -8Q177 -8 134.0 18.0Q91 44 74.0 116.5Q57 189 57 344Q57 497 73.5 569.5Q90 642 133.5 669.0Q177 696 268 696Q307 696 350.5 690.5Q394 685 423 677V628Q393 634 356.0 638.5Q319 643 295 643Q211 643 177.0 627.5Q143 612 129.5 552.0Q116 492 116 344Q116 208 126.0 148.0Q136 88 166.5 66.0Q197 44 267 44Q292 44 320.5 47.0Q349 50 367 54V307Z" fill="#B8B3A9"/><rect x="29.20" y="215.60" width="1196.60" height="16.00" fill="#2E3850"/><rect x="29.20" y="215.60" width="813.69" height="16.00" fill="#F2C200"/><circle cx="842.89" cy="223.60" r="24.00" fill="#F2C200"/></g></svg></span><span class="rail-icon"><svg class="lg-i" role="img" aria-label="Serkistraining" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200.00 200.00"><g transform="translate(100 100) scale(0.9) translate(-100 -100)"><circle cx="100" cy="100" r="78" fill="none" stroke="#2E3850" stroke-width="12"/><circle cx="100" cy="100" r="78" fill="none" stroke="#F2C200" stroke-width="12" stroke-dasharray="333.3 490.1" transform="rotate(-90 100 100)"/><circle cx="29.42" cy="133.21" r="15" fill="#F2C200"/><path transform="translate(74.07 139.90) scale(0.11600 -0.11600)" d="M39 10V136Q130 129 178 129Q211 129 227.0 131.5Q243 134 250 143Q257 150 259.0 162.0Q261 174 261 197Q261 230 257.5 244.0Q254 258 242.0 264.5Q230 271 201 276L114 292Q64 300 45.0 348.5Q26 397 26 485Q26 573 52.0 619.0Q78 665 122.0 680.5Q166 696 234 696Q310 696 396 678V552Q345 559 274 559Q240 559 224.0 557.0Q208 555 200 548Q192 542 189.0 529.0Q186 516 186 491Q186 464 188.5 452.0Q191 440 199.5 434.5Q208 429 228 425L310 410Q344 403 367.5 388.5Q391 374 405 337Q421 295 421 220Q421 121 396.5 71.5Q372 22 331.0 7.0Q290 -8 223 -8Q176 -8 126.0 -3.0Q76 2 39 10Z" fill="#F5F3EF"/></g></svg></span>
     <button class="tb" type="button" data-go="oggi" id="tb-oggi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span>Oggi</span></button>
     <button class="tb" type="button" data-go="atleti" id="tb-atleti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5M16 4.8a3.4 3.4 0 0 1 0 6.4M18 14.8c1.9.7 3.1 2.4 3.5 5.2"/></svg><span>Atleti</span></button>
     <button class="tb plus" type="button" data-go="nuovo" id="tb-nuovo"><span class="pl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M12 5v14M5 12h14"/></svg></span><span>Nuovo</span></button>
@@ -1044,7 +1163,7 @@ if(typeof module!=="undefined")module.exports=SK;
 
 (function(){
 "use strict";
-const VERSION="3.2";
+const VERSION="3.3";
 const NOTES_ID="1jzW0uELNty_8Dx0AWhwJXzg7YObm6Nr_fYbNlP0Z3mo";
 const NOTES_URL="https://docs.google.com/spreadsheets/d/"+NOTES_ID+"/edit";
 const DS_COACH="collection://264112d7-0f3d-80c1-9340-000bfe370a29";
@@ -1086,7 +1205,7 @@ const S={
   drafts:{},extra:{},nav:0,delArm:null,unlinkArm:false,setupErr:null,setupBusy:false,
   clients:{},clientsState:"idle",clientOpen:false,clientBusy:false,fbLog:[],fbView:{mode:"week",week:null,day:0},pinned:{}
 };
-function applyTheme(t){document.documentElement.dataset.theme=t||"light";const m=document.querySelector('meta[name="theme-color"]');if(m)m.content="#161615"}
+function applyTheme(t){document.documentElement.dataset.theme=t||"light";const m=document.querySelector('meta[name="theme-color"]');if(m)m.content="#131B2C"}
 applyTheme(store.get("theme","light"));
 function applyRail(){const m=!!store.get("railMini",true);document.body.classList.toggle("rail-mini",m);const b=document.querySelector(".rail-toggle");if(b){b.setAttribute("aria-label",m?"Apri la barra laterale":"Chiudi la barra laterale");b.setAttribute("aria-expanded",String(!m))}
   document.querySelectorAll(".tb").forEach(t=>{const l=t.querySelector("span:not(.pl)");if(l)t.title=m?l.textContent:""})}
@@ -2356,7 +2475,7 @@ function sectionsHtml(P,ctx){
   return P.sections.map(sec=>{
     const filled=sec.items.filter(it=>!it.empty),free=sec.items.filter(it=>it.empty);
     const editingFree=S.edit&&S.edit.sheetId===ctx.sheetId&&free.some(it=>it.r===S.edit.r);
-    let h=`<section class="sec"><div class="sec-h"><h3>${esc(sec.title)}</h3><small>${filled.length} ${sec.kind==="test"?"prove":"esercizi"}</small></div>`;
+    let h=`<section class="sec"><div class="sec-h"><h3 class="dl">${esc(sec.title)}</h3><small>${filled.length} ${sec.kind==="test"?"prove":"esercizi"}</small></div>`;
     h+=filled.map(it=>itemHtml(sec,it,ctx)).join("");
     if(editingFree)h+=editorHtml(sec,sec.items.find(it=>it.r===S.edit.r),ctx);
     else if(free.length&&sec.cols.length)h+=`<button class="addslot" type="button" data-slot="${free[0].r}" data-sheet="${ctx.sheetId}">+ Aggiungi ${sec.kind==="test"?"una prova":"un esercizio"} · ${free.length} ${free.length===1?"riga libera":"righe libere"}</button>`;
@@ -2631,8 +2750,9 @@ function viewImpostazioni(){
   if(S.mode==="app")h+=`<section class="sec"><div class="sec-h"><h3>Questo dispositivo</h3></div><button class="btn ghost" type="button" data-act="unlink">${S.unlinkArm?"Conferma: scollega":"Scollega questo dispositivo"}</button></section>`;
   return h+`</div>`;
 }
+const LOGO_V=`<svg class="lg-v" role="img" aria-label="Serkistraining" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720.80 445.60"><path transform="translate(98.70 161.60) scale(0.20000 -0.20000)" d="M39 10V136Q130 129 178 129Q211 129 227.0 131.5Q243 134 250 143Q257 150 259.0 162.0Q261 174 261 197Q261 230 257.5 244.0Q254 258 242.0 264.5Q230 271 201 276L114 292Q64 300 45.0 348.5Q26 397 26 485Q26 573 52.0 619.0Q78 665 122.0 680.5Q166 696 234 696Q310 696 396 678V552Q345 559 274 559Q240 559 224.0 557.0Q208 555 200 548Q192 542 189.0 529.0Q186 516 186 491Q186 464 188.5 452.0Q191 440 199.5 434.5Q208 429 228 425L310 410Q344 403 367.5 388.5Q391 374 405 337Q421 295 421 220Q421 121 396.5 71.5Q372 22 331.0 7.0Q290 -8 223 -8Q176 -8 126.0 -3.0Q76 2 39 10Z" fill="#131B2C"/><path transform="translate(189.90 161.60) scale(0.20000 -0.20000)" d="M46 0V688H389V551H206V416H364V279H206V137H389V0Z" fill="#131B2C"/><path transform="translate(276.70 161.60) scale(0.20000 -0.20000)" d="M318 0 257 232H206V0H46V688H288Q363 688 402.0 663.0Q441 638 454.0 590.0Q467 542 467 460Q467 384 454.5 335.5Q442 287 404 262L483 0ZM307 459Q307 505 303.5 523.0Q300 541 288.5 546.5Q277 552 248 552H206V365H248Q277 365 288.0 370.5Q299 376 303.0 394.5Q307 413 307 459Z" fill="#131B2C"/><path transform="translate(378.50 161.60) scale(0.20000 -0.20000)" d="M325 0 230 279H206V0H46V688H206V419H230L328 688H494L356 359L496 0Z" fill="#131B2C"/><path transform="translate(480.50 161.60) scale(0.20000 -0.20000)" d="M46 0V688H206V0Z" fill="#131B2C"/><path transform="translate(532.70 161.60) scale(0.20000 -0.20000)" d="M39 10V136Q130 129 178 129Q211 129 227.0 131.5Q243 134 250 143Q257 150 259.0 162.0Q261 174 261 197Q261 230 257.5 244.0Q254 258 242.0 264.5Q230 271 201 276L114 292Q64 300 45.0 348.5Q26 397 26 485Q26 573 52.0 619.0Q78 665 122.0 680.5Q166 696 234 696Q310 696 396 678V552Q345 559 274 559Q240 559 224.0 557.0Q208 555 200 548Q192 542 189.0 529.0Q186 516 186 491Q186 464 188.5 452.0Q191 440 199.5 434.5Q208 429 228 425L310 410Q344 403 367.5 388.5Q391 374 405 337Q421 295 421 220Q421 121 396.5 71.5Q372 22 331.0 7.0Q290 -8 223 -8Q176 -8 126.0 -3.0Q76 2 39 10Z" fill="#131B2C"/><path transform="translate(20.20 333.60) scale(0.20000 -0.20000)" d="M177 0V634H19V688H394V634H236V0Z" fill="#4B4945"/><path transform="translate(104.80 333.60) scale(0.20000 -0.20000)" d="M386 0 296 284H277H133V0H74V688H282Q351 688 385.0 662.0Q419 636 428.5 594.0Q438 552 438 486Q438 409 422.5 361.5Q407 314 354 295L449 0ZM379 486Q379 542 372.5 572.0Q366 602 343.0 618.5Q320 635 270 635H133V336H268Q318 336 341.5 353.0Q365 370 372.0 400.5Q379 431 379 486Z" fill="#4B4945"/><path transform="translate(205.60 333.60) scale(0.20000 -0.20000)" d="M411 0 357 203H134L81 0H21L210 688H283L472 0ZM248 608H243L149 255H342Z" fill="#4B4945"/><path transform="translate(306.20 333.60) scale(0.20000 -0.20000)" d="M78 0V688H136V0Z" fill="#4B4945"/><path transform="translate(351.00 333.60) scale(0.20000 -0.20000)" d="M395 0 135 559H131V0H75V688H138L395 134H399V688H456V0Z" fill="#4B4945"/><path transform="translate(459.00 333.60) scale(0.20000 -0.20000)" d="M78 0V688H136V0Z" fill="#4B4945"/><path transform="translate(503.80 333.60) scale(0.20000 -0.20000)" d="M395 0 135 559H131V0H75V688H138L395 134H399V688H456V0Z" fill="#4B4945"/><path transform="translate(611.80 333.60) scale(0.20000 -0.20000)" d="M253 307V359H425V10Q389 2 345.5 -3.0Q302 -8 267 -8Q177 -8 134.0 18.0Q91 44 74.0 116.5Q57 189 57 344Q57 497 73.5 569.5Q90 642 133.5 669.0Q177 696 268 696Q307 696 350.5 690.5Q394 685 423 677V628Q393 634 356.0 638.5Q319 643 295 643Q211 643 177.0 627.5Q143 612 129.5 552.0Q116 492 116 344Q116 208 126.0 148.0Q136 88 166.5 66.0Q197 44 267 44Q292 44 320.5 47.0Q349 50 367 54V307Z" fill="#4B4945"/><rect x="24.00" y="389.60" width="672.80" height="16.00" fill="#B8B3A9"/><rect x="24.00" y="389.60" width="457.50" height="16.00" fill="#131B2C"/><circle cx="481.50" cy="397.60" r="24.00" fill="#131B2C"/></svg>`;
 function viewSetup(){
-  return`<div class="setup"><span class="wm" aria-label="serkistraining"><b>serk</b><span class="i"><span></span><span></span></span><b>s</b><em>training</em></span>
+  return`<div class="setup"><span class="setup-logo">${LOGO_V}</span>
     <div><span class="eyebrow">Primo avvio</span><h1 class="disp" style="font-size:56px">Collega Serkis Coach</h1></div>
     <p class="hint" style="font-size:14px">Incolla la chiave che trovi nel registro di Apps Script, alla riga "CHIAVE APP". Su un altro dispositivo puoi incollare invece il codice di collegamento copiato dalle Impostazioni dell'app.</p>
     <form class="fgrid" id="setupform" autocomplete="off">

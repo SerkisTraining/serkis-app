@@ -1,6 +1,6 @@
 (function(){
 "use strict";
-const VERSION="3.2";
+const VERSION="3.3";
 const NOTES_ID="1jzW0uELNty_8Dx0AWhwJXzg7YObm6Nr_fYbNlP0Z3mo";
 const NOTES_URL="https://docs.google.com/spreadsheets/d/"+NOTES_ID+"/edit";
 const DS_COACH="collection://264112d7-0f3d-80c1-9340-000bfe370a29";
@@ -42,7 +42,7 @@ const S={
   drafts:{},extra:{},nav:0,delArm:null,unlinkArm:false,setupErr:null,setupBusy:false,
   clients:{},clientsState:"idle",clientOpen:false,clientBusy:false,fbLog:[],fbView:{mode:"week",week:null,day:0},pinned:{}
 };
-function applyTheme(t){document.documentElement.dataset.theme=t||"light";const m=document.querySelector('meta[name="theme-color"]');if(m)m.content="#161615"}
+function applyTheme(t){document.documentElement.dataset.theme=t||"light";const m=document.querySelector('meta[name="theme-color"]');if(m)m.content="#131B2C"}
 applyTheme(store.get("theme","light"));
 function applyRail(){const m=!!store.get("railMini",true);document.body.classList.toggle("rail-mini",m);const b=document.querySelector(".rail-toggle");if(b){b.setAttribute("aria-label",m?"Apri la barra laterale":"Chiudi la barra laterale");b.setAttribute("aria-expanded",String(!m))}
   document.querySelectorAll(".tb").forEach(t=>{const l=t.querySelector("span:not(.pl)");if(l)t.title=m?l.textContent:""})}
@@ -1312,7 +1312,7 @@ function sectionsHtml(P,ctx){
   return P.sections.map(sec=>{
     const filled=sec.items.filter(it=>!it.empty),free=sec.items.filter(it=>it.empty);
     const editingFree=S.edit&&S.edit.sheetId===ctx.sheetId&&free.some(it=>it.r===S.edit.r);
-    let h=`<section class="sec"><div class="sec-h"><h3>${esc(sec.title)}</h3><small>${filled.length} ${sec.kind==="test"?"prove":"esercizi"}</small></div>`;
+    let h=`<section class="sec"><div class="sec-h"><h3 class="dl">${esc(sec.title)}</h3><small>${filled.length} ${sec.kind==="test"?"prove":"esercizi"}</small></div>`;
     h+=filled.map(it=>itemHtml(sec,it,ctx)).join("");
     if(editingFree)h+=editorHtml(sec,sec.items.find(it=>it.r===S.edit.r),ctx);
     else if(free.length&&sec.cols.length)h+=`<button class="addslot" type="button" data-slot="${free[0].r}" data-sheet="${ctx.sheetId}">+ Aggiungi ${sec.kind==="test"?"una prova":"un esercizio"} · ${free.length} ${free.length===1?"riga libera":"righe libere"}</button>`;
@@ -1587,8 +1587,9 @@ function viewImpostazioni(){
   if(S.mode==="app")h+=`<section class="sec"><div class="sec-h"><h3>Questo dispositivo</h3></div><button class="btn ghost" type="button" data-act="unlink">${S.unlinkArm?"Conferma: scollega":"Scollega questo dispositivo"}</button></section>`;
   return h+`</div>`;
 }
+const LOGO_V=`%%LOGO_VERTICALE%%`;
 function viewSetup(){
-  return`<div class="setup"><span class="wm" aria-label="serkistraining"><b>serk</b><span class="i"><span></span><span></span></span><b>s</b><em>training</em></span>
+  return`<div class="setup"><span class="setup-logo">${LOGO_V}</span>
     <div><span class="eyebrow">Primo avvio</span><h1 class="disp" style="font-size:56px">Collega Serkis Coach</h1></div>
     <p class="hint" style="font-size:14px">Incolla la chiave che trovi nel registro di Apps Script, alla riga "CHIAVE APP". Su un altro dispositivo puoi incollare invece il codice di collegamento copiato dalle Impostazioni dell'app.</p>
     <form class="fgrid" id="setupform" autocomplete="off">

@@ -779,3 +779,122 @@ select,.inp{font-size:13px;padding:5px 8px;border-radius:8px}
   .olist .bi{padding:10px 12px}
   .olist .mini{min-height:34px;padding:4px 11px;font-size:12.5px}
 }
+
+/* ===== 5.0 · Marchio "Avanzamento" =====
+   Colori del brand come token centrali. Tema chiaro su bianco; i colori servono da accento
+   (intestazioni, pulsanti principali, etichette dei giorni, elementi attivi).
+   Il giallo si usa poco e mai per testo su fondo bianco. Saira Condensed solo per titoli ed etichette brevi. */
+:root{
+  --notte:#131B2C; --cemento:#B8B3A9; --cemento-chiaro:#DCD8D0; --giallo:#F2C200; --grafite:#4B4945; --bianco:#F5F3EF;
+  --bg:#FFFFFF; --bg-2:#FFFFFF; --surface:#FFFFFF; --raised:var(--bianco); --hover:#EEEBE5;
+  --line:#E6E3DD; --line-2:var(--cemento-chiaro);
+  --ink:var(--notte); --ink-2:var(--grafite); --ink-3:#6B6862; --on-ink:#FFFFFF;
+  --red:var(--giallo); --red-soft:var(--bianco);
+  --y:var(--giallo); --y-ink:var(--notte); --y-text:var(--notte); --y-soft:var(--bianco);
+  --pri:var(--notte); --pri-ink:#FFFFFF; --pri-hover:#1E2940;
+  --barbg:var(--notte); --rail-line:rgba(245,243,239,.10);
+  --f-d:"Saira Condensed","Arial Narrow",system-ui,sans-serif;
+  --bar-h:56px;
+}
+:root[data-theme="dark"]{
+  --bg:#0D1320; --bg-2:#111827; --surface:#162033; --raised:#1D2940; --hover:#233050;
+  --line:#2E3850; --line-2:#3B4763;
+  --ink:var(--bianco); --ink-2:var(--cemento-chiaro); --ink-3:var(--cemento); --on-ink:var(--notte);
+  --red-soft:rgba(242,194,0,.14);
+  --y-text:var(--giallo); --y-soft:rgba(242,194,0,.14);
+  --pri:var(--giallo); --pri-ink:var(--notte); --pri-hover:#FFD21F;
+  --barbg:#0A0F1A;
+}
+@media (prefers-color-scheme:dark){:root[data-theme="auto"]{
+  --bg:#0D1320; --bg-2:#111827; --surface:#162033; --raised:#1D2940; --hover:#233050;
+  --line:#2E3850; --line-2:#3B4763;
+  --ink:var(--bianco); --ink-2:var(--cemento-chiaro); --ink-3:var(--cemento); --on-ink:var(--notte);
+  --red-soft:rgba(242,194,0,.14);
+  --y-text:var(--giallo); --y-soft:rgba(242,194,0,.14);
+  --pri:var(--giallo); --pri-ink:var(--notte); --pri-hover:#FFD21F;
+  --barbg:#0A0F1A;
+}}
+
+/* titoli ed etichette brevi in Saira Condensed */
+.disp,.hello h1,.o-head h1,.a-head h1,.page-h .disp,.sec-h h3,.block-h h2,.bcol h2,.cl-h h3,.counts b,.tile .n{font-family:var(--f-d);letter-spacing:.01em}
+.hello h1,.o-head h1,.a-head h1{font-weight:700;font-size:26px;line-height:1.05}
+.page-h .disp{font-weight:700;letter-spacing:.01em}
+.sec-h h3{font-weight:700;font-size:21px;text-transform:uppercase}
+.bcol h2{font-weight:700;font-size:16px;text-transform:uppercase;letter-spacing:.03em}
+.cl-h h3{font-weight:700;font-size:20px}
+.counts b{font-weight:700;font-size:32px}
+.grp,.incorso .lab,.eyebrow{font-family:var(--f-d);font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.grp{font-size:13px}.eyebrow{font-size:14px}.incorso .lab{font-size:13px}
+@media (max-width:959px){.o-head h1{font-size:24px}}
+
+/* pulsanti principali ed elementi attivi */
+.btn.pri,.btn.red{background:var(--pri);border-color:var(--pri);color:var(--pri-ink)}
+.btn.pri:hover,.btn.red:hover{background:var(--pri-hover);border-color:var(--pri-hover)}
+.btn.on{border-color:var(--ink);color:var(--ink)}
+.mini.pri{background:var(--pri);border-color:var(--pri);color:var(--pri-ink)}
+.chip[aria-pressed="true"]{background:var(--notte);border-color:var(--notte);color:#FFFFFF}
+:root[data-theme="dark"] .chip[aria-pressed="true"]{background:var(--bianco);border-color:var(--bianco);color:var(--notte)}
+.tr.on{background:var(--pri)}.tr.on i{background:var(--pri-ink)}
+.lnk,.tagy,.pill.ink{color:var(--y-text)}
+.pill.ink,.tagy{background:var(--y-soft);border:1px solid var(--line-2)}
+.row[aria-current="true"]{background:var(--bianco);box-shadow:inset 3px 0 0 var(--giallo)}
+.wkbox span.now,.fb-wk button.on{background:var(--notte);border-color:var(--notte);color:#FFFFFF}
+:root[data-theme="dark"] .wkbox span.now,:root[data-theme="dark"] .fb-wk button.on{background:var(--bianco);border-color:var(--bianco);color:var(--notte)}
+.wkb i.c{background:var(--notte)}
+.tab[aria-selected="true"]{border-bottom-color:var(--giallo)}
+.ico.y{background:var(--bianco);color:var(--notte)}
+.fbi .new{background:var(--giallo);box-shadow:0 0 0 2px var(--bianco)}
+.check input{accent-color:var(--notte)}
+.toast{background:var(--notte);color:#FFFFFF}
+
+/* etichette dei giorni (G1, G2… / GIORNO A) nella scheda */
+.sec-h h3.dl{display:inline-flex;align-items:center;min-height:28px;padding:1px 11px 0;border-radius:7px;background:var(--notte);color:#FFFFFF;font-size:19px;letter-spacing:.04em}
+:root[data-theme="dark"] .sec-h h3.dl{background:var(--bianco);color:var(--notte)}
+
+/* barra in alto: Notte, logo ufficiale per sfondi scuri.
+   Spazio libero intorno al logo ≥ altezza di una lettera (≈ metà dell'altezza del logo). */
+.bar{background:var(--barbg)}
+.bar-in{height:var(--bar-h)}
+.brand{align-items:center;gap:14px;padding:0}
+.brand .lg-h{display:block;height:28px;width:auto;flex:none}
+.brand-s{color:var(--cemento);border-color:rgba(184,179,169,.45);font-weight:600}
+body::before{background:var(--barbg)}
+
+/* navigazione: barra in basso (telefono) e barra laterale Notte (computer) */
+.tb[aria-current="page"]::before{background:var(--giallo)}
+.tb.plus span.pl{background:var(--giallo);color:var(--notte)}
+.rail-icon{display:none}
+.lg-i{display:block;width:36px;height:36px}
+@media (min-width:960px){
+  .tabbar{background:var(--barbg);border-right-color:var(--rail-line);--ink:#F5F3EF;--ink-3:rgba(245,243,239,.66)}
+  .rail-brand{margin:0 0 22px 14px;padding-top:6px}
+  .rail-brand .lg-h{display:block;width:130px;height:auto}
+  .tb[aria-current="page"]{background:rgba(245,243,239,.10);box-shadow:inset 3px 0 0 var(--giallo)}
+  .tb.plus{background:var(--giallo);color:var(--notte)}
+  .tb.plus:hover{background:#FFD21F}
+  body.rail-mini .rail-icon{display:flex;justify-content:center;margin:0 0 14px}
+}
+/* primo avvio */
+.setup-logo{display:block;padding:18px 0 8px}
+.setup-logo .lg-v{display:block;width:200px;height:auto}
+.setup .disp{font-size:44px!important;text-transform:uppercase}
+
+/* Oggi: sezione Schede su Notte (prima era gialla), Feedback resta blu per distinguersi */
+:root{--sch-h:var(--notte);--sch-ink:#FFFFFF;--sch-t:var(--bianco);--sch-l:var(--cemento-chiaro);--sch-x:var(--grafite)}
+:root[data-theme="dark"]{--sch-h:#22304B;--sch-ink:var(--bianco);--sch-t:rgba(245,243,239,.04);--sch-l:#3B4763;--sch-x:var(--cemento-chiaro)}
+@media (prefers-color-scheme:dark){:root[data-theme="auto"]{--sch-h:#22304B;--sch-ink:var(--bianco);--sch-t:rgba(245,243,239,.04);--sch-l:#3B4763;--sch-x:var(--cemento-chiaro)}}
+.oseg b,.oh h2{font-family:var(--f-d);font-weight:700;font-size:20px;letter-spacing:.02em;text-transform:uppercase}
+.osub{font-family:var(--f-d);font-size:13px;letter-spacing:.08em}
+.o-sch .ocnt{background:var(--giallo);color:var(--notte)}
+
+/* logo piccolo (icona): nella barra delle pagine interne sul telefono e come firma in fondo a Oggi e Altro */
+.bar-ic{display:none}
+.bar-ic .lg-i{width:26px;height:26px}
+@media (max-width:959px){
+  body[data-view="atleta"] .bar-ic,body[data-view="nuovo"] .bar-ic,body[data-view="impostazioni"] .bar-ic{display:flex;flex:none;margin-left:auto;padding:0 4px}
+  body[data-view="atleta"] .bar-act,body[data-view="nuovo"] .bar-act,body[data-view="impostazioni"] .bar-act{margin-left:10px}
+}
+body[data-view="oggi"] .main::after,body[data-view="impostazioni"] .main::after{content:"";display:block;width:30px;height:30px;margin:36px auto 4px;opacity:.9;
+  background:url("%%ICONA_CHIARA_URI%%") center/contain no-repeat}
+:root[data-theme="dark"] .main::after{background-image:url("%%ICONA_SCURA_URI%%")}
+@media (prefers-color-scheme:dark){:root[data-theme="auto"] .main::after{background-image:url("%%ICONA_SCURA_URI%%")}}

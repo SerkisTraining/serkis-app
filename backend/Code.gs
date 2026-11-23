@@ -25,7 +25,7 @@ const CONFIG = {
   VF_DS: "800b8a16-6f27-4a04-984f-3f9e2ce7f640",
   VF_DB: "d2f147fd8bc840c3ac5b78e509ef365f"
 };
-const VERSION = "1.9";
+const VERSION = "2.0";
 // Indirizzo della pagina cliente (il link che mandi agli atleti finisce con #t=CODICE)
 const CLIENT_PAGE = "https://serkistraining.github.io/serkis-app/c/";
 
@@ -1110,6 +1110,8 @@ function provaPaginaCliente() {
 // Per attivarla, una volta sola: Esegui → installaMailMattino. Per provarla subito: Esegui → provaMailMattino.
 const DIGEST_TO = "s.pretta98@gmail.com";
 const APP_URL = "https://serkistraining.github.io/serkis-app/";
+// File del logo ufficiale pubblicati con l'app (cartella docs/brand)
+const BRAND_URL = APP_URL + "brand/";
 
 function installaMailMattino() {
   ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === "mailMattino") ScriptApp.deleteTrigger(t); });
@@ -1200,10 +1202,10 @@ function digest_() {
     ["Esercizi saltati o non completati", S.saltati, "#8A5C00"],
     ["Test da fare", S.test, "#8A5C00"],
     ["Nuovi atleti da impostare", S.nuovi, "#8A5C00"],
-    ["Feedback fermi da 2+ settimane", S.fermi, "#45443F"],
-    ["In arrivo (penultima settimana)", S.arrivo, "#45443F"],
-    ["Schede nuove già pronte", S.pronte, "#45443F"],
-    ["Da sistemare in Notion", S.problemi, "#45443F"]
+    ["Feedback fermi da 2+ settimane", S.fermi, "#4B4945"],
+    ["In arrivo (penultima settimana)", S.arrivo, "#4B4945"],
+    ["Schede nuove già pronte", S.pronte, "#4B4945"],
+    ["Da sistemare in Notion", S.problemi, "#4B4945"]
   ].filter(function (s) { return s[1].length; });
   const urgent = S.scadute.length + S.ultima.length + S.dolore.length + S.rpe.length;
   const giorno = ["Domenica", "Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato"][today.getDay()] + " " + today.getDate() + "/" + (today.getMonth() + 1);
@@ -1212,9 +1214,11 @@ function digest_() {
     const g = {}; items.forEach(function (x) { (g[x.a.name] = g[x.a.name] || []).push(x.t); });
     return Object.keys(g).sort(function (x, y) { return x.localeCompare(y, "it"); }).map(function (n) { return { n: n, t: g[n] }; });
   };
-  let html = '<div style="font-family:Inter,Arial,sans-serif;max-width:620px;color:#161615;font-size:15px;line-height:1.5">' +
-    '<div style="background:#161615;color:#F7F6F2;padding:16px 20px;border-radius:14px 14px 0 0;font-size:18px;font-weight:700">serkistraining · ' + escH_(giorno) + '</div>' +
-    '<div style="border:1px solid #DCDBD5;border-top:0;border-radius:0 0 14px 14px;padding:8px 20px 18px">';
+  let html = '<div style="font-family:Inter,Arial,sans-serif;max-width:620px;color:#131B2C;font-size:15px;line-height:1.5">' +
+    '<div style="background:#131B2C;color:#F5F3EF;padding:20px 20px 16px;border-radius:14px 14px 0 0">' +
+    '<img src="' + BRAND_URL + 'logo-orizzontale-per-sfondi-scuri.png" width="150" height="33" alt="Serkistraining" style="display:block;border:0;width:150px;height:auto">' +
+    '<div style="margin-top:16px;font-size:16px;font-weight:600">' + escH_(giorno) + '</div></div>' +
+    '<div style="border:1px solid #DCD8D0;border-top:0;border-radius:0 0 14px 14px;padding:8px 20px 18px">';
   let text = "Serkis Coach · " + giorno + "\n";
   if (!sections.length) { html += '<p>Niente di urgente oggi: nessuna scheda in scadenza e nessun avviso dai feedback.</p>'; text += "\nNiente di urgente oggi.\n"; }
   sections.forEach(function (s) {
@@ -1227,8 +1231,8 @@ function digest_() {
     });
     html += '</ul>';
   });
-  html += '<p style="margin-top:20px"><a href="' + APP_URL + '" style="background:#F2C230;color:#161615;padding:10px 16px;border-radius:10px;text-decoration:none;font-weight:600">Apri Serkis Coach</a></p>' +
-    '<p style="font-size:12px;color:#64625C">I controlli sui feedback valgono per le schede con il template nuovo. Mail automatica dal tuo backend Serkis Coach.</p></div></div>';
+  html += '<p style="margin-top:20px"><a href="' + APP_URL + '" style="background:#131B2C;color:#FFFFFF;padding:10px 16px;border-radius:10px;text-decoration:none;font-weight:600">Apri Serkis Coach</a></p>' +
+    '<p style="font-size:12px;color:#4B4945">I controlli sui feedback valgono per le schede con il template nuovo. Mail automatica dal tuo backend Serkis Coach.</p></div></div>';
   text += "\nApri l'app: " + APP_URL + "\n";
   return { subject: subject, html: html, text: text, counts: sections.map(function (s) { return s[0] + ": " + s[1].length; }) };
 }
@@ -1274,4 +1278,174 @@ function provaTestCliente() {
   cl.deleteRow(after.row);
   DriveApp.getFileById(f.id).setTrashed(true);
   Logger.log("Pulito: riga cliente cancellata, file nel cestino");
+}
+
+/* =====================================================================
+ * NUOVO STILE "AVANZAMENTO" SULLE SCHEDE (template, test e schede dei clienti)
+ * Cambia solo l'aspetto: colori del brand al posto di oro e marrone, Saira Condensed
+ * per titoli ed etichette, logo ufficiale in alto a sinistra. Testi, celle, colonne,
+ * feedback e struttura restano identici. Unica eccezione: la scritta "SERKISTRAINING"
+ * nell'intestazione, sostituita dal logo.
+ *
+ *  · provaNuovoStile()      → copia il template nuovo, applica lo stile alla copia e scrive il link
+ *  · applicaNuovoStile()    → applica a tutti i file Serkistraining su Drive; se il tempo finisce,
+ *                             rilancialo: riparte da dove era arrivato. Alla fine scrive "FINITO".
+ *  · applicaNuovoStileReset() → ricomincia da capo
+ * ===================================================================== */
+const BRAND = {
+  notte: "#131B2C", cemento: "#B8B3A9", cementoChiaro: "#DCD8D0", giallo: "#F2C200", grafite: "#4B4945", bianco: "#F5F3EF",
+  fontTitoli: "Saira Condensed",
+  fontDaSostituire: /^(georgia|montserrat|playfair display|lora|merriweather|oswald|bebas neue|archivo|space grotesk)$/i,
+  logoScuri: "logo-orizzontale-per-sfondi-scuri.png",
+  logoChiari: "logo-orizzontale-per-sfondi-chiari.png",
+  logoAlt: "Logo Serkistraining",
+  logoW: 140
+};
+
+function hexRgb_(h) { h = h.replace("#", ""); return { red: parseInt(h.substr(0, 2), 16) / 255, green: parseInt(h.substr(2, 2), 16) / 255, blue: parseInt(h.substr(4, 2), 16) / 255 }; }
+function colOf_(c) { // {rgbColor} o {red,green,blue} → [r,g,b] 0..1, null se assente
+  if (!c) return null; const x = c.rgbColor || c; if (c.themeColor) return null;
+  return [x.red || 0, x.green || 0, x.blue || 0];
+}
+function tone_(rgb) {
+  const r = rgb[0], g = rgb[1], b = rgb[2], mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+  const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b, sat = mx ? (mx - mn) / mx : 0;
+  let hue = 0;
+  if (mx !== mn) { if (mx === r) hue = 60 * (((g - b) / (mx - mn)) % 6); else if (mx === g) hue = 60 * ((b - r) / (mx - mn) + 2); else hue = 60 * ((r - g) / (mx - mn) + 4); }
+  if (hue < 0) hue += 360;
+  const warm = sat >= 0.04 && hue >= 18 && hue <= 70; // oro, marrone, crema
+  return { lum: lum, sat: sat, warm: warm, white: mn > 0.995 };
+}
+// Sfondi: marrone scuro → Notte · oro → Cemento chiaro · crema → Bianco brand o bianco
+function mapBg_(rgb) {
+  if (!rgb) return null; const t = tone_(rgb);
+  if (t.white) return null;
+  if (t.lum < 0.3 && (t.warm || t.sat < 0.15)) return BRAND.notte;
+  if (!t.warm) return null;
+  if (t.sat >= 0.3) return t.lum > 0.45 ? BRAND.cementoChiaro : BRAND.notte;
+  if (t.lum > 0.97 && t.sat < 0.05) return "#FFFFFF";
+  if (t.lum < 0.9) return BRAND.cementoChiaro;
+  return BRAND.bianco;
+}
+// Testo: su Notte → Bianco · marrone scuro → Notte · oro e grigio-marrone → Grafite
+function mapFg_(rgb, bgNew) {
+  if (bgNew === BRAND.notte) return BRAND.bianco;
+  if (!rgb) return null; const t = tone_(rgb);
+  if (!t.warm) return null;
+  if (t.lum < 0.3) return BRAND.notte;
+  return BRAND.grafite;
+}
+// Bordi: oro → Notte · crema → Cemento chiaro · marrone → Notte
+function mapBorder_(rgb) {
+  if (!rgb) return null; const t = tone_(rgb);
+  if (!t.warm) return null;
+  if (t.sat >= 0.3 || t.lum < 0.3) return BRAND.notte;
+  return BRAND.cementoChiaro;
+}
+function sheetsApi_(method, path, body) {
+  const r = UrlFetchApp.fetch("https://sheets.googleapis.com/v4/spreadsheets/" + path, {
+    method: method, contentType: "application/json", payload: body ? JSON.stringify(body) : null,
+    headers: { Authorization: "Bearer " + ScriptApp.getOAuthToken() }, muteHttpExceptions: true
+  });
+  if (r.getResponseCode() !== 200) throw new Error("Sheets API " + r.getResponseCode() + ": " + r.getContentText().slice(0, 300));
+  return JSON.parse(r.getContentText());
+}
+const LOGO_BLOBS_ = {};
+function logoBlob_(name) {
+  if (!LOGO_BLOBS_[name]) LOGO_BLOBS_[name] = UrlFetchApp.fetch(BRAND_URL + name).getBlob().setName(name);
+  return LOGO_BLOBS_[name];
+}
+
+// Applica lo stile a un file. Ritorna il numero di fogli cambiati.
+function stileFile_(id) {
+  const fields = "sheets(properties(sheetId,title),data(startRow,startColumn,rowData(values(formattedValue,userEnteredFormat(backgroundColor,backgroundColorStyle,textFormat(foregroundColor,foregroundColorStyle,fontFamily),borders)))))";
+  const meta = sheetsApi_("get", id + "?fields=" + encodeURIComponent("sheets.properties(sheetId,title)"));
+  const ss = SpreadsheetApp.openById(id);
+  let changed = 0;
+  meta.sheets.forEach(function (shm) {
+    const title = shm.properties.title, sid = shm.properties.sheetId;
+    const g = sheetsApi_("get", id + "?includeGridData=true&ranges=" + encodeURIComponent("'" + title.replace(/'/g, "''") + "'!A1:Z300") + "&fields=" + encodeURIComponent(fields));
+    const rows = (((g.sheets || [])[0] || {}).data || [{}])[0].rowData || [];
+    // solo fogli Serkistraining: la scritta del brand nelle prime righe
+    let brandRow = -1, brandCol = -1;
+    for (let r = 0; r < Math.min(rows.length, 4) && brandRow < 0; r++) {
+      const vs = rows[r].values || [];
+      for (let c = 0; c < vs.length; c++) if (/SERKISTRAINING/i.test(vs[c].formattedValue || "")) { brandRow = r; brandCol = c; break; }
+    }
+    if (brandRow < 0) return;
+    const req = []; let brandBg = null;
+    rows.forEach(function (row, r) {
+      (row.values || []).forEach(function (v, c) {
+        const f = v.userEnteredFormat; if (!f) return;
+        const tf = f.textFormat || {}, uf = {}, mask = [];
+        const bgNew = mapBg_(colOf_(f.backgroundColorStyle || f.backgroundColor));
+        if (bgNew) { uf.backgroundColorStyle = { rgbColor: hexRgb_(bgNew) }; mask.push("userEnteredFormat.backgroundColorStyle"); }
+        if (r === brandRow && c === brandCol) brandBg = bgNew || null;
+        const fgNew = mapFg_(colOf_(tf.foregroundColorStyle || tf.foregroundColor), bgNew);
+        uf.textFormat = {};
+        if (fgNew) { uf.textFormat.foregroundColorStyle = { rgbColor: hexRgb_(fgNew) }; mask.push("userEnteredFormat.textFormat.foregroundColorStyle"); }
+        if (tf.fontFamily && BRAND.fontDaSostituire.test(tf.fontFamily)) { uf.textFormat.fontFamily = BRAND.fontTitoli; mask.push("userEnteredFormat.textFormat.fontFamily"); }
+        if (f.borders) {
+          let bc = false; const nb = {};
+          ["top", "bottom", "left", "right"].forEach(function (k) {
+            const b = f.borders[k]; if (!b) return;
+            const m = mapBorder_(colOf_(b.colorStyle || b.color));
+            nb[k] = { style: b.style, colorStyle: m ? { rgbColor: hexRgb_(m) } : (b.colorStyle || { rgbColor: b.color || {} }) };
+            if (m) bc = true;
+          });
+          if (bc) { uf.borders = nb; mask.push("userEnteredFormat.borders"); }
+        }
+        if (!mask.length) return;
+        req.push({ updateCells: { rows: [{ values: [{ userEnteredFormat: uf }] }], fields: mask.join(","), start: { sheetId: sid, rowIndex: r, columnIndex: c } } });
+      });
+    });
+    // la scritta SERKISTRAINING lascia il posto al logo
+    const old = String(rows[brandRow].values[brandCol].formattedValue || "");
+    const rest = old.replace(/SERKISTRAINING/ig, "").replace(/^[\s·─—–\-|│]+|[\s·─—–\-|│]+$/g, "").trim();
+    req.push({ updateCells: { rows: [{ values: [{ userEnteredValue: { stringValue: rest }, userEnteredFormat: { horizontalAlignment: rest ? "RIGHT" : "LEFT", padding: { right: 16 } } }] }],
+      fields: "userEnteredValue,userEnteredFormat.horizontalAlignment,userEnteredFormat.padding", start: { sheetId: sid, rowIndex: brandRow, columnIndex: brandCol } } });
+    req.push({ updateDimensionProperties: { range: { sheetId: sid, dimension: "ROWS", startIndex: brandRow, endIndex: brandRow + 1 }, properties: { pixelSize: 64 }, fields: "pixelSize" } });
+    sheetsApi_("post", id + ":batchUpdate", { requests: req });
+    // logo sopra la griglia, in alto a sinistra; spazio libero ≥ altezza di una lettera
+    const sh = ss.getSheetByName(title);
+    sh.getImages().forEach(function (im) { if (im.getAltTextTitle() === BRAND.logoAlt) im.remove(); });
+    const dark = brandBg === BRAND.notte;
+    const h = Math.round(BRAND.logoW * 437 / 2000);
+    const img = sh.insertImage(logoBlob_(dark ? BRAND.logoScuri : BRAND.logoChiari), 1, brandRow + 1, 16, Math.round((64 - h) / 2));
+    img.setWidth(BRAND.logoW).setHeight(h).setAltTextTitle(BRAND.logoAlt).setAltTextDescription("Serkistraining");
+    changed++;
+  });
+  SpreadsheetApp.flush();
+  return changed;
+}
+
+function fileDaRestyle_() {
+  const ids = {}, out = [];
+  const add = function (f) { if (!ids[f.getId()] && !/ARCHIVIO/i.test(f.getName())) { ids[f.getId()] = 1; out.push({ id: f.getId(), name: f.getName() }); } };
+  const it = DriveApp.searchFiles('fullText contains "SERKISTRAINING" and mimeType = "application/vnd.google-apps.spreadsheet" and trashed = false');
+  while (it.hasNext()) add(it.next());
+  templates_().templates.forEach(function (t) { try { add(DriveApp.getFileById(t.id)); } catch (e) {} });
+  athletes_({}).athletes.forEach(function (a) { (a.sheetLinks || []).forEach(function (l) { try { add(DriveApp.getFileById(l.id)); } catch (e) {} }); });
+  return out;
+}
+function applicaNuovoStile() {
+  const props = PropertiesService.getScriptProperties(), t0 = Date.now();
+  const done = JSON.parse(props.getProperty("STILE_DONE") || "{}");
+  const list = fileDaRestyle_();
+  let n = 0, skip = 0, err = 0;
+  for (let i = 0; i < list.length; i++) {
+    const f = list[i]; if (done[f.id]) continue;
+    if (Date.now() - t0 > 270000) { Logger.log("Tempo finito: rilancia applicaNuovoStile per continuare. Fatti finora: " + Object.keys(done).length + "/" + list.length); return; }
+    try { const k = stileFile_(f.id); if (k) n++; else skip++; Logger.log((k ? "OK  " : "--  ") + f.name + (k ? " (" + k + " fogli)" : " (non è un foglio Serkistraining)")); }
+    catch (e) { err++; Logger.log("ERRORE " + f.name + ": " + e.message); }
+    done[f.id] = 1; props.setProperty("STILE_DONE", JSON.stringify(done));
+  }
+  Logger.log("FINITO · file aggiornati: " + n + " · saltati: " + skip + " · errori: " + err);
+}
+function applicaNuovoStileReset() { PropertiesService.getScriptProperties().deleteProperty("STILE_DONE"); Logger.log("ok, si ricomincia da capo"); }
+function provaNuovoStile() {
+  const t = templates_().templates.filter(function (x) { return x.kind === "scheda" && /template\s*b\b|giallo/i.test(x.title); })[0];
+  const copy = DriveApp.getFileById(t.id).makeCopy("PROVA STILE da cancellare");
+  Logger.log("Fogli aggiornati: " + stileFile_(copy.getId()));
+  Logger.log("Apri la copia: " + copy.getUrl());
 }

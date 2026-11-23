@@ -1,0 +1,10 @@
+SERKISTRAINING — FILE DEL LOGO
+
+Concept: "Avanzamento". Carattere: Saira Condensed (SERKIS 800, TRAINING 300), già convertito in tracciati.
+Colori: Notte #131B2C · Cemento #B8B3A9 · Cemento chiaro #DCD8D0 · Giallo #F2C200 · Bianco #F5F3EF · Grafite #4B4945
+
+svg/  file vettoriali (qualsiasi dimensione, ideali per app e web)
+png/  stessi file con sfondo trasparente (loghi 2000 px di larghezza, icone 1024 px), più favicon-64.png
+
+Regole: lasciare intorno al logo almeno l'altezza di una lettera; sotto i 120 px di larghezza usare l'icona.
+Non ridisegnare, deformare o ricolorare il logo fuori da queste versioni.
