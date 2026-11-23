@@ -1,6 +1,6 @@
 (function(){
 "use strict";
-const VERSION="3.1";
+const VERSION="3.2";
 const NOTES_ID="1jzW0uELNty_8Dx0AWhwJXzg7YObm6Nr_fYbNlP0Z3mo";
 const NOTES_URL="https://docs.google.com/spreadsheets/d/"+NOTES_ID+"/edit";
 const DS_COACH="collection://264112d7-0f3d-80c1-9340-000bfe370a29";
@@ -107,6 +107,8 @@ function finalize(list){
     if(a.sheetId&&!a.sheetGid){const l=a.sheetLinks.find(x=>x.id===a.sheetId);if(l)a.sheetGid=l.gid}
     a.sede=sedeOf(a.tag,a.src);a.startD=pd(a.start);a.subD=pd(a.subStart);a.evalD=pd(a.firstEval);
     a.wk=weekInfo(a.startD,a.dur);a.active=a.status!=="Fine collaborazione";
+    // scheda nuova già creata ma con inizio futuro: "run" è quella che l'atleta sta ancora facendo (dal backend)
+    if(a.run&&a.run.start){a.runD=pd(a.run.start);a.runWk=weekInfo(a.runD,a.run.dur)}else{a.run=null;a.runWk=null}
     let s=slugOf(a.name);if(used[s])s+="-"+(a.src==="vf"?"kineva":++used[s]);used[s]=1;a.slug=s;
     a.ini=a.name.split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join("").toUpperCase();
     return a;
@@ -408,6 +410,7 @@ function linkSig(a){return(a.sheetLinks||[]).map(l=>l.id+(l.gid?":"+l.gid:"")).j
 function pinClient(a){
   const c=S.clients[a.id];if(!c||!S.adapter||!S.adapter.caps.client)return;
   const cs=curSheet(a);if(cs.loading||!cs.sh||cs.sh.status==="error")return;
+  if(cs.where==="alt"&&cs.alt.run)return; // la scheda in corso la sceglie il backend in base alle date
   const id=cs.where==="alt"?cs.alt.id:cs.sh.id,tab=cs.sh.tab||"",sig=linkSig(a);
   if(!id||(c.pinSheet===id&&c.pinTab===tab&&c.pinSig===sig)||S.pinned[a.id]===id+tab+sig)return;
   S.pinned[a.id]=id+tab+sig;
@@ -629,7 +632,7 @@ let raf=0,pendingMain=false;
 function renderSoon(){if(raf)return;raf=requestAnimationFrame(()=>{raf=0;render()})}
 function cacheSave(){
   const sh={};Object.keys(S.sheets).forEach(k=>{const v=S.sheets[k];if(v&&v.status==="ok")sh[k]={id:v.id,tab:v.tab,values:v.values,url:v.url}});
-  store.set("cache",{at:Date.now(),athletes:S.athletes.map(a=>({src:a.src,id:a.id,name:a.name,tag:a.tag,status:a.status,start:a.start,dur:a.dur,subStart:a.subStart,firstEval:a.firstEval,sheetId:a.sheetId,sheetGid:a.sheetGid,sheetLinks:a.sheetLinks,valId:a.valId,notionUrl:a.notionUrl,analisiUrl:a.analisiUrl,videoUrl:a.videoUrl})),sheets:sh,notes:S.notes});
+  store.set("cache",{at:Date.now(),athletes:S.athletes.map(a=>({src:a.src,id:a.id,name:a.name,tag:a.tag,status:a.status,start:a.start,dur:a.dur,subStart:a.subStart,firstEval:a.firstEval,sheetId:a.sheetId,sheetGid:a.sheetGid,sheetLinks:a.sheetLinks,run:a.run||null,valId:a.valId,notionUrl:a.notionUrl,analisiUrl:a.analisiUrl,videoUrl:a.videoUrl})),sheets:sh,notes:S.notes});
 }
 function cacheLoad(){
   const c=store.get("cache",null);if(!c||!c.athletes)return;
@@ -764,7 +767,7 @@ async function ensurePage(a,fresh){
 async function ensureAlt(a){
   const alt=S.alt[a.id];if(!alt||alt.sh)return;
   alt.loading=true;renderSoon();
-  try{const r=await S.adapter.sheet(alt.id,null,false);const P=parseSheet(r.values);alt.sh={status:"ok",id:r.id,tab:r.tab,values:r.values,url:r.url,P,an:analyze(P)}}
+  try{const r=await S.adapter.sheet(alt.id,null,false,alt.gid||null);const P=parseSheet(r.values);alt.sh={status:"ok",id:r.id,tab:r.tab,values:r.values,url:r.url,P,an:analyze(P)}}
   catch(e){alt.sh={status:"error",err:e}}
   alt.loading=false;renderSoon();
 }
@@ -975,7 +978,7 @@ function renderBar(){
 function avatar(a){const sg=signalOf(a).level;return`<span class="av" aria-hidden="true">${esc(a.ini)}<i class="${sg}"></i></span>`}
 function rowSub(a){
   const b=[SEDE[a.sede]];
-  if(a.wk){if(a.wk.future)b.push("inizia il "+fd(a.startD));else if(a.dur)b.push("Sett. "+a.wk.week+"/"+a.dur+" · fino "+fd(a.wk.end));else b.push("Sett. "+a.wk.week+(a.src==="vf"?" protocollo":""))}
+  if(a.wk){if(a.wk.future&&a.runWk&&!a.runWk.future)b.push("Sett. "+Math.min(a.runWk.week,a.run.dur||a.runWk.week)+(a.run.dur?"/"+a.run.dur:"")+" · nuova dal "+fd(a.startD));else if(a.wk.future)b.push("inizia il "+fd(a.startD));else if(a.dur)b.push("Sett. "+a.wk.week+"/"+a.dur+" · fino "+fd(a.wk.end));else b.push("Sett. "+a.wk.week+(a.src==="vf"?" protocollo":""))}
   else b.push("data inizio mancante");return b.join(" · ");
 }
 function statusPill(a){
@@ -1149,6 +1152,9 @@ function nextStep(a){
   const bNew=`<button class="btn pri" type="button" data-new="scheda" data-aid="${a.id}">${ICON.plus}Nuova scheda</button>`;
   const bCl=`<button class="btn" type="button" data-act="client">${ICON.link}${S.clients[a.id]?"Link cliente":"Crea link cliente"}</button>`;
   if(!a.active)return{lv:"",t:"Collaborazione finita",p:"Nessuna scheda da preparare.",b:""};
+  if(a.run&&a.runWk&&a.wk&&a.wk.future){const rw=a.runWk;
+    return{lv:"info",t:"Nuova scheda pronta",p:"Parte "+GIORNI[a.startD.getDay()]+" "+fd(a.startD)+". Fino ad allora il link cliente resta sulla scheda in corso"+(rw.dur&&!rw.future?" (sett. "+Math.min(rw.week,rw.dur)+"/"+rw.dur+(rw.end?", finisce "+fd(rw.end):"")+")":"")+", così l'atleta chiude l'ultima settimana e i feedback.",
+      b:`<button class="btn" type="button" data-act="run-view">Feedback della scheda in corso</button>`}}
   if(sc&&sc.rank<=1)return{lv:"bad",t:"Prossimo passo",p:(sc.rank===0?"La scheda è finita il "+fd(a.wk.end):"È l'ultima settimana della scheda")+". Prepara la nuova"+(cl?" e crea il suo link cliente.":"."),b:bNew+(S.adapter.caps.client&&a.src==="coach"?bCl:"")};
   if(testDoneOf(a))return{lv:"warn",t:"Prossimo passo",p:"Ha compilato il test il "+fd(testDoneOf(a))+". Guarda i risultati e prepara la scheda.",b:`<button class="btn pri" type="button" data-tab="test">Vedi i risultati</button>`+bNew};
   if(isTest(a)&&testSentOf(a))return{lv:"warn",t:"Test mandato",p:"Aspetto che compili i test dal suo link.",b:`<button class="btn" type="button" data-tab="test">Vedi il test</button>`};
@@ -1255,15 +1261,17 @@ function tabFeedback(a){
   if(c.sh.status==="error")return errBox(c.sh.err,"Google Sheets","reload-sheet");
   const P=skOf(c.sh);
   if(!P||!P.days.length)return`<div class="empty">Questa scheda ha un formato vecchio: i feedback li trovi nella scheda <b>Scheda</b>. La pagina cliente funziona con i template "Programmazione" e "Serkistraining".</div>`;
-  const dur=a.dur||P.weeks||6,now=a.wk&&!a.wk.future?Math.min(a.wk.week,dur):1,V=S.fbView;
-  if(V.aid!==a.id){V.aid=a.id;V.week=Math.max(now,1);V.day=0}
+  const run=c.alt&&c.alt.run&&a.run,WK=run?a.runWk:a.wk;
+  const dur=(run?a.run.dur:a.dur)||P.weeks||6,now=WK&&!WK.future?Math.min(WK.week,dur):1,V=S.fbView,vk=a.id+(c.alt?":"+c.alt.id:"");
+  if(V.aid!==vk){V.aid=vk;V.week=Math.max(now,1);V.day=0}
   const w=V.week,D=P.days[Math.min(V.day,P.days.length-1)];
   const kg=s=>{const m=String(s).match(/([\d,]+)\s*kg(?![\s\S]*kg)/i);return m?parseFloat(m[1].replace(",",".")):null};
   const chg=(it,n)=>{if(n<2)return"";const x=SK.doseFor(it.dose,n-1),y=SK.doseFor(it.dose,n);if(x===y)return"";const p=kg(x),q=kg(y);return p!=null&&q!=null&&p!==q?(q>p?"+":"")+String(+(q-p).toFixed(2)).replace(".",",")+" kg":"cambia"};
   const al=SK.alerts(P,dur),flag=(it,n)=>{const f=SK.readFb(it.fb,n),r=SK.rpeOf(f);
     if(al.some(x=>x.ex===it.name&&x.kind==="hard"&&n<=x.week&&r===10))return"bad";if(/^SALTATO/i.test(f)||/(^|·\s*)non chiuso/i.test(f))return"warn";if(tone(f)==="bad")return"bad";if(r===10||tone(f)==="warn")return"warn";return f?"ok":""};
   const dates=sessionDates(a,w);
-  let h=`<div class="fb-bar"><div class="seg2">${P.days.map((d,k)=>`<button type="button" data-fbday="${k}" class="${D===d?"on":""}">${esc(d.label)}</button>`).join("")}</div>
+  let h=run?`<div class="banner">Stai guardando i feedback della scheda in corso. La nuova parte il ${fd(a.startD)}.<button class="btn sm" type="button" data-act="alt-off">Torna alla scheda nuova</button></div>`:"";
+  h+=`<div class="fb-bar"><div class="seg2">${P.days.map((d,k)=>`<button type="button" data-fbday="${k}" class="${D===d?"on":""}">${esc(d.label)}</button>`).join("")}</div>
     <div class="seg2">${[["week","Per settimana"],["ex","Per esercizio"]].map(([k,l])=>`<button type="button" data-fbmode="${k}" class="${V.mode===k?"on":""}">${l}</button>`).join("")}</div></div>`;
   if(V.mode==="week"){
     h+=`<div class="fb-weeks"><button class="btn sm" type="button" data-fbweek="${Math.max(1,w-1)}" aria-label="Settimana precedente" ${w<=1?"disabled":""}>‹</button>
@@ -1662,6 +1670,7 @@ document.addEventListener("click",async ev=>{
   if(act==="reload-tests"&&a){ensureTests(a,true);return}
   if(act==="reload-files"&&a){ensureFiles(a,true);return}
   if(act==="reload-page"&&a){ensurePage(a,true);return}
+  if(act==="run-view"&&a&&a.run){S.alt[a.id]={id:a.run.sheetId,gid:a.run.gid||null,title:a.run.title||"la scheda in corso",run:true};S.tab="feedback";S.edit=null;render();return}
   if(act==="alt-off"&&a){delete S.alt[a.id];S.edit=null;render();return}
   if(act==="edit-cancel"){S.edit=null;S.editErr=null;render();return}
   if(act==="history"&&a){loadHistory(a);return}

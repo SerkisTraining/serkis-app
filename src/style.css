@@ -700,6 +700,7 @@ select,.inp{font-size:13px;padding:5px 8px;border-radius:8px}
 .nbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 12px;border-radius:10px;margin-bottom:10px;font-size:13.5px}
 .nbar>span:first-child{flex:1 1 260px}
 .nbar.bad{background:var(--bad-soft);color:var(--bad)}.nbar.warn{background:var(--warn-soft);color:var(--warn)}
+.nbar.info{background:var(--info-soft);color:var(--info)}
 .nbar .ed-row{gap:6px}
 .nbar .btn{padding:4px 10px}
 .tabs{margin-bottom:10px}

@@ -25,7 +25,7 @@ const CONFIG = {
   VF_DS: "800b8a16-6f27-4a04-984f-3f9e2ce7f640",
   VF_DB: "d2f147fd8bc840c3ac5b78e509ef365f"
 };
-const VERSION = "1.8";
+const VERSION = "1.9";
 // Indirizzo della pagina cliente (il link che mandi agli atleti finisce con #t=CODICE)
 const CLIENT_PAGE = "https://serkistraining.github.io/serkis-app/c/";
 
@@ -254,6 +254,16 @@ function athletes_(req) {
   } catch (e) { /* database Kineva non collegato all'integrazione */ }
   const all = coach.concat(vf);
   all.forEach(function (a) { const cur = pickCurrent_(a.sheetLinks || []); a.sheetId = cur ? cur.id : null; a.sheetGid = cur ? cur.gid : null; });
+  // Scheda nuova già pronta ma con inizio futuro: "run" è quella che l'atleta sta ancora facendo
+  let reg = null;
+  try { reg = passRows_(); } catch (e) { reg = []; }
+  all.forEach(function (a) {
+    if (a.src !== "coach" || !a.sheetId || !a.start || a.start <= todayIso_()) return;
+    try {
+      const P = schedule_({ id: a.id, start: a.start, dur: a.dur, links: a.sheetLinks || [] }, reg);
+      if (P.next) a.run = { sheetId: P.live.id, gid: P.live.gid || null, start: P.live.start, dur: P.live.dur, title: P.live.title || "" };
+    } catch (e) {}
+  });
   try { cache.put("athletes", JSON.stringify(all), 120); } catch (e) {}
   return { athletes: all };
 }
@@ -292,6 +302,18 @@ function notionLink_(req, url) {
     if (pg.code !== 200) throw notionErr_(pg);
     const cur = ((pg.json.properties || {})["Training Program"] || {}).files || [];
     if (cur.some(function (f) { return f.type !== "external"; })) return { error: "Training Program contiene file caricati in Notion: aggiorna il link a mano." };
+    // la scheda in corso (link, inizio, durata) resta registrata: la pagina cliente la usa fino all'inizio della nuova
+    try {
+      const P0 = pg.json.properties || {};
+      const prev = pickCurrent_(links_(cur.map(function (f) { return f.external.url; }).join(" ")));
+      const pStart = pt_(P0["Data inizio"]) || "", pDur = parseInt(pt_(P0["Durata scheda"]), 10) || "";
+      const nid = sid_(url);
+      if (prev && prev.id !== nid && pStart) {
+        const lg = tab_("Passaggi", PS_COLS);
+        lg.getRange(lg.getLastRow() + 1, 1, 1, PS_COLS.length).setNumberFormat("@").setValues([[new Date().toISOString(), pid.replace(/-/g, ""), pt_(P0["Nome Cognome"]).trim(),
+          prev.id, prev.gid || "", pStart.slice(0, 10), String(pDur), nid || "", String(req.startDate || "").slice(0, 10), String(req.weeks || "")]]);
+      }
+    } catch (e) { /* il registro è un aiuto: se non riesce, la scheda viene creata lo stesso */ }
     const files = [{ name: String(req.title).slice(0, 100), type: "external", external: { url: url } }]
       .concat(cur.map(function (f) { return { name: f.name, type: "external", external: { url: f.external.url } }; }));
     props["Training Program"] = { files: files.slice(0, 25) };
@@ -762,21 +784,94 @@ function athleteOne_(id) {
 }
 function sigOf_(links) { return links.map(function (l) { return l.id + (l.gid ? ":" + l.gid : ""); }).join(","); }
 
+/* ---------- passaggio da una scheda alla successiva ---------- */
+// Quando crei la scheda nuova prima che finisca quella in corso, il link cliente cambia scheda
+// il giorno di inizio della nuova, non il giorno in cui la crei. Foglio "Passaggi" nel file note.
+const PS_COLS = ["at", "athleteId", "athleteName", "prevSheet", "prevGid", "prevStart", "prevDur", "nextSheet", "nextStart", "nextDur"];
+function todayIso_() { return Utilities.formatDate(new Date(), "Europe/Rome", "yyyy-MM-dd"); }
+function isoAdd_(s, n) {
+  const m = String(s || "").match(/^(\d{4})-(\d{2})-(\d{2})/); if (!m) return null;
+  const d = new Date(+m[1], +m[2] - 1, +m[3]); d.setDate(d.getDate() + n);
+  return Utilities.formatDate(d, "Europe/Rome", "yyyy-MM-dd");
+}
+function passRows_() {
+  const ss = SpreadsheetApp.openById(CONFIG.NOTES_ID), sh = ss.getSheetByName("Passaggi");
+  return sh ? rows_(sh, PS_COLS.length) : [];
+}
+// Inizio e settimane scritti nell'intestazione della scheda ("5 settimane · 16/11/2026 - 20/12/2026")
+function sheetDates_(values) {
+  let start = null, weeks = null;
+  (values || []).slice(0, 12).forEach(function (row) { (row || []).forEach(function (c) {
+    c = String(c || "");
+    if (weeks == null) { const w = c.match(/(\d{1,2})\s*settimane/i); if (w) weeks = +w[1]; }
+    if (!start) { const d = c.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/); if (d) start = d[3] + "-" + ("0" + d[2]).slice(-2) + "-" + ("0" + d[1]).slice(-2); }
+  }); });
+  return { start: start, weeks: weeks };
+}
+// Senza registro (schede create prima di questa versione o a mano): la scheda precedente è
+// l'altro link più recente di Training Program, con le date lette dalla sua intestazione.
+function guessPrev_(a, curId) {
+  const others = (a.links || []).filter(function (l) { return l.id !== curId; });
+  const p = pickCurrent_(others); if (!p) return null;
+  const k = "pd:" + p.id + ":" + (p.gid || ""), cache = CacheService.getScriptCache(), hit = cache.get(k);
+  if (hit) return JSON.parse(hit);
+  let out = null;
+  try {
+    const s = readSheet_(p.id, null, 12, 12, p.gid), d = sheetDates_(s.values);
+    out = d.start ? { id: p.id, gid: p.gid || null, start: d.start, dur: d.weeks, title: s.title } : null;
+  } catch (e) { out = null; }
+  try { cache.put(k, JSON.stringify(out), 21600); } catch (e) {}
+  return out;
+}
+// live: scheda che l'atleta sta facendo oggi · next: scheda nuova già pronta che parte più avanti
+// prev: scheda appena finita (prima settimana della nuova), per completare gli ultimi feedback
+function schedule_(a, reg) {
+  const cur = pickCurrent_(a.links || []);
+  const live = { id: cur ? cur.id : null, gid: cur ? cur.gid : null, start: a.start, dur: a.dur };
+  const t = todayIso_();
+  if (!cur || !a.start) return { live: live, next: null, prev: null };
+  const after = a.start > t, firstWeek = !after && a.start > isoAdd_(t, -7);
+  if (!after && !firstWeek) return { live: live, next: null, prev: null };
+  let other = null;
+  const rows = reg || passRows_();
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const r = rows[i];
+    if (r[1] === a.id && r[7] === cur.id) { other = { id: r[3], gid: r[4] || null, start: r[5], dur: parseInt(r[6], 10) || null }; break; }
+  }
+  if (!other) other = guessPrev_(a, cur.id);
+  if (!other || !other.start || other.id === cur.id) return { live: live, next: null, prev: null };
+  const end = other.dur ? isoAdd_(other.start, other.dur * 7) : null;
+  // nuova non ancora partita: resta la precedente se è in corso o finita da meno di una settimana
+  if (after) return other.start <= t && (!end || end >= isoAdd_(t, -7)) ? { live: other, next: live, prev: null } : { live: live, next: null, prev: null };
+  // nuova già partita: la precedente si completa solo se è finita da poco
+  return { live: live, next: null, prev: end && end >= isoAdd_(a.start, -7) ? other : null };
+}
+
 function clientSheet_(c) {
   const a = athleteOne_(c.athleteId);
+  a.id = c.athleteId;
   const sig = sigOf_(a.links);
+  let P = { live: null, next: null, prev: null };
+  try { P = schedule_(a); } catch (e) {}
   let sheetId = null, tab = null, gid = null;
-  if (c.pinSheet && c.pinSig === sig) { sheetId = c.pinSheet; tab = c.pinTab || null; }
+  if (P.next) { sheetId = P.live.id; gid = P.live.gid; }
+  else if (c.pinSheet && c.pinSig === sig) { sheetId = c.pinSheet; tab = c.pinTab || null; }
   else { const cur = pickCurrent_(a.links); if (cur) { sheetId = cur.id; gid = cur.gid; } }
-  if (!sheetId && !c.pinSheet) return { a: a, sheet: null };
+  const out = { a: a, sheet: null, start: P.next ? P.live.start : a.start, dur: P.next ? P.live.dur : a.dur,
+    next: P.next ? { start: P.next.start, dur: P.next.dur } : null, prev: null };
+  if (!sheetId && !c.pinSheet) return out;
   let s;
   try { s = readSheet_(sheetId || c.pinSheet, sheetId ? tab : c.pinTab, 220, 12, gid, true); }
   catch (e) {
     // link Notion a un file eliminato: usa la scheda che l'app del coach ha riconosciuto
-    if (!c.pinSheet || c.pinSheet === sheetId) throw e;
+    if (P.next || !c.pinSheet || c.pinSheet === sheetId) throw e;
     s = readSheet_(c.pinSheet, c.pinTab || null, 220, 12, null, true);
   }
-  return { a: a, sheet: s };
+  out.sheet = s;
+  if (P.prev) {
+    try { out.prev = { sheet: readSheet_(P.prev.id, null, 220, 12, P.prev.gid, true), start: P.prev.start, dur: P.prev.dur }; } catch (e) {}
+  }
+  return out;
 }
 
 const CLIENT_ACTIONS = {
@@ -791,8 +886,10 @@ const CLIENT_ACTIONS = {
       return { error: "La tua scheda non è ancora pronta. Il coach te la manda a breve.", code: "nosheet" };
     }
     const a = r ? r.a : athleteOne_(c.athleteId);
-    return { name: a.name, start: a.start, dur: a.dur, showFuture: c.showFuture, g: c.gender || "",
-      sheet: r && r.sheet ? { id: r.sheet.id, tab: r.sheet.tab, title: r.sheet.title, values: r.sheet.values, links: r.sheet.links || {} } : null, test: test };
+    const pack = function (x) { return { id: x.id, tab: x.tab, title: x.title, values: x.values, links: x.links || {} }; };
+    return { name: a.name, start: r ? r.start : a.start, dur: r ? r.dur : a.dur, showFuture: c.showFuture, g: c.gender || "",
+      sheet: r && r.sheet ? pack(r.sheet) : null, test: test,
+      next: r ? r.next : null, prev: r && r.prev ? { sheet: pack(r.prev.sheet), start: r.prev.start, dur: r.prev.dur } : null };
   },
   // Test dal link cliente: scrive il risultato nella colonna RISULTATO della prova
   c_test_save: function (req) {
@@ -835,8 +932,10 @@ const CLIENT_ACTIONS = {
   c_save: function (req) {
     const c = clientByToken_(req.token);
     if (!c || !c.active) return { error: "Link non valido o disattivato.", code: "token" };
-    const r = clientSheet_(c);
-    if (!r.sheet || r.sheet.id !== req.sheetId || r.sheet.tab !== req.tab) return { error: "La scheda è cambiata: ricarica la pagina.", code: "changed" };
+    const r0 = clientSheet_(c);
+    const pick = [r0.sheet, r0.prev && r0.prev.sheet].filter(function (x) { return x && x.id === req.sheetId && x.tab === req.tab; })[0];
+    if (!pick) return { error: "La scheda è cambiata: ricarica la pagina.", code: "changed" };
+    const r = { sheet: pick };
     const row = Number(req.row), col = Number(req.col), week = Number(req.week);
     if (!(row > 1 && row <= 220 && col >= 1 && col <= 12 && week >= 1 && week <= 12)) throw new Error("Cella non valida");
     let isFb = false;
@@ -1036,11 +1135,12 @@ function escH_(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, functio
 function digest_() {
   const today = romeToday_();
   const list = athletes_({ fresh: true }).athletes.filter(function (a) { return a.status !== "Fine collaborazione"; });
-  const S = { scadute: [], ultima: [], arrivo: [], dolore: [], rpe: [], saltati: [], fermi: [], test: [], nuovi: [], problemi: [] };
+  const S = { scadute: [], ultima: [], arrivo: [], dolore: [], rpe: [], saltati: [], fermi: [], test: [], nuovi: [], problemi: [], pronte: [] };
   list.forEach(function (a) {
     if (a.status === "Mandare test/testare") S.test.push({ a: a, t: "test da fare" });
     if (a.status === "Da fare" || a.status === "In coda") S.nuovi.push({ a: a, t: a.status });
-    const start = isoDay_(a.start), dur = a.dur;
+    const R = a.run || a, start = isoDay_(R.start), dur = R.dur;
+    if (a.run) S.pronte.push({ a: a, t: "la nuova parte " + itD_(isoDay_(a.start)) + "; fino ad allora l'atleta resta sulla scheda in corso" });
     let week = null;
     if (start) {
       const days = Math.round((today - start) / 864e5);
@@ -1048,7 +1148,7 @@ function digest_() {
       if (dur && a.src === "coach" && days >= 0) {
         const end = addD_(start, dur * 7 - 1);
         if (week > dur) S.scadute.push({ a: a, t: "scheda finita " + itD_(end) + " (" + (days - dur * 7 + 1) + " gg fa)" });
-        else if (week === dur) S.ultima.push({ a: a, t: "ultima settimana, finisce " + itD_(end) + ": la nuova parte " + itD_(addD_(end, 1)) });
+        else if (week === dur && !a.run) S.ultima.push({ a: a, t: "ultima settimana, finisce " + itD_(end) + ": la nuova parte " + itD_(addD_(end, 1)) });
         else if (week === dur - 1) S.arrivo.push({ a: a, t: "penultima settimana, finisce " + itD_(end) });
       }
     } else if (a.src === "coach" && a.sheetId) S.problemi.push({ a: a, t: "manca la data di inizio in Notion" });
@@ -1056,7 +1156,7 @@ function digest_() {
     if (!week) return;
     let P;
     try {
-      const sh = readSheet_(a.sheetId, null, 220, 12, a.sheetGid);
+      const sh = readSheet_(a.run ? a.run.sheetId : a.sheetId, null, 220, 12, a.run ? a.run.gid : a.sheetGid);
       P = SK.parse(sh.values);
     } catch (e) { S.problemi.push({ a: a, t: "non riesco ad aprire la scheda (" + e.message + ")" }); return; }
     if (!P.days.length) return; // formato vecchio: il controllo dei feedback si fa solo sui template nuovi
@@ -1102,6 +1202,7 @@ function digest_() {
     ["Nuovi atleti da impostare", S.nuovi, "#8A5C00"],
     ["Feedback fermi da 2+ settimane", S.fermi, "#45443F"],
     ["In arrivo (penultima settimana)", S.arrivo, "#45443F"],
+    ["Schede nuove già pronte", S.pronte, "#45443F"],
     ["Da sistemare in Notion", S.problemi, "#45443F"]
   ].filter(function (s) { return s[1].length; });
   const urgent = S.scadute.length + S.ultima.length + S.dolore.length + S.rpe.length;

@@ -59,6 +59,12 @@ h1{margin:0;font-family:"Space Grotesk",sans-serif;font-size:30px;font-weight:60
 .it .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
 .it .nm{display:flex;align-items:center;gap:8px;font-size:16px;font-weight:600}
 .it .ds{font-size:13px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.it .ls{font-size:12px;color:var(--mut2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.it .ls b{font-weight:600;color:var(--mut)}
+.pass{display:flex;flex-direction:column;gap:10px;padding:14px 16px;border-radius:18px;background:var(--s2);border:1px solid var(--line)}
+.pass.y{background:rgba(242,194,48,.08);border-color:rgba(242,194,48,.4)}
+.pass p{margin:0;font-size:14px;line-height:1.45;color:var(--ink2)}
+.pass .btn{flex:none;height:44px;font-size:15px}
 .tag{padding:2px 8px;border-radius:99px;background:rgba(242,194,48,.14);color:var(--y);font-size:11px;font-weight:600;white-space:nowrap}
 .btn{flex:1;height:56px;border-radius:16px;font-size:16px;font-weight:600;border:1px solid var(--line);background:var(--s2)}
 .btn.pri{background:var(--y);color:var(--on-y);border-color:var(--y)}
@@ -341,7 +347,7 @@ if(typeof module!=="undefined")module.exports=SK;
 </script>
 <script>
 const BACKEND="https://script.google.com/macros/s/AKfycbw3n7F9-MfjAbRasuj6DICyN_plOyC8MxJOcryWQ8uayT1CxiTFtDRiDg9gV7OdsUMv/exec";
-const BUILD="4a6726fad8";
+const BUILD="c171ed4200";
 // Il telefono tiene in memoria la pagina per qualche minuto: se online c'è una versione nuova, ricarica una volta sola
 (async()=>{try{const r=await fetch(location.pathname+"?b="+Date.now(),{cache:"no-store"});const m=(await r.text()).match(/const BUILD="([0-9a-f]{10})"/);
   if(m&&m[1]!==BUILD){const k="st_reload_"+m[1];if(!sessionStorage.getItem(k)){sessionStorage.setItem(k,"1");location.reload()}}}catch(e){}})();
@@ -349,7 +355,7 @@ const COACH="Serkis";
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 // Link del foglio: sul nome dell'esercizio (video dell'esecuzione) e indirizzi scritti per intero in dose e note
-function linksOf(it){const L=S.d&&S.d.sheet&&S.d.sheet.links;return L&&it&&it.ncol?(L[it.row+","+it.ncol]||[]):[]}
+function linksOf(it){const L=S.sh&&S.sh.links;return L&&it&&it.ncol?(L[it.row+","+it.ncol]||[]):[]}
 function watch(list){return list&&list.length?`<div style="display:flex;flex-direction:column;gap:8px">${list.map(l=>`<a class="watch" href="${esc(l.u)}" target="_blank" rel="noopener">${IC.play}<span>${list.length>1&&l.t?"Guarda: "+esc(l.t):"Guarda l'esecuzione"}</span></a>`).join("")}</div>`:""}
 function linkify(t){return esc(t).replace(/https?:\/\/[^\s<]+[^\s<.,;:!?)\]]/g,u=>`<a class="lk" href="${u}" target="_blank" rel="noopener">${u}</a>`)}
 const IC={
@@ -388,17 +394,9 @@ async function load(){
     const d=await call("c_load");S.d=d;S.T=d.test||null;S.P=null;
     S.first=(d.name||"").split(" ")[0];S.g=SK.genderOf(d.name,d.g);
     if(S.T){S.TI=[];S.T.groups.forEach((g,gi)=>g.items.forEach(x=>{x.g=g.title;x.gi=gi;S.TI.push(x)}))}
-    if(d.sheet){
-      const P=SK.parse(d.sheet.values);
-      if(P.days.length){
-        S.P=P;S.dur=d.dur||P.weeks||6;
-        S.start=isoDate(d.start)||P.start;
-        const days=S.start?Math.floor((day0(new Date())-S.start)/864e5):0;
-        S.cur=S.start?(days<0?0:Math.min(Math.floor(days/7)+1,S.dur)):1;
-        S.ended=S.start&&days>=S.dur*7;
-        S.week=Math.max(1,S.cur);
-      }
-    }
+    S.onPrev=false;S.prevP=null;S.mainP=null;
+    if(d.sheet){const P=SK.parse(d.sheet.values);if(P.days.length){S.mainP=P;useSheet(d.sheet,P,d.start,d.dur)}}
+    if(d.prev&&d.prev.sheet){const P=SK.parse(d.prev.sheet.values);if(P.days.length)S.prevP=P}
     if(!S.P&&!S.T){S.screen="msg";S.msg="Non riesco a leggere questa scheda dal telefono. Aprila dal foglio Google o chiedi al tuo coach.";return render()}
     const want=/[&#]v=test/.test(location.hash);
     S.mode=S.T&&(want||!S.P||!testAllDone())?"test":"scheda";
@@ -406,6 +404,35 @@ async function load(){
   }catch(e){S.screen="msg";S.msg=e&&e.error?e.error:"Connessione non riuscita. Controlla la rete e riprova.";S.retry=true}
   render();
 }
+
+// Scheda mostrata: quella attuale oppure, nei primi giorni della nuova, quella appena finita
+function useSheet(sh,P,start,dur){
+  S.sh=sh;S.P=P;S.dur=dur||P.weeks||6;
+  S.start=isoDate(start)||P.start;
+  const days=S.start?Math.floor((day0(new Date())-S.start)/864e5):0;
+  S.cur=S.start?(days<0?0:Math.min(Math.floor(days/7)+1,S.dur)):1;
+  S.ended=S.start&&days>=S.dur*7;
+  S.week=Math.max(1,S.cur);S.day=Math.min(S.day||0,P.days.length-1);
+}
+function showPrev(on){
+  S.onPrev=on;S.forms={};S.pain={};S.day=0;
+  if(on)useSheet(S.d.prev.sheet,S.prevP,S.d.prev.start,S.d.prev.dur);
+  else useSheet(S.d.sheet,S.mainP,S.d.start,S.d.dur);
+}
+// Feedback mancanti nell'ultima settimana della scheda appena finita
+function prevMissing(){
+  if(!S.prevP)return 0;const w=S.d.prev.dur||S.prevP.weeks||6;let n=0;
+  S.prevP.days.forEach(D=>D.items.forEach(it=>{if(!SK.readFb(it.fb,w))n++}));return n;
+}
+function passBox(){
+  if(S.onPrev)return`<div class="pass y"><p><b>Scheda precedente.</b> Completa i feedback dell'ultima settimana: mi servono per tarare la scheda nuova.</p><button class="btn" data-a="mainsheet">Torna alla scheda nuova</button></div>`;
+  if(S.d.next&&S.d.next.start){const n=isoDate(S.d.next.start);return`<div class="pass"><p>La tua <b>nuova scheda</b> parte <b>${esc(fd(n))}</b>. Fino ad allora continui con questa: finisci la settimana e compila i feedback.</p></div>`}
+  const m=prevMissing();
+  if(m)return`<div class="pass y"><p>Nella scheda precedente ti ${m===1?"manca 1 feedback":"mancano "+m+" feedback"} dell'ultima settimana.</p><button class="btn" data-a="prevsheet">Completali</button></div>`;
+  return"";
+}
+// Ultimo feedback scritto per lo stesso esercizio prima della settimana w
+function lastFb(d,i,w){for(let k=w-1;k>=1;k--){const s=sent(d,i,k);if(s)return{k,s}}return null}
 
 /* ---------- logica ---------- */
 const days=()=>S.P.days;
@@ -568,7 +595,8 @@ function vDay(){
   else btn=`<button class="btn" data-a="start" data-i="0">${w<S.cur?"Rivedi i tuoi feedback":"Sfoglia la settimana "+w}</button>`;
   return`<div class="scroll">
     ${WM}${tabsBar()}
-    <div><h1>Ciao ${esc(S.first||"")}</h1><p class="sub">${esc(S.d.sheet.tab)} · ${S.dur} settimane</p></div>
+    <div><h1>Ciao ${esc(S.first||"")}</h1><p class="sub">${esc(S.sh.tab)} · ${S.dur} settimane</p></div>
+    ${passBox()}
     ${nb}
     <div style="display:flex;flex-direction:column;gap:10px">
       <div class="weeks" style="grid-template-columns:repeat(${Math.max(weeks.length,1)},minmax(0,1fr))">${weeks.map(n=>`<button class="wk ${n===w?"sel":""} ${n===S.cur?"now":""} ${n<S.cur?"past":""}" data-a="week" data-w="${n}" aria-label="Settimana ${n}"><small>SETT</small><strong>${n}</strong><i></i></button>`).join("")}</div>
@@ -579,19 +607,21 @@ function vDay(){
     <div class="list">${D.items.map((it,i)=>{
       const s=sent(S.day,i,w),sk=/^SALTATO/i.test(s),c=change(it,w);
       const sub=sk?s.replace(/^SALTATO\s*·?\s*/i,"Saltato · "):SK.doseFor(it.dose,w).split("\n").find(l=>l.trim())||"";
-      return`<button class="it" data-a="open" data-i="${i}"><span class="n ${s?(sk?"skip":"done"):""}">${s?(sk?"–":"✓"):i+1}</span><span class="tx"><span class="nm">${esc(it.name)}${linksOf(it).length?`<span class="vi" title="Video">${IC.playS}</span>`:""}${c?`<span class="tag">${esc(c)}</span>`:""}</span><span class="ds">${esc(sub)}</span></span>${IC.next}</button>`}).join("")}</div>
+      const lf=!s&&w>=S.cur?lastFb(S.day,i,w):null;
+      return`<button class="it" data-a="open" data-i="${i}"><span class="n ${s?(sk?"skip":"done"):""}">${s?(sk?"–":"✓"):i+1}</span><span class="tx"><span class="nm">${esc(it.name)}${linksOf(it).length?`<span class="vi" title="Video">${IC.playS}</span>`:""}${c?`<span class="tag">${esc(c)}</span>`:""}</span><span class="ds">${esc(sub)}</span>${lf?`<span class="ls"><b>Sett. ${lf.k}:</b> ${esc(lf.s)}</span>`:""}</span>${IC.next}</button>`}).join("")}</div>
   </div><div class="foot">${btn}</div>`;
 }
 function vEx(){
   const d=S.day,i=S.idx,w=S.week,it=item(d,i),D=days()[d];
   const dose=splitRest(SK.doseFor(it.dose,w)),c=change(it,w),v=SK.video(it.note,S.dur),meth=SK.methodsIn(it.dose,S.P.methods);
-  const ed=editable(w),f=ed?form(d,i,w):null,was=sent(d,i,w),prevLine=w>1?sent(d,i,w-1):"";
+  const ed=editable(w),f=ed?form(d,i,w):null,was=sent(d,i,w),lf=lastFb(d,i,w);
+  const lastBox=lf?`<div style="display:flex;flex-direction:column;gap:6px;padding:0 4px"><div class="lbl">LA VOLTA SCORSA · SETT. ${lf.k}</div><div class="quote">“${esc(lf.s)}”</div></div>`:"";
   const painOpen=S.pain[fkey(d,i,w)]!=null?S.pain[fkey(d,i,w)]:(f&&f.pain!=null)||/fastidi|dolor/i.test(it.note);
   let fb="";
   if(ed){
     const groups=[["Facile","1–4","ne avevi ancora tante",[1,2,3,4]],["Medio","5–7","impegnativo, ma con margine",[5,6,7]],["Duro","8–10","al limite o quasi",[8,9,10]]];
     const wasFree=SK.unline(was);
-    fb=`${prevLine?`<div style="display:flex;flex-direction:column;gap:6px;padding:0 4px"><div class="lbl">LA VOLTA SCORSA · SETT. ${w-1}</div><div class="quote">“${esc(prevLine)}”</div></div>`:""}
+    fb=`${lastBox}
     <div class="sep"></div>
     ${wasFree&&wasFree.free?`<div class="was">Nel foglio per questa settimana c'è già scritto: “${esc(was)}”. Se invii, la sostituisci.</div>`:""}
     ${f.skip?"":`<div class="q"><div class="q-h">Quanto è stata dura?<span>${f.rpe?"RPE "+f.rpe+" · "+SK.word(f.rpe)[0].toUpperCase()+SK.word(f.rpe).slice(1):""}</span></div>
@@ -611,7 +641,7 @@ function vEx(){
   }else if(w<S.cur){
     fb=`<div class="card" style="padding:16px;display:flex;flex-direction:column;gap:6px"><div class="lbl">IL TUO FEEDBACK · SETT. ${w}</div><div class="quote">${was?"“"+esc(was)+"”":"Nessun feedback"}</div></div>`;
   }else{
-    fb=`<div class="info">${IC.eye}<span>${S.cur===0&&S.start?"Anteprima. La scheda inizia "+fd(S.start)+": da quel giorno qui trovi RPE, tecnica, fastidi e nota da compilare.":"Anteprima. Il feedback si compila quando arrivi alla settimana "+w+"."}</span></div>`;
+    fb=`${lastBox}<div class="info">${IC.eye}<span>${S.cur===0&&S.start?"Anteprima. La scheda inizia "+fd(S.start)+": da quel giorno qui trovi RPE, tecnica, fastidi e nota da compilare.":"Anteprima. Il feedback si compila quando arrivi alla settimana "+w+"."}</span></div>`;
   }
   return`<div class="top"><div class="row"><button class="back" data-a="home">${IC.back}${esc(D.label)} · Sett. ${w}</button><span class="hint" style="font-size:14px">${i+1} / ${D.items.length}</span></div>
     <div class="bar" style="height:4px"><i data-bar="ex" style="width:${(i+1)/D.items.length*100}%;${ed?"":"background:#6E6C66"}"></i></div></div>
@@ -655,7 +685,7 @@ async function save(){
   const text=SK.line(f);
   const others=D.items.every((_,k)=>k===i||sent(d,k,w)),already=!!sent(d,i,w);
   try{
-    const r=await call("c_save",{sheetId:S.d.sheet.id,tab:S.d.sheet.tab,row:it.row,col:it.col,week:w,text,dayDone:others&&!already,
+    const r=await call("c_save",{sheetId:S.sh.id,tab:S.sh.tab,row:it.row,col:it.col,week:w,text,dayDone:others&&!already,
       summary:D.items.map((x,k)=>x.name+": "+(k===i?text:sent(d,k,w))).join("\n"),
       meta:{day:D.label,exercise:it.name,rpe:f.skip?null:f.rpe,tec:f.skip?"":f.tec,pain:f.skip?null:f.pain,skip:!!f.skip,why:f.skip?f.why||"":f.part?"Non chiuso: "+[f.partWhy,f.partDone].filter(Boolean).join(" · "):"",nota:f.skip?"":f.nota||""}});
     it.fb=r.cell;S.saving=false;
@@ -669,6 +699,8 @@ document.addEventListener("click",e=>{
   switch(a){
     case"retry":S.screen="load";render();load();break;
     case"nb":S.nbOpen=!S.nbOpen;render();if(S.nbOpen)anim(".nb-b","fd");break;
+    case"prevsheet":showPrev(true);render();window.scrollTo(0,0);anim(".scroll","in-l");break;
+    case"mainsheet":showPrev(false);render();window.scrollTo(0,0);anim(".scroll","in-r");break;
     case"week":S.week=+b.dataset.w;render();tapped(b);anim(".list","fd");break;
     case"day":S.day=+b.dataset.d;render();tapped(b);anim(".list","fd");break;
     case"start":case"open":go(+b.dataset.i);break;
