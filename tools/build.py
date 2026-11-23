@@ -22,6 +22,22 @@ LOGOS = {
 }
 import urllib.parse
 LOGOS["%%ICONA_SCURA_URI%%"] = "data:image/svg+xml," + urllib.parse.quote(rd("brand/svg/icona-trasparente-per-sfondi-scuri.svg"), safe=":/=,;' ")
+# Icona animata: gli stessi elementi del file ufficiale, si muovono solo arco e pallina (animazione SVG interna)
+def anim_icon(name, kind):
+    svg = re.sub(r'\s(width|height)="[^"]*"', "", rd("brand/svg/" + name + ".svg"), count=2)
+    circles = re.findall(r'<circle[^>]*/>', svg)
+    arc, dot = circles[1], circles[2]
+    sp = 'calcMode="spline" keyTimes="0;1" keySplines=".3 .7 .2 1"'
+    if kind == "caricamento":
+        new = '<g>' + arc + dot + '<animateTransform attributeName="transform" type="rotate" from="0 100 100" to="360 100 100" dur="1.4s" repeatCount="indefinite"/></g>'
+    else:
+        a2 = arc.replace("/>", '><animate attributeName="stroke-dasharray" from="0 490.1" to="333.3 490.1" dur="1.6s" fill="freeze" ' + sp + '/></circle>')
+        new = a2 + '<g>' + dot + '<animateTransform attributeName="transform" type="rotate" from="-244.8 100 100" to="0 100 100" dur="1.6s" fill="freeze" ' + sp + '/></g>'
+    svg = svg.replace(arc + dot, new)
+    return "data:image/svg+xml," + urllib.parse.quote(svg, safe=":/=,;' ")
+LOGOS["%%CARICA_CHIARA_URI%%"] = anim_icon("icona-trasparente-per-sfondi-chiari", "caricamento")
+LOGOS["%%CARICA_SCURA_URI%%"] = anim_icon("icona-trasparente-per-sfondi-scuri", "caricamento")
+LOGOS["%%RIEMPI_CHIARA_URI%%"] = anim_icon("icona-trasparente-per-sfondi-chiari", "riempimento")
 LOGOS["%%ICONA_CHIARA_URI%%"] = "data:image/svg+xml," + urllib.parse.quote(rd("brand/svg/icona-trasparente-per-sfondi-chiari.svg"), safe=":/=,;' ")
 def put_logos(t):
     for k, v in LOGOS.items(): t = t.replace(k, v)

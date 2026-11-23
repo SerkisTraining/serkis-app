@@ -1745,6 +1745,9 @@ async function doSetup(){
 
 /* ================= avvio ================= */
 const MARK=document.querySelector(".brand svg").innerHTML;
+// apertura: l'icona si riempie una volta, poi lo schermo iniziale sfuma (al massimo 1,9 s)
+function hideSplash(){const sp=document.getElementById("splash");if(!sp||sp.classList.contains("out"))return;sp.classList.add("out");setTimeout(()=>sp.remove(),400)}
+setTimeout(hideSplash,1900);
 async function boot(){
   if(S.mode==="app"){
     const hm=location.hash.match(/collega=([^&]+)/);

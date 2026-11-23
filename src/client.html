@@ -195,10 +195,11 @@ html,body{background:var(--bianco)}
 .grp.on{background:#FFFFFF;border-color:var(--notte);box-shadow:inset 4px 0 0 var(--giallo)}
 .ok-ic{box-shadow:0 0 0 8px rgba(242,194,0,.18)}
 .firma{display:flex;justify-content:center;padding:14px 0 2px}.firma .lg-i{width:30px;height:30px}
-.load-ic .lg-i{width:56px;height:56px;margin:0 auto}
+.anim-ic{display:block;width:64px;height:64px;margin:0 auto 6px}
+@media (prefers-reduced-motion:reduce){.anim-ic{content:url("%%ICONA_CHIARA_URI%%")}}
 </style>
 </head><body>
-<div class="app" id="app"><div class="center"><div class="load-ic">%%ICONA_CHIARA%%</div><div class="spin"></div>Carico la tua scheda…</div></div>
+<div class="app" id="app"><div class="center"><img class="anim-ic" id="anim-ic" src="%%RIEMPI_CHIARA_URI%%" alt="" width="64" height="64">Carico la tua scheda…</div></div>
 <script>
 %%SCHEDA%%
 </script>
@@ -231,6 +232,7 @@ const WM='<div class="brand">%%LOGO_CHIARO%%</div>';
 const WM_D='<div class="brand">%%LOGO_BARRA%%</div>';
 const IC_S='%%ICONA_CHIARA%%';
 const FIRMA=`<div class="firma">${IC_S}</div>`;
+setTimeout(()=>{const im=document.getElementById("anim-ic");if(im&&im.isConnected)im.src="%%CARICA_CHIARA_URI%%"},1800);
 const hero=inner=>`<div class="hero">${WM_D}${inner}</div>`;
 const S={tf:{},tidx:0,mode:"scheda",screen:"load",week:1,cur:1,day:0,idx:0,forms:{},nbOpen:true,note:false,gloss:null,pain:{},saving:false,err:null};
 
@@ -330,9 +332,14 @@ function tapped(b){if(!b||calm())return;const sel="[data-a=\""+b.dataset.a+"\"]"
 
 /* ---------- viste ---------- */
 let lastKey="";
+const T_OPEN=Date.now();
 function render(){
+  // all'apertura lasciamo finire il riempimento dell'icona (1,6 s) prima di mostrare la scheda
+  const op=document.getElementById("anim-ic");
+  if(op&&S.screen!=="load"&&Date.now()-T_OPEN<1600&&!matchMedia("(prefers-reduced-motion: reduce)").matches){clearTimeout(render.w);render.w=setTimeout(render,1600-(Date.now()-T_OPEN));return}
+  if(S.screen==="load"&&op)return;
   const a=$("#app"),key=S.screen+":"+S.idx+":"+S.tidx+":"+S.day+":"+S.week,y=window.scrollY,same=key===lastKey;lastKey=key;
-  if(S.screen==="load")a.innerHTML=`<div class="center"><div class="load-ic">${IC_S}</div><div class="spin"></div>Carico la tua scheda…</div>`;
+  if(S.screen==="load")a.innerHTML=`<div class="center"><img class="anim-ic" src="%%CARICA_CHIARA_URI%%" alt="" width="64" height="64">Carico la tua scheda…</div>`;
   else if(S.screen==="msg")a.innerHTML=`<div class="center">${WM.replace('class="brand"','class="brand mid"')}<p>${esc(S.msg)}</p>${S.retry?`<button class="btn pri" style="flex:none" data-a="retry">Riprova</button>`:""}</div>`;
   else if(S.screen==="day")a.innerHTML=vDay();
   else if(S.screen==="ex")a.innerHTML=vEx();

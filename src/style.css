@@ -898,3 +898,16 @@ body[data-view="oggi"] .main::after,body[data-view="impostazioni"] .main::after{
   background:url("%%ICONA_CHIARA_URI%%") center/contain no-repeat}
 :root[data-theme="dark"] .main::after{background-image:url("%%ICONA_SCURA_URI%%")}
 @media (prefers-color-scheme:dark){:root[data-theme="auto"] .main::after{background-image:url("%%ICONA_SCURA_URI%%")}}
+
+/* icona animata: "caricamento" mentre si aspetta, "riempimento" una volta all'apertura */
+.loading::before{border:0!important;border-radius:0!important;width:18px!important;height:18px!important;animation:none!important;background:url("%%CARICA_CHIARA_URI%%") center/contain no-repeat}
+.bar .ibtn.spin svg{display:none}
+.bar .ibtn.spin{background:url("%%CARICA_SCURA_URI%%") center/22px no-repeat}
+.splash{position:fixed;inset:0;z-index:80;display:grid;place-items:center;background:#FFFFFF;transition:opacity .35s ease}
+.splash img{width:84px;height:84px}
+.splash.out{opacity:0;pointer-events:none}
+@media (prefers-reduced-motion:reduce){
+  .loading::before,.bar .ibtn.spin{background-image:url("%%ICONA_CHIARA_URI%%")}
+  .bar .ibtn.spin{background-image:url("%%ICONA_SCURA_URI%%")}
+  .splash{display:none}
+}
