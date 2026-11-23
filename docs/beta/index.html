@@ -929,6 +929,93 @@ body[data-view="oggi"] .main::after,body[data-view="impostazioni"] .main::after{
   .bar .ibtn.spin{background-image:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 200.00 200.00%22 width=%22200%22 height=%22200%22%3E%3Cg transform=%22translate%28100 100%29 scale%280.9%29 translate%28-100 -100%29%22%3E%3Ccircle cx=%22100%22 cy=%22100%22 r=%2278%22 fill=%22none%22 stroke=%22%232E3850%22 stroke-width=%2212%22/%3E%3Ccircle cx=%22100%22 cy=%22100%22 r=%2278%22 fill=%22none%22 stroke=%22%23F2C200%22 stroke-width=%2212%22 stroke-dasharray=%22333.3 490.1%22 transform=%22rotate%28-90 100 100%29%22/%3E%3Ccircle cx=%2229.42%22 cy=%22133.21%22 r=%2215%22 fill=%22%23F2C200%22/%3E%3Cpath transform=%22translate%2874.07 139.90%29 scale%280.11600 -0.11600%29%22 d=%22M39 10V136Q130 129 178 129Q211 129 227.0 131.5Q243 134 250 143Q257 150 259.0 162.0Q261 174 261 197Q261 230 257.5 244.0Q254 258 242.0 264.5Q230 271 201 276L114 292Q64 300 45.0 348.5Q26 397 26 485Q26 573 52.0 619.0Q78 665 122.0 680.5Q166 696 234 696Q310 696 396 678V552Q345 559 274 559Q240 559 224.0 557.0Q208 555 200 548Q192 542 189.0 529.0Q186 516 186 491Q186 464 188.5 452.0Q191 440 199.5 434.5Q208 429 228 425L310 410Q344 403 367.5 388.5Q391 374 405 337Q421 295 421 220Q421 121 396.5 71.5Q372 22 331.0 7.0Q290 -8 223 -8Q176 -8 126.0 -3.0Q76 2 39 10Z%22 fill=%22%23F5F3EF%22/%3E%3C/g%3E%3C/svg%3E")}
   .splash{display:none}
 }
+
+/* ===== calendario delle scadenze ===== */
+.desk-nav{display:none!important}
+@media (min-width:960px){
+  .desk-nav{display:flex!important}
+  body[data-view="calendario"] .shell{grid-template-columns:minmax(0,1fr)}
+  body[data-view="calendario"] .side{display:none}
+}
+.cal-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.cal-h h1{margin:0;font-family:var(--f-d);font-size:22px;font-weight:600;letter-spacing:-.01em;min-width:9.5em}
+.cal-nav{display:flex;align-items:center;gap:4px}
+.cal-nav .ibtn{border:1px solid var(--line);background:var(--surface);color:var(--ink-2)}
+.cal-nav .ibtn svg{width:16px;height:16px}
+.cal-est{margin-left:auto;display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line-2);background:var(--surface);border-radius:99px;padding:4px 11px 4px 6px;font-size:12.5px;font-weight:600;color:var(--ink-2)}
+.cal-est i{width:26px;height:15px;border-radius:99px;background:var(--line-2);position:relative;transition:background .15s}
+.cal-est i::after{content:"";position:absolute;top:2px;left:2px;width:11px;height:11px;border-radius:50%;background:#fff;transition:transform .15s}
+.cal-est[aria-pressed="true"] i{background:var(--y)}
+.cal-est[aria-pressed="true"] i::after{transform:translateX(11px)}
+.cal-sum{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;margin-bottom:12px}
+.cal-leg{display:flex;gap:12px;margin-left:auto;font-size:12px}
+.cal-leg span{display:inline-flex;align-items:center;gap:5px}
+.cal{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.cal-r{display:grid;grid-template-columns:minmax(0,3.2fr) repeat(6,minmax(0,.62fr));border-bottom:1px solid var(--line)}
+.cal-r:last-child{border-bottom:0}
+.cal-dn{background:var(--raised);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)}
+.cal-dn span{padding:7px 10px;border-left:1px solid var(--line)}
+.cal-dn span:first-child{border-left:0;color:var(--ink)}
+.cal-mon{padding:8px 10px 10px;min-height:76px;min-width:0}
+.cal-d{border-left:1px solid var(--line);padding:8px 10px;background:var(--bg-2)}
+.cal-d b,.cm-h b{font-size:13px;font-weight:600;color:var(--ink-3)}
+.cal-d.out b,.cal-mon.out .cm-h b{opacity:.45}
+.cal-d.tdy b,.cal-mon.tdy .cm-h b{display:inline-grid;place-items:center;min-width:24px;height:24px;border-radius:99px;background:var(--ink);color:var(--on-ink);opacity:1}
+.cal-r.cur .cal-mon{box-shadow:inset 3px 0 0 var(--y)}
+.cal-r.busy .cm-n{background:var(--bad-soft);color:var(--bad)}
+.cm-h{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.cm-h b{font-size:15px;color:var(--ink)}
+.cm-l{display:none}
+.cm-n{margin-left:auto;font-size:11.5px;font-weight:700;padding:1px 8px;border-radius:99px;background:var(--y-soft);color:var(--y-text)}
+.cm-empty{margin:0;font-size:12px;color:var(--ink-3);opacity:.7}
+.cm-list{display:flex;flex-direction:column;gap:4px}
+.ce{display:flex;align-items:center;gap:8px;padding:5px 6px 5px 8px;border-radius:9px;background:var(--bg-2);border:1px solid var(--line)}
+.ce .who{flex:1;min-width:0;border:0;background:none;padding:0;text-align:left;display:flex;flex-direction:column}
+.ce .who b{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ce .who small{font-size:11.5px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ce .who:hover b{text-decoration:underline;text-decoration-color:var(--y)}
+.ce-d{flex:none;width:9px;height:9px;border-radius:50%;background:var(--line-2);display:inline-block}
+.k-late .ce-d,.ce-d.k-late{background:var(--bad)}
+.k-due .ce-d,.ce-d.k-due{background:var(--y)}
+.k-ready .ce-d,.ce-d.k-ready{background:var(--ok);box-shadow:inset 0 0 0 2px var(--ok-soft)}
+.k-done .ce-d,.ce-d.k-done{background:var(--ok)}
+.ce-d.k-est,.k-est .ce-d{background:none;border:1.5px dashed var(--ink-3)}
+.ce.k-late{background:var(--bad-soft);border-color:transparent}
+.ce.k-late small{color:var(--bad)}
+.ce.k-due{background:var(--y-soft);border-color:transparent}
+.ce.k-done,.ce.k-ready{background:var(--surface)}
+.ce.k-done .who b{color:var(--ink-2);font-weight:500}
+.ce.k-est{background:none;border-style:dashed;opacity:.75}
+.ce .mini{padding:2px 8px}
+@media (max-width:959px){
+  .cal-dn,.cal-d{display:none}
+  .cal{background:none;border:0;border-radius:0;display:flex;flex-direction:column;gap:8px}
+  .cal-r{display:block;border:0}
+  .cal-mon{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:10px 12px;min-height:0}
+  .cal-r.cur .cal-mon{box-shadow:inset 3px 0 0 var(--y),var(--sh)}
+  .cm-h b{display:none}
+  .cm-l{display:inline;font-weight:600;font-size:14px}
+  .cal-mon.out .cm-l{color:var(--ink-3)}
+  .cal-mon.tdy .cm-l::after{content:" · oggi";color:var(--y-text)}
+  .ce{padding:8px 8px 8px 10px}
+  .ce .who small{white-space:normal}
+  .ce .mini{min-height:32px;padding:4px 11px}
+  .cal-leg{margin-left:0;width:100%}
+  .cal-h h1{min-width:0;flex:1}
+}
+.cal-past{display:none}
+.cd-e{display:flex;align-items:center;gap:4px;margin-top:6px;font-size:11.5px;font-weight:600;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cd-e.k-done,.cd-e.k-est{font-weight:500;color:var(--ink-3)}
+@media (min-width:960px){
+  .ce.k-done{padding-block:3px}
+  .ce.k-done .who small{display:none}
+}
+@media (max-width:959px){
+  .cal-r.cal-dn{display:none}
+  .cal-mon.tdy .cm-h b{display:none}
+  .cal-past{display:block;width:100%;margin:0 0 8px;border:1px dashed var(--line-2);background:none;border-radius:11px;padding:8px;font-size:13px;font-weight:600;color:var(--ink-2)}
+  .cal:not(.show-past) .cal-r.past{display:none}
+}
 </style>
 </head><body>
 <header class="bar gut">
@@ -980,6 +1067,7 @@ body[data-view="oggi"] .main::after,body[data-view="impostazioni"] .main::after{
     <button class="rail-toggle" type="button" data-act="rail" aria-label="Chiudi la barra laterale" title="Chiudi o apri la barra"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/><path class="chev" d="m15.5 9.5-2.5 2.5 2.5 2.5"/></svg></button>
     <span class="rail-brand"><svg class="lg-h" role="img" aria-label="Serkistraining" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1244.60 271.60"><g transform="translate(-5.20 0)"><path transform="translate(24.00 161.60) scale(0.20000 -0.20000)" d="M39 10V136Q130 129 178 129Q211 129 227.0 131.5Q243 134 250 143Q257 150 259.0 162.0Q261 174 261 197Q261 230 257.5 244.0Q254 258 242.0 264.5Q230 271 201 276L114 292Q64 300 45.0 348.5Q26 397 26 485Q26 573 52.0 619.0Q78 665 122.0 680.5Q166 696 234 696Q310 696 396 678V552Q345 559 274 559Q240 559 224.0 557.0Q208 555 200 548Q192 542 189.0 529.0Q186 516 186 491Q186 464 188.5 452.0Q191 440 199.5 434.5Q208 429 228 425L310 410Q344 403 367.5 388.5Q391 374 405 337Q421 295 421 220Q421 121 396.5 71.5Q372 22 331.0 7.0Q290 -8 223 -8Q176 -8 126.0 -3.0Q76 2 39 10Z" fill="#F5F3EF"/><path transform="translate(115.20 161.60) scale(0.20000 -0.20000)" d="M46 0V688H389V551H206V416H364V279H206V137H389V0Z" fill="#F5F3EF"/><path transform="translate(202.00 161.60) scale(0.20000 -0.20000)" d="M318 0 257 232H206V0H46V688H288Q363 688 402.0 663.0Q441 638 454.0 590.0Q467 542 467 460Q467 384 454.5 335.5Q442 287 404 262L483 0ZM307 459Q307 505 303.5 523.0Q300 541 288.5 546.5Q277 552 248 552H206V365H248Q277 365 288.0 370.5Q299 376 303.0 394.5Q307 413 307 459Z" fill="#F5F3EF"/><path transform="translate(303.80 161.60) scale(0.20000 -0.20000)" d="M325 0 230 279H206V0H46V688H206V419H230L328 688H494L356 359L496 0Z" fill="#F5F3EF"/><path transform="translate(405.80 161.60) scale(0.20000 -0.20000)" d="M46 0V688H206V0Z" fill="#F5F3EF"/><path transform="translate(458.00 161.60) scale(0.20000 -0.20000)" d="M39 10V136Q130 129 178 129Q211 129 227.0 131.5Q243 134 250 143Q257 150 259.0 162.0Q261 174 261 197Q261 230 257.5 244.0Q254 258 242.0 264.5Q230 271 201 276L114 292Q64 300 45.0 348.5Q26 397 26 485Q26 573 52.0 619.0Q78 665 122.0 680.5Q166 696 234 696Q310 696 396 678V552Q345 559 274 559Q240 559 224.0 557.0Q208 555 200 548Q192 542 189.0 529.0Q186 516 186 491Q186 464 188.5 452.0Q191 440 199.5 434.5Q208 429 228 425L310 410Q344 403 367.5 388.5Q391 374 405 337Q421 295 421 220Q421 121 396.5 71.5Q372 22 331.0 7.0Q290 -8 223 -8Q176 -8 126.0 -3.0Q76 2 39 10Z" fill="#F5F3EF"/><path transform="translate(549.20 161.60) scale(0.20000 -0.20000)" d="M177 0V634H19V688H394V634H236V0Z" fill="#B8B3A9"/><path transform="translate(633.80 161.60) scale(0.20000 -0.20000)" d="M386 0 296 284H277H133V0H74V688H282Q351 688 385.0 662.0Q419 636 428.5 594.0Q438 552 438 486Q438 409 422.5 361.5Q407 314 354 295L449 0ZM379 486Q379 542 372.5 572.0Q366 602 343.0 618.5Q320 635 270 635H133V336H268Q318 336 341.5 353.0Q365 370 372.0 400.5Q379 431 379 486Z" fill="#B8B3A9"/><path transform="translate(734.60 161.60) scale(0.20000 -0.20000)" d="M411 0 357 203H134L81 0H21L210 688H283L472 0ZM248 608H243L149 255H342Z" fill="#B8B3A9"/><path transform="translate(835.20 161.60) scale(0.20000 -0.20000)" d="M78 0V688H136V0Z" fill="#B8B3A9"/><path transform="translate(880.00 161.60) scale(0.20000 -0.20000)" d="M395 0 135 559H131V0H75V688H138L395 134H399V688H456V0Z" fill="#B8B3A9"/><path transform="translate(988.00 161.60) scale(0.20000 -0.20000)" d="M78 0V688H136V0Z" fill="#B8B3A9"/><path transform="translate(1032.80 161.60) scale(0.20000 -0.20000)" d="M395 0 135 559H131V0H75V688H138L395 134H399V688H456V0Z" fill="#B8B3A9"/><path transform="translate(1140.80 161.60) scale(0.20000 -0.20000)" d="M253 307V359H425V10Q389 2 345.5 -3.0Q302 -8 267 -8Q177 -8 134.0 18.0Q91 44 74.0 116.5Q57 189 57 344Q57 497 73.5 569.5Q90 642 133.5 669.0Q177 696 268 696Q307 696 350.5 690.5Q394 685 423 677V628Q393 634 356.0 638.5Q319 643 295 643Q211 643 177.0 627.5Q143 612 129.5 552.0Q116 492 116 344Q116 208 126.0 148.0Q136 88 166.5 66.0Q197 44 267 44Q292 44 320.5 47.0Q349 50 367 54V307Z" fill="#B8B3A9"/><rect x="29.20" y="215.60" width="1196.60" height="16.00" fill="#2E3850"/><rect x="29.20" y="215.60" width="813.69" height="16.00" fill="#F2C200"/><circle cx="842.89" cy="223.60" r="24.00" fill="#F2C200"/></g></svg></span><span class="rail-icon"><svg class="lg-i" role="img" aria-label="Serkistraining" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200.00 200.00"><g transform="translate(100 100) scale(0.9) translate(-100 -100)"><circle cx="100" cy="100" r="78" fill="none" stroke="#2E3850" stroke-width="12"/><circle cx="100" cy="100" r="78" fill="none" stroke="#F2C200" stroke-width="12" stroke-dasharray="333.3 490.1" transform="rotate(-90 100 100)"/><circle cx="29.42" cy="133.21" r="15" fill="#F2C200"/><path transform="translate(74.07 139.90) scale(0.11600 -0.11600)" d="M39 10V136Q130 129 178 129Q211 129 227.0 131.5Q243 134 250 143Q257 150 259.0 162.0Q261 174 261 197Q261 230 257.5 244.0Q254 258 242.0 264.5Q230 271 201 276L114 292Q64 300 45.0 348.5Q26 397 26 485Q26 573 52.0 619.0Q78 665 122.0 680.5Q166 696 234 696Q310 696 396 678V552Q345 559 274 559Q240 559 224.0 557.0Q208 555 200 548Q192 542 189.0 529.0Q186 516 186 491Q186 464 188.5 452.0Q191 440 199.5 434.5Q208 429 228 425L310 410Q344 403 367.5 388.5Q391 374 405 337Q421 295 421 220Q421 121 396.5 71.5Q372 22 331.0 7.0Q290 -8 223 -8Q176 -8 126.0 -3.0Q76 2 39 10Z" fill="#F5F3EF"/></g></svg></span>
     <button class="tb" type="button" data-go="oggi" id="tb-oggi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span>Oggi</span></button>
+    <button class="tb desk-nav" type="button" data-go="calendario" id="tb-calendario"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/><g fill="currentColor" stroke="none"><circle cx="8" cy="14" r="1.3"/><circle cx="12" cy="14" r="1.3"/><circle cx="16" cy="14" r="1.3"/><circle cx="8" cy="17.5" r="1.3"/><circle cx="12" cy="17.5" r="1.3"/></g></svg><span>Calendario</span></button>
     <button class="tb" type="button" data-go="atleti" id="tb-atleti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5M16 4.8a3.4 3.4 0 0 1 0 6.4M18 14.8c1.9.7 3.1 2.4 3.5 5.2"/></svg><span>Atleti</span></button>
     <button class="tb plus" type="button" data-go="nuovo" id="tb-nuovo"><span class="pl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M12 5v14M5 12h14"/></svg></span><span>Nuovo</span></button>
     <button class="tb" type="button" data-go="feedback" id="tb-feedback"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/></svg><span>Feedback</span><b class="badge" id="fbbadge" hidden></b></button>
@@ -1177,7 +1265,7 @@ if(typeof module!=="undefined")module.exports=SK;
 
 (function(){
 "use strict";
-const VERSION="3.3";
+const VERSION="3.4";
 const NOTES_ID="1jzW0uELNty_8Dx0AWhwJXzg7YObm6Nr_fYbNlP0Z3mo";
 const NOTES_URL="https://docs.google.com/spreadsheets/d/"+NOTES_ID+"/edit";
 const DS_COACH="collection://264112d7-0f3d-80c1-9340-000bfe370a29";
@@ -1212,7 +1300,7 @@ const S={
   mode:IN_CLAUDE?"claude":"app",adapter:null,cfg:null,
   athletes:[],sheets:{},notes:[],notesState:"idle",notesErr:null,
   files:{},tests:{},bodies:{},hist:{},ai:{},alt:{},sessSel:{},pickTab:{},
-  view:"oggi",sel:null,tab:"panoramica",prev:"oggi",fbf:"tutti",todoAll:false,oggiTab:store.get("oggiTab","s"),oggiFbf:"tutto",menu:false,fbPrevSeen:null,
+  view:"oggi",calM:null,sel:null,tab:"panoramica",prev:"oggi",fbf:"tutti",todoAll:false,oggiTab:store.get("oggiTab","s"),oggiFbf:"tutto",menu:false,fbPrevSeen:null,
   filter:{sede:"all",stato:"attivi",focus:null,q:""},sort:"urgenza",
   load:{state:"idle",err:null,at:null},edit:null,editErr:null,saving:false,
   templates:null,tplErr:null,nSchema:null,nSchemaErr:null,nSchemaLoading:false,nuovo:null,created:null,creating:false,createErr:null,
@@ -2145,7 +2233,7 @@ function renderBar(){
     t=(ok<tot?"Schede "+ok+"/"+tot+" · ":"")+(s.at?"Agg. "+p2(s.at.getHours())+":"+p2(s.at.getMinutes()):"")}
   el.textContent=t;
   const rb=$("#refresh");rb.classList.toggle("spin",s.state==="loading"||scanning);rb.disabled=!S.adapter;
-  ["oggi","atleti","nuovo","feedback","impostazioni"].forEach(k=>{const b=$("#tb-"+k);if(b)b.setAttribute("aria-current",S.view===k||(k==="atleti"&&S.view==="atleta"&&S.prev!=="oggi"&&S.prev!=="feedback")||(k===S.prev&&S.view==="atleta"&&k!=="atleti")?"page":"false")});
+  ["oggi","calendario","atleti","nuovo","feedback","impostazioni"].forEach(k=>{const b=$("#tb-"+k);if(b)b.setAttribute("aria-current",S.view===k||(k==="atleti"&&S.view==="atleta"&&!["oggi","feedback","calendario"].includes(S.prev))||(k===S.prev&&S.view==="atleta"&&k!=="atleti")?"page":"false")});
   const nb=fbNewCount(),bd=$("#fbbadge");if(bd){bd.hidden=!nb;bd.textContent=nb>9?"9+":String(nb)}
   const sa=S.view==="atleta"?byId(S.sel):null;$("#crumb").textContent=sa?sa.name:"";
   $("#menubtn").hidden=!sa;
@@ -2195,6 +2283,7 @@ function renderMain(){
   if(S.view==="nuovo"){m.innerHTML=viewNuovo();return}
   if(S.view==="impostazioni"){m.innerHTML=viewImpostazioni();return}
   if(S.view==="feedback"){m.innerHTML=viewFeedback();return}
+  if(S.view==="calendario"){m.innerHTML=viewCalendario();return}
   if(S.view==="atleti"){m.innerHTML=`<div class="pick"><p>Scegli un atleta dall'elenco.</p><p class="mut">Le cose da fare di oggi sono nella pagina <button class="lnk" type="button" data-go="oggi">Oggi</button>.</p></div>`;return}
   m.innerHTML=viewOggi();
 }
@@ -2256,7 +2345,7 @@ function viewOggi(){
   h+=`<section class="obox o-sch" aria-label="Schede"><div class="oh">${ic("scheda")}<h2>Schede</h2><span class="ocnt">${B.fare.length} da fare</span></div><div class="ocols"><div>`+
     oSub("Da fare ora",B.fare.length)+oList(B.fare.slice(0,max),"Niente da preparare adesso.")+(B.fare.length>max?`<button class="omore" type="button" data-act="todo-all">Mostra tutte (${B.fare.length})</button>`:"")+
     `</div><div>`+oSub("In arrivo · prossima settimana",B.arrivo.length)+oList(B.arrivo,"Nessuna scheda alla penultima settimana.")+
-    (B.attesa.length?oSub("In attesa",B.attesa.length)+oList(B.attesa,""):"")+`</div></div></section>`;
+    (B.attesa.length?oSub("In attesa",B.attesa.length)+oList(B.attesa,""):"")+`</div></div><button class="omore" type="button" data-go="calendario">Calendario delle scadenze</button></section>`;
   // Feedback
   const showG=ff!=="nuovi",showR=ff!=="guarda",recL=ff==="nuovi"?rec.filter(x=>x.isNew):rec;
   h+=`<section class="obox o-fb" aria-label="Feedback"><div class="oh">${ic("fb")}<h2>Feedback</h2>${hasFb&&nNew?`<span class="ocnt">${nNew} nuov${nNew===1?"o":"i"}</span>`:""}</div>`+
@@ -2267,6 +2356,71 @@ function viewOggi(){
   h+=`</div>`;
   const ok=act.filter(a=>bucket(a)==="corso");
   if(ok.length)h+=`<div class="incorso"><span class="lab">In corso · ${ok.length}</span>${ok.sort((x,y)=>x.name.localeCompare(y.name,"it")).map(a=>`<button type="button" data-id="${a.id}">${esc(a.name.split(" ")[0])} ${esc((a.name.split(" ")[1]||"")[0]||"")}. <span class="mut">${a.wk&&a.wk.future?"da "+fd(a.startD):a.wk?(a.src==="vf"?"K":"S")+a.wk.week:"—"}</span></button>`).join("")}</div>`;
+  return h;
+}
+
+/* ---- calendario: scadenze delle schede, raggruppate per lunedì ---- */
+function mondayOf(d){return addDays(d,-((d.getDay()+6)%7))}
+const CAL_K={late:0,due:1,ready:2,done:3,est:4};
+// Per ogni atleta attivo con data di inizio e durata: scheda partita, scheda nuova già pronta,
+// prossima scadenza (giorno dopo la fine), poi le scadenze stimate con la stessa durata.
+function calEvents(){
+  const ev=[],none=[],t=today(),horizon=addDays(t,400);
+  S.athletes.filter(a=>a.active).forEach(a=>{
+    if(!a.startD||!a.dur){none.push({a,why:!a.startD?"data di inizio mancante":"durata mancante"});return}
+    const push=(d,k,x)=>ev.push(Object.assign({a,d,mon:mondayOf(d),k},x||{}));
+    if(a.runD&&a.runD<=t)push(a.runD,"done");
+    push(a.startD,a.startD<=t?"done":"ready");
+    const due=addDays(a.startD,a.dur*7);
+    push(due,due<t?"late":"due");
+    for(let d=addDays(due,a.dur*7);d<=horizon;d=addDays(d,a.dur*7))push(d,"est");
+  });
+  ev.sort((x,y)=>CAL_K[x.k]-CAL_K[y.k]||x.a.name.localeCompare(y.a.name,"it"));
+  return{ev,none};
+}
+function calText(e){
+  const t=today(),day=e.d.getDay()!==1?" · "+GIORNI[e.d.getDay()].slice(0,3)+" "+fd(e.d):"";
+  if(e.k==="late")return"In ritardo di "+Math.round((t-e.d)/864e5)+" gg · doveva partire "+fd(e.d);
+  if(e.k==="due")return(+e.d===+t?"Parte oggi":"Da preparare")+day+" · scheda attuale di "+e.a.dur+" sett.";
+  if(e.k==="ready")return"Pronta · parte "+GIORNI[e.d.getDay()].slice(0,3)+" "+fd(e.d);
+  if(e.k==="done")return"Partita"+(day||" "+fd(e.d));
+  return"Stima · se la prossima dura "+e.a.dur+" sett.";
+}
+function calItem(e){
+  const btn=e.k==="late"||e.k==="due"?`<button class="mini pri" type="button" data-new="scheda" data-aid="${e.a.id}" data-ndate="${iso(e.d<nextMonday()?nextMonday():e.d)}">Prepara</button>`:"";
+  return`<div class="ce k-${e.k}"><i class="ce-d" aria-hidden="true"></i><button class="who" type="button" data-id="${e.a.id}" title="${esc(calText(e))}"><b>${esc(e.a.name)}</b><small>${esc(calText(e))}</small></button>${btn}</div>`;
+}
+function viewCalendario(){
+  const t=today(),m0=S.calM||new Date(t.getFullYear(),t.getMonth(),1),y=m0.getFullYear(),mo=m0.getMonth();
+  const head=`<div class="o-head"><h1>Calendario</h1></div>`;
+  if(!S.athletes.length)return head+(S.load.state==="error"?`<div class="notice err">${esc(errText(S.load.err,S.mode==="claude"?"Notion":"Il backend"))}<br><button class="btn sm" type="button" data-act="reload">Riprova</button></div>`:`<p class="loading">Leggo atleti e date…</p>`);
+  const est=store.get("calEst",true),{ev,none}=calEvents(),by={};
+  ev.forEach(e=>{if(e.k==="est"&&!est)return;(by[iso(e.mon)]=by[iso(e.mon)]||[]).push(e)});
+  const todo=e=>e.k==="late"||e.k==="due";
+  const late=ev.filter(e=>e.k==="late"),nm=mondayOf(t)<t?addDays(mondayOf(t),7):t,nextL=(by[iso(nm)]||[]).filter(todo);
+  const curL=(by[iso(mondayOf(t))]||[]).filter(todo).filter(e=>e.k!=="late");
+  let h=`<div class="cal-h"><h1>${MESI[mo].replace(/^./,c=>c.toUpperCase())} ${y}</h1>
+    <div class="cal-nav"><button class="ibtn" type="button" data-act="cal-prev" aria-label="Mese prima"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></button><button class="mini" type="button" data-act="cal-today">Oggi</button><button class="ibtn" type="button" data-act="cal-next" aria-label="Mese dopo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 5l7 7-7 7"/></svg></button></div>
+    <button class="cal-est" type="button" data-act="cal-est" aria-pressed="${est}"><i></i>Stime</button></div>`;
+  h+=`<div class="cal-sum">`+
+    (late.length?`<span class="pill bad">${late.length} in ritardo</span>`:"")+
+    (curL.length?`<span class="pill warn">Questa settimana: ${curL.length}</span>`:"")+
+    `<span class="pill">Lunedì ${fd(nm)}: ${nextL.length} da preparare</span>`+
+    `<span class="mut cal-leg"><span><i class="ce-d k-due"></i>da fare</span><span><i class="ce-d k-ready"></i>pronta</span><span><i class="ce-d k-done"></i>partita</span>${est?`<span><i class="ce-d k-est"></i>stima</span>`:""}</span></div>`;
+  const last=new Date(y,mo+1,0),DN=["Lun","Mar","Mer","Gio","Ven","Sab","Dom"];
+  const past=w=>w<mondayOf(t)&&!(by[iso(w)]||[]).some(e=>e.k==="late");
+  let nPast=0;for(let w=mondayOf(m0);w<=last;w=addDays(w,7))if(past(w))nPast++;
+  if(nPast)h+=`<button class="cal-past" type="button" data-act="cal-past">${S.calPast?"Nascondi":"Mostra"} le settimane passate (${nPast})</button>`;
+  h+=`<div class="cal${S.calPast?" show-past":""}"><div class="cal-r cal-dn">${DN.map(d=>`<span>${d}</span>`).join("")}</div>`;
+  for(let w=mondayOf(m0);w<=last;w=addDays(w,7)){
+    const L=by[iso(w)]||[],n=L.filter(todo).length,cur=+w===+mondayOf(t),out=w.getMonth()!==mo;
+    h+=`<div class="cal-r${cur?" cur":""}${past(w)?" past":""}${n>=5?" busy":""}"><div class="cal-mon${out?" out":""}${+w===+t?" tdy":""}"><div class="cm-h"><b>${w.getDate()}</b><span class="cm-l">${GIORNI[1].replace(/^./,c=>c.toUpperCase())} ${w.getDate()} ${MESI[w.getMonth()]}</span>${n?`<span class="cm-n">${n} da fare</span>`:""}</div>`+
+      (L.length?`<div class="cm-list">${L.map(calItem).join("")}</div>`:`<p class="cm-empty">Nessuna scadenza</p>`)+`</div>`;
+    for(let i=1;i<7;i++){const d=addDays(w,i),on=L.filter(e=>+e.d===+d);h+=`<div class="cal-d${d.getMonth()!==mo?" out":""}${+d===+t?" tdy":""}"><b>${d.getDate()}</b>${on.map(e=>`<span class="cd-e k-${e.k}" title="${esc(e.a.name+" · "+calText(e))}"><i class="ce-d"></i>${esc(e.a.name.split(" ")[0])}</span>`).join("")}</div>`}
+    h+=`</div>`;
+  }
+  h+=`</div>`;
+  if(none.length)h+=`<div class="incorso"><span class="lab">Senza scadenza · ${none.length}</span>${none.sort((x,y)=>x.a.name.localeCompare(y.a.name,"it")).map(x=>`<button type="button" data-id="${x.a.id}" title="${esc(x.why)}">${esc(x.a.name)} <span class="mut">${x.a.src==="vf"?"Kineva":esc(x.why)}</span></button>`).join("")}</div>`;
   return h;
 }
 
@@ -2784,7 +2938,7 @@ function route(silent){
   const prevSel=S.sel;
   if(h.startsWith("a-")){const a=S.athletes.find(x=>x.slug===h.slice(2));S.view="atleta";S.sel=a?a.id:(S.athletes.length?null:S.sel);
     if(a&&prevSel!==a.id){S.edit=null;S.delArm=null;S.tab=S.jumpTab||"panoramica";S.jumpTab=null;S.clientOpen=false;S.menu=false;if(a.sheetId&&!S.sheets[a.id])loadOneSheet(a,false);if(!silent)window.scrollTo(0,0)}}
-  else if(["oggi","atleti","nuovo","impostazioni","feedback"].includes(h)){if(h!=="nuovo"&&h!=="impostazioni"&&h!=="atleta")S.prev=h;if(h==="feedback"&&S.view!=="feedback")markFbSeen();S.view=h;if(h==="atleti")S.sel=null}
+  else if(["oggi","atleti","nuovo","impostazioni","feedback","calendario"].includes(h)){if(h!=="nuovo"&&h!=="impostazioni"&&h!=="atleta")S.prev=h;if(h==="feedback"&&S.view!=="feedback")markFbSeen();S.view=h;if(h==="atleti")S.sel=null}
   else S.view="oggi";
   if(!silent)render();
 }
@@ -2796,7 +2950,7 @@ document.addEventListener("click",async ev=>{
   if(S.menu&&ev.target.closest("#sheet")){S.menu=false;setTimeout(renderSheet,0);if(ev.target.id==="sheet")return}
   const t=ev.target.closest("button,[data-id]");if(!t)return;
   const a=byId(S.sel);
-  if(t.dataset.id){const x=byId(t.dataset.id);if(x){if(S.view!=="atleta")S.prev=["oggi","feedback"].includes(S.view)?S.view:"atleti";if(t.dataset.jtab){S.tab=t.dataset.jtab;S.jumpTab=t.dataset.jtab}if(S.view==="atleta"&&S.sel===x.id){render();return}go("a-"+x.slug)}return}
+  if(t.dataset.id){const x=byId(t.dataset.id);if(x){if(S.view!=="atleta")S.prev=["oggi","feedback","calendario"].includes(S.view)?S.view:"atleti";if(t.dataset.jtab){S.tab=t.dataset.jtab;S.jumpTab=t.dataset.jtab}if(S.view==="atleta"&&S.sel===x.id){render();return}go("a-"+x.slug)}return}
   if(t.dataset.go){if(t.dataset.go==="nuovo"){initNuovo("scheda",S.view==="atleta"&&a?a.id:"")}go(t.dataset.go);return}
   if(t.dataset.focus){S.filter.focus=t.dataset.focus;go("atleti");render();return}
   if(t.dataset.fbf){S.fbf=t.dataset.fbf;render();return}
@@ -2804,7 +2958,7 @@ document.addEventListener("click",async ev=>{
   if(t.dataset.ofbf){S.oggiFbf=t.dataset.ofbf;render();return}
   if(t.dataset.themeset){store.set("theme",t.dataset.themeset);applyTheme(t.dataset.themeset);render();return}
   if(t.dataset.sede){S.filter.sede=t.dataset.sede;savePrefs();render();return}
-  if(t.dataset.new){initNuovo(t.dataset.new,t.dataset.aid||"");go("nuovo");return}
+  if(t.dataset.new){initNuovo(t.dataset.new,t.dataset.aid||"");if(t.dataset.ndate&&S.nuovo.kind==="scheda")S.nuovo.date=t.dataset.ndate;go("nuovo");return}
   if(t.dataset.ncdb&&S.nuovo&&S.nuovo.nc){const nm=S.nuovo.nc.name;ncStart(S.nuovo,t.dataset.ncdb);S.nuovo.nc.name=nm;render();return}
   if(t.dataset.ncopt&&S.nuovo&&S.nuovo.nc){const nc=S.nuovo.nc,f=t.dataset.ncopt,v=t.dataset.v,L=(S.nSchema&&S.nSchema[nc.db])||[],ty=(L.find(x=>x.name===f)||{}).type;nc.touched[f]=1;
     if(ty==="multi_select"){const cur=[].concat(nc.props[f]||[]);nc.props[f]=cur.includes(v)?cur.filter(x=>x!==v):cur.concat(v)}else nc.props[f]=nc.props[f]===v?"":v;render();return}
@@ -2832,6 +2986,9 @@ document.addEventListener("click",async ev=>{
   if(act==="menu"&&a){S.menu=true;renderSheet();return}
   if(act==="menu-close"){S.menu=false;renderSheet();return}
   if(act==="todo-all"){S.todoAll=true;render();return}
+  if(act==="cal-prev"||act==="cal-next"||act==="cal-today"){const d=today(),m=S.calM||new Date(d.getFullYear(),d.getMonth(),1);S.calM=act==="cal-today"?null:new Date(m.getFullYear(),m.getMonth()+(act==="cal-next"?1:-1),1);render();anim(".cal","fade");return}
+  if(act==="cal-past"){S.calPast=!S.calPast;render();return}
+  if(act==="cal-est"){store.set("calEst",!store.get("calEst",true));render();return}
   if(act==="client"&&a){if(!S.clientOpen)window.scrollTo({top:0,behavior:calm()?"auto":"smooth"});S.clientOpen=!S.clientOpen;S.renewArm=false;if(S.clientOpen&&S.clientsState!=="ok")loadClients();render();if(S.clientOpen)anim(".cl-panel","drop");return}
   if(act==="client-create"&&a){S.clientBusy=true;render();try{S.clients[a.id]=await S.adapter.clientLink(a,true);pinClient(a)}catch(e){toast("Non riesco a creare il link: "+errText(e))}S.clientBusy=false;render();return}
   if((act==="test-send"||act==="test-off")&&a){const ses=curSession(a);if(!ses)return;S.clientBusy=true;render();

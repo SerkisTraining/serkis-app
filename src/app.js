@@ -1,6 +1,6 @@
 (function(){
 "use strict";
-const VERSION="3.3";
+const VERSION="3.4";
 const NOTES_ID="1jzW0uELNty_8Dx0AWhwJXzg7YObm6Nr_fYbNlP0Z3mo";
 const NOTES_URL="https://docs.google.com/spreadsheets/d/"+NOTES_ID+"/edit";
 const DS_COACH="collection://264112d7-0f3d-80c1-9340-000bfe370a29";
@@ -35,7 +35,7 @@ const S={
   mode:IN_CLAUDE?"claude":"app",adapter:null,cfg:null,
   athletes:[],sheets:{},notes:[],notesState:"idle",notesErr:null,
   files:{},tests:{},bodies:{},hist:{},ai:{},alt:{},sessSel:{},pickTab:{},
-  view:"oggi",sel:null,tab:"panoramica",prev:"oggi",fbf:"tutti",todoAll:false,oggiTab:store.get("oggiTab","s"),oggiFbf:"tutto",menu:false,fbPrevSeen:null,
+  view:"oggi",calM:null,sel:null,tab:"panoramica",prev:"oggi",fbf:"tutti",todoAll:false,oggiTab:store.get("oggiTab","s"),oggiFbf:"tutto",menu:false,fbPrevSeen:null,
   filter:{sede:"all",stato:"attivi",focus:null,q:""},sort:"urgenza",
   load:{state:"idle",err:null,at:null},edit:null,editErr:null,saving:false,
   templates:null,tplErr:null,nSchema:null,nSchemaErr:null,nSchemaLoading:false,nuovo:null,created:null,creating:false,createErr:null,
@@ -968,7 +968,7 @@ function renderBar(){
     t=(ok<tot?"Schede "+ok+"/"+tot+" · ":"")+(s.at?"Agg. "+p2(s.at.getHours())+":"+p2(s.at.getMinutes()):"")}
   el.textContent=t;
   const rb=$("#refresh");rb.classList.toggle("spin",s.state==="loading"||scanning);rb.disabled=!S.adapter;
-  ["oggi","atleti","nuovo","feedback","impostazioni"].forEach(k=>{const b=$("#tb-"+k);if(b)b.setAttribute("aria-current",S.view===k||(k==="atleti"&&S.view==="atleta"&&S.prev!=="oggi"&&S.prev!=="feedback")||(k===S.prev&&S.view==="atleta"&&k!=="atleti")?"page":"false")});
+  ["oggi","calendario","atleti","nuovo","feedback","impostazioni"].forEach(k=>{const b=$("#tb-"+k);if(b)b.setAttribute("aria-current",S.view===k||(k==="atleti"&&S.view==="atleta"&&!["oggi","feedback","calendario"].includes(S.prev))||(k===S.prev&&S.view==="atleta"&&k!=="atleti")?"page":"false")});
   const nb=fbNewCount(),bd=$("#fbbadge");if(bd){bd.hidden=!nb;bd.textContent=nb>9?"9+":String(nb)}
   const sa=S.view==="atleta"?byId(S.sel):null;$("#crumb").textContent=sa?sa.name:"";
   $("#menubtn").hidden=!sa;
@@ -1018,6 +1018,7 @@ function renderMain(){
   if(S.view==="nuovo"){m.innerHTML=viewNuovo();return}
   if(S.view==="impostazioni"){m.innerHTML=viewImpostazioni();return}
   if(S.view==="feedback"){m.innerHTML=viewFeedback();return}
+  if(S.view==="calendario"){m.innerHTML=viewCalendario();return}
   if(S.view==="atleti"){m.innerHTML=`<div class="pick"><p>Scegli un atleta dall'elenco.</p><p class="mut">Le cose da fare di oggi sono nella pagina <button class="lnk" type="button" data-go="oggi">Oggi</button>.</p></div>`;return}
   m.innerHTML=viewOggi();
 }
@@ -1079,7 +1080,7 @@ function viewOggi(){
   h+=`<section class="obox o-sch" aria-label="Schede"><div class="oh">${ic("scheda")}<h2>Schede</h2><span class="ocnt">${B.fare.length} da fare</span></div><div class="ocols"><div>`+
     oSub("Da fare ora",B.fare.length)+oList(B.fare.slice(0,max),"Niente da preparare adesso.")+(B.fare.length>max?`<button class="omore" type="button" data-act="todo-all">Mostra tutte (${B.fare.length})</button>`:"")+
     `</div><div>`+oSub("In arrivo · prossima settimana",B.arrivo.length)+oList(B.arrivo,"Nessuna scheda alla penultima settimana.")+
-    (B.attesa.length?oSub("In attesa",B.attesa.length)+oList(B.attesa,""):"")+`</div></div></section>`;
+    (B.attesa.length?oSub("In attesa",B.attesa.length)+oList(B.attesa,""):"")+`</div></div><button class="omore" type="button" data-go="calendario">Calendario delle scadenze</button></section>`;
   // Feedback
   const showG=ff!=="nuovi",showR=ff!=="guarda",recL=ff==="nuovi"?rec.filter(x=>x.isNew):rec;
   h+=`<section class="obox o-fb" aria-label="Feedback"><div class="oh">${ic("fb")}<h2>Feedback</h2>${hasFb&&nNew?`<span class="ocnt">${nNew} nuov${nNew===1?"o":"i"}</span>`:""}</div>`+
@@ -1090,6 +1091,71 @@ function viewOggi(){
   h+=`</div>`;
   const ok=act.filter(a=>bucket(a)==="corso");
   if(ok.length)h+=`<div class="incorso"><span class="lab">In corso · ${ok.length}</span>${ok.sort((x,y)=>x.name.localeCompare(y.name,"it")).map(a=>`<button type="button" data-id="${a.id}">${esc(a.name.split(" ")[0])} ${esc((a.name.split(" ")[1]||"")[0]||"")}. <span class="mut">${a.wk&&a.wk.future?"da "+fd(a.startD):a.wk?(a.src==="vf"?"K":"S")+a.wk.week:"—"}</span></button>`).join("")}</div>`;
+  return h;
+}
+
+/* ---- calendario: scadenze delle schede, raggruppate per lunedì ---- */
+function mondayOf(d){return addDays(d,-((d.getDay()+6)%7))}
+const CAL_K={late:0,due:1,ready:2,done:3,est:4};
+// Per ogni atleta attivo con data di inizio e durata: scheda partita, scheda nuova già pronta,
+// prossima scadenza (giorno dopo la fine), poi le scadenze stimate con la stessa durata.
+function calEvents(){
+  const ev=[],none=[],t=today(),horizon=addDays(t,400);
+  S.athletes.filter(a=>a.active).forEach(a=>{
+    if(!a.startD||!a.dur){none.push({a,why:!a.startD?"data di inizio mancante":"durata mancante"});return}
+    const push=(d,k,x)=>ev.push(Object.assign({a,d,mon:mondayOf(d),k},x||{}));
+    if(a.runD&&a.runD<=t)push(a.runD,"done");
+    push(a.startD,a.startD<=t?"done":"ready");
+    const due=addDays(a.startD,a.dur*7);
+    push(due,due<t?"late":"due");
+    for(let d=addDays(due,a.dur*7);d<=horizon;d=addDays(d,a.dur*7))push(d,"est");
+  });
+  ev.sort((x,y)=>CAL_K[x.k]-CAL_K[y.k]||x.a.name.localeCompare(y.a.name,"it"));
+  return{ev,none};
+}
+function calText(e){
+  const t=today(),day=e.d.getDay()!==1?" · "+GIORNI[e.d.getDay()].slice(0,3)+" "+fd(e.d):"";
+  if(e.k==="late")return"In ritardo di "+Math.round((t-e.d)/864e5)+" gg · doveva partire "+fd(e.d);
+  if(e.k==="due")return(+e.d===+t?"Parte oggi":"Da preparare")+day+" · scheda attuale di "+e.a.dur+" sett.";
+  if(e.k==="ready")return"Pronta · parte "+GIORNI[e.d.getDay()].slice(0,3)+" "+fd(e.d);
+  if(e.k==="done")return"Partita"+(day||" "+fd(e.d));
+  return"Stima · se la prossima dura "+e.a.dur+" sett.";
+}
+function calItem(e){
+  const btn=e.k==="late"||e.k==="due"?`<button class="mini pri" type="button" data-new="scheda" data-aid="${e.a.id}" data-ndate="${iso(e.d<nextMonday()?nextMonday():e.d)}">Prepara</button>`:"";
+  return`<div class="ce k-${e.k}"><i class="ce-d" aria-hidden="true"></i><button class="who" type="button" data-id="${e.a.id}" title="${esc(calText(e))}"><b>${esc(e.a.name)}</b><small>${esc(calText(e))}</small></button>${btn}</div>`;
+}
+function viewCalendario(){
+  const t=today(),m0=S.calM||new Date(t.getFullYear(),t.getMonth(),1),y=m0.getFullYear(),mo=m0.getMonth();
+  const head=`<div class="o-head"><h1>Calendario</h1></div>`;
+  if(!S.athletes.length)return head+(S.load.state==="error"?`<div class="notice err">${esc(errText(S.load.err,S.mode==="claude"?"Notion":"Il backend"))}<br><button class="btn sm" type="button" data-act="reload">Riprova</button></div>`:`<p class="loading">Leggo atleti e date…</p>`);
+  const est=store.get("calEst",true),{ev,none}=calEvents(),by={};
+  ev.forEach(e=>{if(e.k==="est"&&!est)return;(by[iso(e.mon)]=by[iso(e.mon)]||[]).push(e)});
+  const todo=e=>e.k==="late"||e.k==="due";
+  const late=ev.filter(e=>e.k==="late"),nm=mondayOf(t)<t?addDays(mondayOf(t),7):t,nextL=(by[iso(nm)]||[]).filter(todo);
+  const curL=(by[iso(mondayOf(t))]||[]).filter(todo).filter(e=>e.k!=="late");
+  let h=`<div class="cal-h"><h1>${MESI[mo].replace(/^./,c=>c.toUpperCase())} ${y}</h1>
+    <div class="cal-nav"><button class="ibtn" type="button" data-act="cal-prev" aria-label="Mese prima"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></button><button class="mini" type="button" data-act="cal-today">Oggi</button><button class="ibtn" type="button" data-act="cal-next" aria-label="Mese dopo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 5l7 7-7 7"/></svg></button></div>
+    <button class="cal-est" type="button" data-act="cal-est" aria-pressed="${est}"><i></i>Stime</button></div>`;
+  h+=`<div class="cal-sum">`+
+    (late.length?`<span class="pill bad">${late.length} in ritardo</span>`:"")+
+    (curL.length?`<span class="pill warn">Questa settimana: ${curL.length}</span>`:"")+
+    `<span class="pill">Lunedì ${fd(nm)}: ${nextL.length} da preparare</span>`+
+    `<span class="mut cal-leg"><span><i class="ce-d k-due"></i>da fare</span><span><i class="ce-d k-ready"></i>pronta</span><span><i class="ce-d k-done"></i>partita</span>${est?`<span><i class="ce-d k-est"></i>stima</span>`:""}</span></div>`;
+  const last=new Date(y,mo+1,0),DN=["Lun","Mar","Mer","Gio","Ven","Sab","Dom"];
+  const past=w=>w<mondayOf(t)&&!(by[iso(w)]||[]).some(e=>e.k==="late");
+  let nPast=0;for(let w=mondayOf(m0);w<=last;w=addDays(w,7))if(past(w))nPast++;
+  if(nPast)h+=`<button class="cal-past" type="button" data-act="cal-past">${S.calPast?"Nascondi":"Mostra"} le settimane passate (${nPast})</button>`;
+  h+=`<div class="cal${S.calPast?" show-past":""}"><div class="cal-r cal-dn">${DN.map(d=>`<span>${d}</span>`).join("")}</div>`;
+  for(let w=mondayOf(m0);w<=last;w=addDays(w,7)){
+    const L=by[iso(w)]||[],n=L.filter(todo).length,cur=+w===+mondayOf(t),out=w.getMonth()!==mo;
+    h+=`<div class="cal-r${cur?" cur":""}${past(w)?" past":""}${n>=5?" busy":""}"><div class="cal-mon${out?" out":""}${+w===+t?" tdy":""}"><div class="cm-h"><b>${w.getDate()}</b><span class="cm-l">${GIORNI[1].replace(/^./,c=>c.toUpperCase())} ${w.getDate()} ${MESI[w.getMonth()]}</span>${n?`<span class="cm-n">${n} da fare</span>`:""}</div>`+
+      (L.length?`<div class="cm-list">${L.map(calItem).join("")}</div>`:`<p class="cm-empty">Nessuna scadenza</p>`)+`</div>`;
+    for(let i=1;i<7;i++){const d=addDays(w,i),on=L.filter(e=>+e.d===+d);h+=`<div class="cal-d${d.getMonth()!==mo?" out":""}${+d===+t?" tdy":""}"><b>${d.getDate()}</b>${on.map(e=>`<span class="cd-e k-${e.k}" title="${esc(e.a.name+" · "+calText(e))}"><i class="ce-d"></i>${esc(e.a.name.split(" ")[0])}</span>`).join("")}</div>`}
+    h+=`</div>`;
+  }
+  h+=`</div>`;
+  if(none.length)h+=`<div class="incorso"><span class="lab">Senza scadenza · ${none.length}</span>${none.sort((x,y)=>x.a.name.localeCompare(y.a.name,"it")).map(x=>`<button type="button" data-id="${x.a.id}" title="${esc(x.why)}">${esc(x.a.name)} <span class="mut">${x.a.src==="vf"?"Kineva":esc(x.why)}</span></button>`).join("")}</div>`;
   return h;
 }
 
@@ -1607,7 +1673,7 @@ function route(silent){
   const prevSel=S.sel;
   if(h.startsWith("a-")){const a=S.athletes.find(x=>x.slug===h.slice(2));S.view="atleta";S.sel=a?a.id:(S.athletes.length?null:S.sel);
     if(a&&prevSel!==a.id){S.edit=null;S.delArm=null;S.tab=S.jumpTab||"panoramica";S.jumpTab=null;S.clientOpen=false;S.menu=false;if(a.sheetId&&!S.sheets[a.id])loadOneSheet(a,false);if(!silent)window.scrollTo(0,0)}}
-  else if(["oggi","atleti","nuovo","impostazioni","feedback"].includes(h)){if(h!=="nuovo"&&h!=="impostazioni"&&h!=="atleta")S.prev=h;if(h==="feedback"&&S.view!=="feedback")markFbSeen();S.view=h;if(h==="atleti")S.sel=null}
+  else if(["oggi","atleti","nuovo","impostazioni","feedback","calendario"].includes(h)){if(h!=="nuovo"&&h!=="impostazioni"&&h!=="atleta")S.prev=h;if(h==="feedback"&&S.view!=="feedback")markFbSeen();S.view=h;if(h==="atleti")S.sel=null}
   else S.view="oggi";
   if(!silent)render();
 }
@@ -1619,7 +1685,7 @@ document.addEventListener("click",async ev=>{
   if(S.menu&&ev.target.closest("#sheet")){S.menu=false;setTimeout(renderSheet,0);if(ev.target.id==="sheet")return}
   const t=ev.target.closest("button,[data-id]");if(!t)return;
   const a=byId(S.sel);
-  if(t.dataset.id){const x=byId(t.dataset.id);if(x){if(S.view!=="atleta")S.prev=["oggi","feedback"].includes(S.view)?S.view:"atleti";if(t.dataset.jtab){S.tab=t.dataset.jtab;S.jumpTab=t.dataset.jtab}if(S.view==="atleta"&&S.sel===x.id){render();return}go("a-"+x.slug)}return}
+  if(t.dataset.id){const x=byId(t.dataset.id);if(x){if(S.view!=="atleta")S.prev=["oggi","feedback","calendario"].includes(S.view)?S.view:"atleti";if(t.dataset.jtab){S.tab=t.dataset.jtab;S.jumpTab=t.dataset.jtab}if(S.view==="atleta"&&S.sel===x.id){render();return}go("a-"+x.slug)}return}
   if(t.dataset.go){if(t.dataset.go==="nuovo"){initNuovo("scheda",S.view==="atleta"&&a?a.id:"")}go(t.dataset.go);return}
   if(t.dataset.focus){S.filter.focus=t.dataset.focus;go("atleti");render();return}
   if(t.dataset.fbf){S.fbf=t.dataset.fbf;render();return}
@@ -1627,7 +1693,7 @@ document.addEventListener("click",async ev=>{
   if(t.dataset.ofbf){S.oggiFbf=t.dataset.ofbf;render();return}
   if(t.dataset.themeset){store.set("theme",t.dataset.themeset);applyTheme(t.dataset.themeset);render();return}
   if(t.dataset.sede){S.filter.sede=t.dataset.sede;savePrefs();render();return}
-  if(t.dataset.new){initNuovo(t.dataset.new,t.dataset.aid||"");go("nuovo");return}
+  if(t.dataset.new){initNuovo(t.dataset.new,t.dataset.aid||"");if(t.dataset.ndate&&S.nuovo.kind==="scheda")S.nuovo.date=t.dataset.ndate;go("nuovo");return}
   if(t.dataset.ncdb&&S.nuovo&&S.nuovo.nc){const nm=S.nuovo.nc.name;ncStart(S.nuovo,t.dataset.ncdb);S.nuovo.nc.name=nm;render();return}
   if(t.dataset.ncopt&&S.nuovo&&S.nuovo.nc){const nc=S.nuovo.nc,f=t.dataset.ncopt,v=t.dataset.v,L=(S.nSchema&&S.nSchema[nc.db])||[],ty=(L.find(x=>x.name===f)||{}).type;nc.touched[f]=1;
     if(ty==="multi_select"){const cur=[].concat(nc.props[f]||[]);nc.props[f]=cur.includes(v)?cur.filter(x=>x!==v):cur.concat(v)}else nc.props[f]=nc.props[f]===v?"":v;render();return}
@@ -1655,6 +1721,9 @@ document.addEventListener("click",async ev=>{
   if(act==="menu"&&a){S.menu=true;renderSheet();return}
   if(act==="menu-close"){S.menu=false;renderSheet();return}
   if(act==="todo-all"){S.todoAll=true;render();return}
+  if(act==="cal-prev"||act==="cal-next"||act==="cal-today"){const d=today(),m=S.calM||new Date(d.getFullYear(),d.getMonth(),1);S.calM=act==="cal-today"?null:new Date(m.getFullYear(),m.getMonth()+(act==="cal-next"?1:-1),1);render();anim(".cal","fade");return}
+  if(act==="cal-past"){S.calPast=!S.calPast;render();return}
+  if(act==="cal-est"){store.set("calEst",!store.get("calEst",true));render();return}
   if(act==="client"&&a){if(!S.clientOpen)window.scrollTo({top:0,behavior:calm()?"auto":"smooth"});S.clientOpen=!S.clientOpen;S.renewArm=false;if(S.clientOpen&&S.clientsState!=="ok")loadClients();render();if(S.clientOpen)anim(".cl-panel","drop");return}
   if(act==="client-create"&&a){S.clientBusy=true;render();try{S.clients[a.id]=await S.adapter.clientLink(a,true);pinClient(a)}catch(e){toast("Non riesco a creare il link: "+errText(e))}S.clientBusy=false;render();return}
   if((act==="test-send"||act==="test-off")&&a){const ses=curSession(a);if(!ses)return;S.clientBusy=true;render();
